@@ -1,0 +1,88 @@
+package repository
+
+import (
+	"context"
+	"fmt"
+
+	"betting-app/internal/modules/user/domain"
+
+	"gorm.io/gorm"
+)
+
+type postgresUserRepo struct {
+	db *gorm.DB
+}
+
+// NewPostgresUserRepo creates a new PostgreSQL user repository
+func NewPostgresUserRepo(db *gorm.DB) domain.UserRepository {
+	return &postgresUserRepo{db: db}
+}
+
+func (r *postgresUserRepo) Create(ctx context.Context, user *domain.User) error {
+	if err := r.db.WithContext(ctx).Create(user).Error; err != nil {
+		return fmt.Errorf("userRepo.Create: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) FindByID(ctx context.Context, id string) (*domain.User, error) {
+	var user domain.User
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&user).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindByID: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *postgresUserRepo) FindByEmail(ctx context.Context, email string) (*domain.User, error) {
+	var user domain.User
+	if err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindByEmail: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *postgresUserRepo) FindByUsername(ctx context.Context, username string) (*domain.User, error) {
+	var user domain.User
+	if err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindByUsername: %w", err)
+	}
+	return &user, nil
+}
+
+func (r *postgresUserRepo) Update(ctx context.Context, user *domain.User) error {
+	if err := r.db.WithContext(ctx).Save(user).Error; err != nil {
+		return fmt.Errorf("userRepo.Update: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) UpdateBalance(ctx context.Context, userID string, amount float64) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("balance", gorm.Expr("balance + ?", amount))
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateBalance: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("userRepo.UpdateBalance: user not found")
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) List(ctx context.Context, page, limit int) ([]*domain.User, int64, error) {
+	var users []*domain.User
+	var total int64
+
+	offset := (page - 1) * limit
+
+	if err := r.db.WithContext(ctx).Model(&domain.User{}).Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.List: count: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.List: find: %w", err)
+	}
+
+	return users, total, nil
+}
