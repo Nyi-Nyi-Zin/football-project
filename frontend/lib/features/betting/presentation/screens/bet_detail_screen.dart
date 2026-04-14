@@ -73,10 +73,10 @@ class BetDetailScreen extends ConsumerWidget {
                         _detailRow('Selection', bet.selection.toUpperCase()),
                         _detailRow('Type', bet.betType),
                         _detailRow('Odds', bet.odds.toStringAsFixed(2)),
-                        _detailRow('Stake', '\$${bet.stake.toStringAsFixed(2)}'),
+                        _detailRow('Stake', '${bet.stake.toStringAsFixed(2)} MMK'),
                         _detailRow(
                           'Potential Payout',
-                          '\$${bet.potentialPayout.toStringAsFixed(2)}',
+                          '${bet.potentialPayout.toStringAsFixed(2)} MMK',
                           valueColor: AppTheme.accentColor,
                         ),
                       ],

@@ -57,13 +57,19 @@ func Load() (*Config, error) {
 	viper.SetDefault("DATABASE_URL", "postgres://user:password@localhost:5432/appdb?sslmode=disable")
 	viper.SetDefault("REDIS_URL", "redis://localhost:6379")
 
-	// Read .env file (ignore error if file doesn't exist)
-	if err := viper.ReadInConfig(); err != nil {
-		if _, ok := err.(viper.ConfigFileNotFoundError); !ok {
-			// Only worry about errors that aren't "file not found"
-			if !strings.Contains(err.Error(), "no such file") {
-				fmt.Printf("Warning: could not read config file: %v\n", err)
-			}
+	envPaths := []string{".env", "../../.env", "../../../.env"}
+	var readErr error
+	for _, p := range envPaths {
+		viper.SetConfigFile(p)
+		readErr = viper.ReadInConfig()
+		if readErr == nil {
+			break
+		}
+	}
+
+	if readErr != nil {
+		if !strings.Contains(readErr.Error(), "no such file") && !strings.Contains(readErr.Error(), "The system cannot find the file specified") {
+			fmt.Printf("Warning: could not read config file: %v\n", readErr)
 		}
 	}
 

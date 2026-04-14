@@ -94,19 +94,16 @@ func (h *PaymentHandler) Withdraw(c echo.Context) error {
 func (h *PaymentHandler) GetBalance(c echo.Context) error {
 	userID := c.Get("user_id").(string)
 
-	balance, err := h.useCase.GetBalance(c.Request().Context(), userID)
+	wallet, err := h.useCase.GetWallet(c.Request().Context(), userID)
 	if err != nil {
 		if appErr, ok := err.(*apperrors.AppError); ok {
 			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 		}
-		appErr := apperrors.NewInternalError("Failed to get balance")
+		appErr := apperrors.NewInternalError("Failed to get wallet")
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 
-	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]interface{}{
-		"balance":  balance,
-		"currency": "USD",
-	}, nil))
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(wallet, nil))
 }
 
 // GetTransactions handles GET /api/v1/payments/transactions

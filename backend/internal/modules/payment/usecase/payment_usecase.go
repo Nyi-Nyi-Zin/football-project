@@ -161,6 +161,15 @@ func (uc *PaymentUseCase) GetBalance(ctx context.Context, userID string) (float6
 	return balance, nil
 }
 
+// GetWallet returns the user's full wallet
+func (uc *PaymentUseCase) GetWallet(ctx context.Context, userID string) (*domain.Wallet, error) {
+	wallet, err := uc.walletRepo.FindByUserID(ctx, userID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Wallet not found")
+	}
+	return wallet, nil
+}
+
 // GetTransactions returns paginated transactions for a user
 func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, page, limit int) ([]*domain.Transaction, int64, error) {
 	txs, total, err := uc.txRepo.FindByUser(ctx, userID, page, limit)
@@ -177,7 +186,7 @@ func (uc *PaymentUseCase) EnsureWallet(ctx context.Context, userID string) error
 		wallet := &domain.Wallet{
 			UserID:   userID,
 			Balance:  0,
-			Currency: "USD",
+			Currency: "MMK",
 			Status:   "active",
 		}
 		return uc.walletRepo.Create(ctx, wallet)

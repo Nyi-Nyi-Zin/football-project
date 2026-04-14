@@ -51,7 +51,7 @@ class WalletScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     walletState.when(
                       data: (w) => Text(
-                        '\$${w.balance.toStringAsFixed(2)}',
+                        '${w.balance.toStringAsFixed(2)} MMK',
                         style: const TextStyle(
                           fontSize: 48,
                           fontWeight: FontWeight.bold,
@@ -151,7 +151,7 @@ class WalletScreen extends ConsumerWidget {
                               style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
                             ),
                             trailing: Text(
-                              '${isCredit ? '+' : '-'}\$${tx.amount.toStringAsFixed(2)}',
+                              '${isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} MMK',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
@@ -213,7 +213,7 @@ class WalletScreen extends ConsumerWidget {
                 controller: controller,
                 keyboardType: const TextInputType.numberWithOptions(decimal: true),
                 decoration: InputDecoration(
-                  labelText: 'Amount (\$)',
+                  labelText: 'Amount (MMK)',
                   filled: true,
                   fillColor: AppTheme.darkBg,
                 ),

@@ -20,7 +20,7 @@ class WalletModel {
       id: json['id'] as String,
       userId: json['user_id'] as String,
       balance: (json['balance'] as num).toDouble(),
-      currency: json['currency'] as String? ?? 'USD',
+      currency: json['currency'] as String? ?? 'MMK',
       status: json['status'] as String? ?? 'active',
     );
   }
@@ -60,7 +60,7 @@ class TransactionModel {
       id: json['id'] as String,
       type: json['type'] as String,
       amount: (json['amount'] as num).toDouble(),
-      currency: json['currency'] as String? ?? 'USD',
+      currency: json['currency'] as String? ?? 'MMK',
       status: json['status'] as String,
       description: json['description'] as String?,
       createdAt: DateTime.parse(json['created_at'] as String),

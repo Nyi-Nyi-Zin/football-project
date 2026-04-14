@@ -215,11 +215,11 @@ class BettingScreen extends ConsumerWidget {
                               margin: const EdgeInsets.only(bottom: 8),
                               child: ListTile(
                                 title: Text(
-                                  '${bet.selection.toUpperCase()} — \$${bet.stake.toStringAsFixed(2)}',
+                                  '${bet.selection.toUpperCase()} — ${bet.stake.toStringAsFixed(2)} MMK',
                                   style: const TextStyle(fontWeight: FontWeight.w600),
                                 ),
                                 subtitle: Text(
-                                  'Odds: ${bet.odds} • Payout: \$${bet.potentialPayout.toStringAsFixed(2)}',
+                                  'Odds: ${bet.odds} • Payout: ${bet.potentialPayout.toStringAsFixed(2)} MMK',
                                   style: const TextStyle(color: AppTheme.textSecondary),
                                 ),
                                 trailing: _betStatusChip(bet.status),

@@ -143,7 +143,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
             keyboardType: TextInputType.number,
             decoration: const InputDecoration(
               labelText: 'Stake Amount',
-              prefixText: '\$ ',
+              suffixText: ' MMK',
             ),
             onChanged: (_) => setState(() {}),
           ),
@@ -151,7 +151,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
 
           // Quick stake buttons
           Row(
-            children: [5, 10, 25, 50, 100].map((amount) {
+            children: [500, 1000, 2000, 5000, 10000].map((amount) {
               return Expanded(
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 2),
@@ -165,7 +165,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
                       minimumSize: Size.zero,
                     ),
                     child: Text(
-                      '\$$amount',
+                      '$amount MMK',
                       style: const TextStyle(fontSize: 12),
                     ),
                   ),
@@ -184,7 +184,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
                 style: TextStyle(color: AppTheme.textSecondary),
               ),
               Text(
-                '\$${_potentialPayout.toStringAsFixed(2)}',
+                '${_potentialPayout.toStringAsFixed(2)} MMK',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   color: AppTheme.accentColor,
