@@ -11,4 +11,6 @@ type UserRepository interface {
 	Update(ctx context.Context, user *User) error
 	UpdateBalance(ctx context.Context, userID string, amount float64) error
 	List(ctx context.Context, page, limit int) ([]*User, int64, error)
+	ListFiltered(ctx context.Context, query, status string, page, limit int) ([]*User, int64, error)
+	CountByStatus(ctx context.Context, status string) (int64, error)
 }

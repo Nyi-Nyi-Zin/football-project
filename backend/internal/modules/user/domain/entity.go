@@ -72,3 +72,9 @@ type UpdateProfileRequest struct {
 	FullName string `json:"full_name"`
 	Phone    string `json:"phone"`
 }
+
+// ChangePasswordRequest represents a password change request
+type ChangePasswordRequest struct {
+	CurrentPassword string `json:"current_password" validate:"required"`
+	NewPassword     string `json:"new_password" validate:"required,min=8"`
+}

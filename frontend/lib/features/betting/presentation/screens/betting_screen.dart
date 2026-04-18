@@ -42,7 +42,8 @@ class BettingScreen extends ConsumerWidget {
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(Icons.sports_soccer, size: 64, color: AppTheme.textMuted),
+                    Icon(Icons.sports_soccer,
+                        size: 64, color: AppTheme.textMuted),
                     SizedBox(height: 16),
                     Text(
                       'No matches available',
@@ -114,11 +115,12 @@ class BettingScreen extends ConsumerWidget {
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                const Icon(Icons.error_outline, size: 48, color: AppTheme.errorColor),
+                const Icon(Icons.error_outline,
+                    size: 48, color: AppTheme.errorColor),
                 const SizedBox(height: 16),
-                Text(
+                const Text(
                   'Failed to load matches',
-                  style: const TextStyle(color: AppTheme.textSecondary),
+                  style: TextStyle(color: AppTheme.textSecondary),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
@@ -149,7 +151,8 @@ class BettingScreen extends ConsumerWidget {
     }
   }
 
-  void _showBetSlip(BuildContext context, WidgetRef ref, dynamic match, String selection) {
+  void _showBetSlip(
+      BuildContext context, WidgetRef ref, dynamic match, String selection) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -216,19 +219,23 @@ class BettingScreen extends ConsumerWidget {
                               child: ListTile(
                                 title: Text(
                                   '${bet.selection.toUpperCase()} — ${bet.stake.toStringAsFixed(2)} MMK',
-                                  style: const TextStyle(fontWeight: FontWeight.w600),
+                                  style: const TextStyle(
+                                      fontWeight: FontWeight.w600),
                                 ),
                                 subtitle: Text(
                                   'Odds: ${bet.odds} • Payout: ${bet.potentialPayout.toStringAsFixed(2)} MMK',
-                                  style: const TextStyle(color: AppTheme.textSecondary),
+                                  style: const TextStyle(
+                                      color: AppTheme.textSecondary),
                                 ),
                                 trailing: _betStatusChip(bet.status),
                               ),
                             );
                           },
                         ),
-                  loading: () => const Center(child: CircularProgressIndicator()),
-                  error: (_, __) => const Center(child: Text('Error loading bets')),
+                  loading: () =>
+                      const Center(child: CircularProgressIndicator()),
+                  error: (_, __) =>
+                      const Center(child: Text('Error loading bets')),
                 ),
               ),
             ],
@@ -261,7 +268,8 @@ class BettingScreen extends ConsumerWidget {
       ),
       child: Text(
         status.toUpperCase(),
-        style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+        style:
+            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
       ),
     );
   }

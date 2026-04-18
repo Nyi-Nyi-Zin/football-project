@@ -52,7 +52,8 @@ func RegisterRoutes(
 	users := protected.Group("/users")
 	users.GET("/me", userH.GetProfile)
 	users.PATCH("/me", userH.UpdateProfile)
-	users.GET("", userH.ListUsers) // Admin only — add role check middleware later
+	users.PATCH("/me/password", userH.ChangePassword)
+	users.GET("", userH.ListUsers, middleware.RequireRole("admin"))
 
 	// Betting routes
 	bets := protected.Group("/bets")
@@ -67,7 +68,6 @@ func RegisterRoutes(
 
 	// Payment routes
 	payments := protected.Group("/payments")
-	payments.POST("/deposit", paymentH.Deposit)
 	payments.POST("/withdraw", paymentH.Withdraw)
 	payments.GET("/balance", paymentH.GetBalance)
 	payments.GET("/transactions", paymentH.GetTransactions)
@@ -91,4 +91,22 @@ func RegisterRoutes(
 
 	// WebSocket route
 	e.GET("/ws/odds", oddsH.HandleWebSocket)
+
+	// Admin routes
+	admin := protected.Group("/admin")
+	admin.Use(middleware.RequireRole("admin"))
+	admin.GET("/users", userH.ListUsers)
+	admin.GET("/users/:id", userH.GetUserByID)
+	admin.GET("/transactions", paymentH.AdminGetTransactions)
+	admin.GET("/withdrawals", paymentH.AdminGetWithdrawals)
+	admin.POST("/withdrawals/:id/approve", paymentH.AdminApproveWithdrawal)
+	admin.POST("/withdrawals/:id/reject", paymentH.AdminRejectWithdrawal)
+	admin.POST("/balance/adjust", paymentH.AdminAdjustBalance)
+	admin.GET("/dashboard/financial-summary", paymentH.AdminDashboardSummary)
+
+	// Agent routes (isolated from admin routes)
+	agent := protected.Group("/agent")
+	agent.Use(middleware.RequireRole("agent"))
+	agent.GET("/withdrawals", paymentH.AgentGetAssignedWithdrawals)
+	agent.POST("/withdrawals/verify", paymentH.AgentVerifyWithdrawalByCode)
 }

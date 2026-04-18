@@ -59,6 +59,29 @@ func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient) 
 	}
 }
 
+// RequireRole enforces that the authenticated user has one of the allowed roles.
+func RequireRole(allowedRoles ...string) echo.MiddlewareFunc {
+	allowed := map[string]struct{}{}
+	for _, role := range allowedRoles {
+		allowed[role] = struct{}{}
+	}
+
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(c echo.Context) error {
+			role, ok := c.Get("role").(string)
+			if !ok || role == "" {
+				appErr := apperrors.NewForbiddenError("Role is required")
+				return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+			}
+			if _, exists := allowed[role]; !exists {
+				appErr := apperrors.NewForbiddenError("Insufficient permissions")
+				return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+			}
+			return next(c)
+		}
+	}
+}
+
 // RateLimitMiddleware creates per-IP rate limiting middleware using Redis
 func RateLimitMiddleware(redisClient *cache.RedisClient, maxRequests int, window time.Duration) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
@@ -67,7 +90,9 @@ func RateLimitMiddleware(redisClient *cache.RedisClient, maxRequests int, window
 			key := "ratelimit:" + ip
 
 			ctx := c.Request().Context()
-			if redisClient == nil || redisClient.Client == nil { return next(c) }
+			if redisClient == nil || redisClient.Client == nil {
+				return next(c)
+			}
 
 			// Increment counter
 			count, err := redisClient.Client.Incr(ctx, key).Result()
@@ -94,9 +119,9 @@ func RateLimitMiddleware(redisClient *cache.RedisClient, maxRequests int, window
 // LoggingMiddleware creates request logging middleware
 func LoggingMiddleware() echo.MiddlewareFunc {
 	return middleware.RequestLoggerWithConfig(middleware.RequestLoggerConfig{
-		LogURI:    true,
-		LogStatus: true,
-		LogMethod: true,
+		LogURI:     true,
+		LogStatus:  true,
+		LogMethod:  true,
 		LogLatency: true,
 		LogValuesFunc: func(c echo.Context, v middleware.RequestLoggerValues) error {
 			logger.Info("request",

@@ -121,10 +121,40 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
 }
 
+// ChangePassword handles PATCH /api/v1/users/me/password
+func (h *UserHandler) ChangePassword(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req domain.ChangePasswordRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.ChangePassword(c.Request().Context(), userID, &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to change password")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "Password changed successfully",
+	}, nil))
+}
+
 // ListUsers handles GET /api/v1/users
 func (h *UserHandler) ListUsers(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	query := c.QueryParam("q")
+	status := c.QueryParam("status")
 
 	if page < 1 {
 		page = 1
@@ -133,7 +163,7 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 		limit = 20
 	}
 
-	profiles, total, err := h.useCase.ListUsers(c.Request().Context(), page, limit)
+	profiles, total, stats, err := h.useCase.ListUsersAdmin(c.Request().Context(), query, status, page, limit)
 	if err != nil {
 		appErr := apperrors.NewInternalError("Failed to list users")
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
@@ -141,9 +171,28 @@ func (h *UserHandler) ListUsers(c echo.Context) error {
 
 	lastPage := int(math.Ceil(float64(total) / float64(limit)))
 
-	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profiles, &apperrors.PaginationMeta{
-		Total:    total,
-		Page:     page,
-		LastPage: lastPage,
-	}))
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    profiles,
+		"meta": &apperrors.PaginationMeta{
+			Total:    total,
+			Page:     page,
+			LastPage: lastPage,
+		},
+		"stats": stats,
+	})
+}
+
+// GetUserByID handles GET /api/v1/admin/users/:id
+func (h *UserHandler) GetUserByID(c echo.Context) error {
+	userID := c.Param("id")
+	profile, err := h.useCase.GetProfileByID(c.Request().Context(), userID)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to get user profile")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
 }

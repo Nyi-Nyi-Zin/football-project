@@ -43,3 +43,21 @@ class Transaction extends Equatable {
   @override
   List<Object?> get props => [id];
 }
+
+class WithdrawalSubmission extends Equatable {
+  final Transaction transaction;
+  final String verificationCode;
+  final String assignedAgentId;
+  final String requestStatus;
+
+  const WithdrawalSubmission({
+    required this.transaction,
+    required this.verificationCode,
+    required this.assignedAgentId,
+    required this.requestStatus,
+  });
+
+  @override
+  List<Object?> get props =>
+      [transaction.id, verificationCode, assignedAgentId, requestStatus];
+}

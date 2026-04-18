@@ -9,11 +9,12 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	JWT      JWTConfig
-	App      AppConfig
+	Server     ServerConfig
+	Database   DatabaseConfig
+	Redis      RedisConfig
+	JWT        JWTConfig
+	App        AppConfig
+	Security   SecurityConfig
 	Sportmonks SportmonksConfig
 }
 
@@ -39,6 +40,11 @@ type AppConfig struct {
 	Env string `mapstructure:"ENV"`
 }
 
+type SecurityConfig struct {
+	WithdrawalCodePepper string `mapstructure:"WITHDRAWAL_CODE_PEPPER"`
+	WithdrawalDataKey    string `mapstructure:"WITHDRAWAL_DATA_KEY"`
+}
+
 type SportmonksConfig struct {
 	Token string `mapstructure:"SPORTMONKS_API_TOKEN"`
 }
@@ -56,6 +62,8 @@ func Load() (*Config, error) {
 	viper.SetDefault("REFRESH_EXPIRY", "168h")
 	viper.SetDefault("DATABASE_URL", "postgres://user:password@localhost:5432/appdb?sslmode=disable")
 	viper.SetDefault("REDIS_URL", "redis://localhost:6379")
+	viper.SetDefault("WITHDRAWAL_CODE_PEPPER", "dev-withdrawal-pepper")
+	viper.SetDefault("WITHDRAWAL_DATA_KEY", "dev-withdrawal-encryption-key")
 
 	envPaths := []string{".env", "../../.env", "../../../.env"}
 	var readErr error
@@ -90,6 +98,10 @@ func Load() (*Config, error) {
 		},
 		App: AppConfig{
 			Env: viper.GetString("ENV"),
+		},
+		Security: SecurityConfig{
+			WithdrawalCodePepper: viper.GetString("WITHDRAWAL_CODE_PEPPER"),
+			WithdrawalDataKey:    viper.GetString("WITHDRAWAL_DATA_KEY"),
 		},
 		Sportmonks: SportmonksConfig{
 			Token: viper.GetString("SPORTMONKS_API_TOKEN"),

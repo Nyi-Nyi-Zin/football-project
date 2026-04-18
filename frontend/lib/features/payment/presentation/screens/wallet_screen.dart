@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/payment_provider.dart';
 
@@ -12,7 +14,10 @@ class WalletScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Wallet', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: Text(
+          context.l10n.tr('wallet'),
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh),
@@ -35,14 +40,16 @@ class WalletScreen extends ConsumerWidget {
           children: [
             // Balance Card
             Card(
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16)),
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
+                padding:
+                    const EdgeInsets.symmetric(vertical: 32, horizontal: 24),
                 child: Column(
                   children: [
-                    const Text(
-                      'Total Balance',
-                      style: TextStyle(
+                    Text(
+                      context.l10n.tr('totalBalance'),
+                      style: const TextStyle(
                         fontSize: 16,
                         color: AppTheme.textSecondary,
                         fontWeight: FontWeight.w500,
@@ -61,25 +68,19 @@ class WalletScreen extends ConsumerWidget {
                       loading: () => const CircularProgressIndicator(),
                       error: (_, __) => const Text(
                         'Error',
-                        style: TextStyle(fontSize: 32, color: AppTheme.errorColor),
+                        style:
+                            TextStyle(fontSize: 32, color: AppTheme.errorColor),
                       ),
                     ),
                     const SizedBox(height: 32),
                     Row(
                       children: [
                         Expanded(
-                          child: ElevatedButton.icon(
-                            onPressed: () => _showDepositDialog(context, ref),
-                            icon: const Icon(Icons.add_circle_outline),
-                            label: const Text('Deposit'),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () => _showWithdrawalDialog(context, ref),
+                            onPressed: () =>
+                                _showWithdrawalDialog(context, ref),
                             icon: const Icon(Icons.arrow_circle_up),
-                            label: const Text('Withdraw'),
+                            label: Text(context.l10n.tr('withdraw')),
                           ),
                         ),
                       ],
@@ -91,11 +92,11 @@ class WalletScreen extends ConsumerWidget {
             const SizedBox(height: 24),
 
             // Transactions Header
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
               child: Text(
-                'Recent Transactions',
-                style: TextStyle(
+                context.l10n.tr('recentTransactions'),
+                style: const TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold,
                   color: AppTheme.textPrimary,
@@ -107,16 +108,17 @@ class WalletScreen extends ConsumerWidget {
             Consumer(
               builder: (context, ref, child) {
                 final txState = ref.watch(transactionsProvider);
-                
+
                 return txState.when(
                   data: (transactions) {
                     if (transactions.isEmpty) {
-                      return const Padding(
-                        padding: EdgeInsets.all(32),
+                      return Padding(
+                        padding: const EdgeInsets.all(32),
                         child: Center(
                           child: Text(
-                            'No transactions yet.',
-                            style: TextStyle(color: AppTheme.textSecondary),
+                            context.l10n.tr('noTransactions'),
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
                           ),
                         ),
                       );
@@ -129,33 +131,39 @@ class WalletScreen extends ConsumerWidget {
                       itemBuilder: (context, index) {
                         final tx = transactions[index];
                         final isCredit = tx.isCredit;
-                        
+
                         return Card(
                           margin: const EdgeInsets.only(bottom: 8),
                           child: ListTile(
                             leading: CircleAvatar(
-                              backgroundColor: isCredit 
-                                  ? AppTheme.successColor.withOpacity(0.2) 
-                                  : AppTheme.errorColor.withOpacity(0.2),
+                              backgroundColor: isCredit
+                                  ? AppTheme.successColor.withValues(alpha: 0.2)
+                                  : AppTheme.errorColor.withValues(alpha: 0.2),
                               child: Icon(
                                 isCredit ? Icons.add : Icons.remove,
-                                color: isCredit ? AppTheme.successColor : AppTheme.errorColor,
+                                color: isCredit
+                                    ? AppTheme.successColor
+                                    : AppTheme.errorColor,
                               ),
                             ),
                             title: Text(
                               tx.type.toUpperCase().replaceAll('_', ' '),
-                              style: const TextStyle(fontWeight: FontWeight.bold),
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold),
                             ),
                             subtitle: Text(
                               '${tx.createdAt.month}/${tx.createdAt.day}/${tx.createdAt.year}',
-                              style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                              style: const TextStyle(
+                                  color: AppTheme.textSecondary, fontSize: 12),
                             ),
                             trailing: Text(
                               '${isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} MMK',
                               style: TextStyle(
                                 fontWeight: FontWeight.bold,
                                 fontSize: 16,
-                                color: isCredit ? AppTheme.successColor : AppTheme.textPrimary,
+                                color: isCredit
+                                    ? AppTheme.successColor
+                                    : AppTheme.textPrimary,
                               ),
                             ),
                           ),
@@ -163,11 +171,13 @@ class WalletScreen extends ConsumerWidget {
                       },
                     );
                   },
-                  loading: () => const Center(child: Padding(
+                  loading: () => const Center(
+                      child: Padding(
                     padding: EdgeInsets.all(32),
                     child: CircularProgressIndicator(),
                   )),
-                  error: (_, __) => const Center(child: Text('Error loading transactions')),
+                  error: (_, __) => Center(
+                      child: Text(context.l10n.tr('errorLoadingTransactions'))),
                 );
               },
             ),
@@ -177,78 +187,150 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
-  void _showDepositDialog(BuildContext context, WidgetRef ref) {
-    _showTxDialog(context, ref, 'Deposit', (amount) async {
-      final success = await ref.read(walletProvider.notifier).deposit(amount);
-      if (success) {
-        ref.invalidate(transactionsProvider);
-      }
-      return success;
-    });
-  }
-
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref) {
-     _showTxDialog(context, ref, 'Withdraw', (amount) async {
-      final success = await ref.read(walletProvider.notifier).withdraw(amount);
-      if (success) {
-        ref.invalidate(transactionsProvider);
-      }
-      return success;
-    });
-  }
-
-  void _showTxDialog(BuildContext context, WidgetRef ref, String action, Future<bool> Function(double) onSubmit) {
-    final controller = TextEditingController();
+    final amountCtrl = TextEditingController();
+    final accountCtrl = TextEditingController();
     bool isLoading = false;
 
     showDialog(
-      context: context,
-      builder: (ctx) {
-        return StatefulBuilder(
-          builder: (ctx, setState) {
+        context: context,
+        builder: (ctx) {
+          return StatefulBuilder(builder: (ctx, setState) {
             return AlertDialog(
               backgroundColor: AppTheme.darkCard,
-              title: Text('$action Funds'),
-              content: TextField(
-                controller: controller,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: InputDecoration(
-                  labelText: 'Amount (MMK)',
-                  filled: true,
-                  fillColor: AppTheme.darkBg,
-                ),
+              title: Text(
+                  '${context.l10n.tr('withdraw')} ${context.l10n.tr("funds")}'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: InputDecoration(
+                      labelText: context.l10n.tr('amountMmk'),
+                      filled: true,
+                      fillColor: AppTheme.darkBg,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: accountCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Account details',
+                      helperText: 'Phone/account info for cashout',
+                    ),
+                  ),
+                ],
               ),
               actions: [
                 TextButton(
                   onPressed: () => Navigator.pop(ctx),
-                  child: const Text('Cancel', style: TextStyle(color: AppTheme.textSecondary)),
+                  child: Text(
+                    context.l10n.tr('cancel'),
+                    style: const TextStyle(color: AppTheme.textSecondary),
+                  ),
                 ),
                 ElevatedButton(
-                  onPressed: isLoading ? null : () async {
-                    final amount = double.tryParse(controller.text);
-                    if (amount == null || amount <= 0) return;
-                    
-                    setState(() => isLoading = true);
-                    final success = await onSubmit(amount);
-                    setState(() => isLoading = false);
-                    
-                    if (context.mounted) {
-                      Navigator.pop(ctx);
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content: Text(success ? '$action successful!' : '$action failed. Check limits/balance.'),
-                          backgroundColor: success ? AppTheme.successColor : AppTheme.errorColor,
-                        )
-                      );
-                    }
-                  },
-                  child: isLoading ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) : Text(action),
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final amount = double.tryParse(amountCtrl.text);
+                          final accountDetails = accountCtrl.text.trim();
+                          if (amount == null ||
+                              amount <= 0 ||
+                              accountDetails.isEmpty) {
+                            return;
+                          }
+
+                          setState(() => isLoading = true);
+                          final submission =
+                              await ref.read(walletProvider.notifier).withdraw(
+                                    amount: amount,
+                                    accountDetails: accountDetails,
+                                  );
+                          setState(() => isLoading = false);
+
+                          if (context.mounted) {
+                            Navigator.pop(ctx);
+                            if (submission != null) {
+                              ref.invalidate(transactionsProvider);
+                              showDialog(
+                                context: context,
+                                builder: (_) => AlertDialog(
+                                  title:
+                                      const Text('Withdrawal Code Generated'),
+                                  content: Column(
+                                    mainAxisSize: MainAxisSize.min,
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      const Text(
+                                          'Give this code to your assigned agent:'),
+                                      const SizedBox(height: 8),
+                                      SelectableText(
+                                        submission.verificationCode,
+                                        style: const TextStyle(
+                                          fontSize: 24,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 2,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                          'Assigned agent: ${submission.assignedAgentId}'),
+                                      Text(
+                                          'Status: ${submission.requestStatus}'),
+                                    ],
+                                  ),
+                                  actions: [
+                                    TextButton(
+                                      onPressed: () async {
+                                        await Clipboard.setData(
+                                          ClipboardData(
+                                              text:
+                                                  submission.verificationCode),
+                                        );
+                                        if (context.mounted) {
+                                          ScaffoldMessenger.of(context)
+                                              .showSnackBar(
+                                            const SnackBar(
+                                                content: Text('Code copied')),
+                                          );
+                                        }
+                                      },
+                                      child: const Text('Copy Code'),
+                                    ),
+                                    TextButton(
+                                      onPressed: () => Navigator.pop(context),
+                                      child: const Text('Close'),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    '${context.l10n.tr('withdraw')} ${context.l10n.tr("failedCheckLimits")}',
+                                  ),
+                                  backgroundColor: AppTheme.errorColor,
+                                ),
+                              );
+                            }
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          width: 16,
+                          height: 16,
+                          child: CircularProgressIndicator(
+                              color: Colors.white, strokeWidth: 2))
+                      : Text(context.l10n.tr('withdraw')),
                 )
               ],
             );
-          }
-        );
-      }
-    );
+          });
+        });
   }
 }

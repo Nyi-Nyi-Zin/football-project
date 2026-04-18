@@ -1,4 +1,3 @@
-import 'package:dio/dio.dart';
 import '../../../../core/network/dio_client.dart';
 import '../models/user_model.dart';
 
@@ -43,5 +42,15 @@ class AuthRemoteDataSource {
       if (phone != null) 'phone': phone,
     });
     return UserModel.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _client.dio.patch('/users/me/password', data: {
+      'current_password': currentPassword,
+      'new_password': newPassword,
+    });
   }
 }

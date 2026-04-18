@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"betting-app/internal/modules/user/domain"
 
@@ -85,4 +86,44 @@ func (r *postgresUserRepo) List(ctx context.Context, page, limit int) ([]*domain
 	}
 
 	return users, total, nil
+}
+
+func (r *postgresUserRepo) ListFiltered(ctx context.Context, query, status string, page, limit int) ([]*domain.User, int64, error) {
+	var users []*domain.User
+	var total int64
+
+	dbQuery := r.db.WithContext(ctx).Model(&domain.User{})
+	if strings.TrimSpace(query) != "" {
+		like := "%" + strings.ToLower(strings.TrimSpace(query)) + "%"
+		dbQuery = dbQuery.Where(
+			"LOWER(id::text) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ? OR LOWER(full_name) LIKE ?",
+			like, like, like, like,
+		)
+	}
+	if strings.TrimSpace(status) != "" {
+		dbQuery = dbQuery.Where("status = ?", status)
+	}
+
+	if err := dbQuery.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListFiltered: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := dbQuery.Offset(offset).Limit(limit).Order("created_at DESC").Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListFiltered: find: %w", err)
+	}
+
+	return users, total, nil
+}
+
+func (r *postgresUserRepo) CountByStatus(ctx context.Context, status string) (int64, error) {
+	var total int64
+	query := r.db.WithContext(ctx).Model(&domain.User{})
+	if strings.TrimSpace(status) != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return 0, fmt.Errorf("userRepo.CountByStatus: %w", err)
+	}
+	return total, nil
 }

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/betting_entity.dart';
 
@@ -59,7 +58,8 @@ class MatchCard extends StatelessWidget {
                 ),
                 if (match.isLive || match.isFinished)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
                       color: AppTheme.darkBg,
                       borderRadius: BorderRadius.circular(8),

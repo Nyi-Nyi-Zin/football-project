@@ -79,3 +79,35 @@ class TransactionModel {
     );
   }
 }
+
+class WithdrawalSubmissionModel {
+  final TransactionModel transaction;
+  final String verificationCode;
+  final String assignedAgentId;
+  final String requestStatus;
+
+  const WithdrawalSubmissionModel({
+    required this.transaction,
+    required this.verificationCode,
+    required this.assignedAgentId,
+    required this.requestStatus,
+  });
+
+  factory WithdrawalSubmissionModel.fromJson(Map<String, dynamic> json) {
+    return WithdrawalSubmissionModel(
+      transaction: TransactionModel.fromJson(json),
+      verificationCode: json['verification_code'] as String? ?? '',
+      assignedAgentId: json['assigned_agent_id'] as String? ?? '',
+      requestStatus: json['request_status'] as String? ?? 'pending',
+    );
+  }
+
+  WithdrawalSubmission toEntity() {
+    return WithdrawalSubmission(
+      transaction: transaction.toEntity(),
+      verificationCode: verificationCode,
+      assignedAgentId: assignedAgentId,
+      requestStatus: requestStatus,
+    );
+  }
+}

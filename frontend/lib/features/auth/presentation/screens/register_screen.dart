@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/auth_provider.dart';
 
@@ -75,7 +76,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               children: [
                 const SizedBox(height: 40),
                 Text(
-                  'Create Account',
+                  context.l10n.tr('createAccount'),
                   style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                         color: AppTheme.textPrimary,
@@ -84,69 +85,69 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Join the action and start betting',
+                  context.l10n.tr('joinAction'),
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                         color: AppTheme.textSecondary,
                       ),
                   textAlign: TextAlign.center,
                 ),
                 const SizedBox(height: 32),
-
                 TextFormField(
                   controller: _fullNameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Full Name',
-                    prefixIcon: Icon(Icons.person_outlined),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.tr('fullName'),
+                    prefixIcon: const Icon(Icons.person_outlined),
                   ),
-                  validator: (v) =>
-                      v == null || v.isEmpty ? 'Full name is required' : null,
+                  validator: (v) => v == null || v.isEmpty
+                      ? context.l10n.tr('fullNameRequired')
+                      : null,
                 ),
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _usernameController,
-                  decoration: const InputDecoration(
-                    labelText: 'Username',
-                    prefixIcon: Icon(Icons.alternate_email),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.tr('username'),
+                    prefixIcon: const Icon(Icons.alternate_email),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Username is required';
-                    if (v.length < 3) return 'Minimum 3 characters';
+                    if (v == null || v.isEmpty) {
+                      return context.l10n.tr('usernameRequired');
+                    }
+                    if (v.length < 3) return context.l10n.tr('min3Chars');
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _emailController,
                   keyboardType: TextInputType.emailAddress,
-                  decoration: const InputDecoration(
-                    labelText: 'Email',
-                    prefixIcon: Icon(Icons.email_outlined),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.tr('email'),
+                    prefixIcon: const Icon(Icons.email_outlined),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Email is required';
-                    if (!v.contains('@')) return 'Enter a valid email';
+                    if (v == null || v.isEmpty) {
+                      return context.l10n.tr('emailRequired');
+                    }
+                    if (!v.contains('@')) return context.l10n.tr('emailValid');
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _phoneController,
                   keyboardType: TextInputType.phone,
-                  decoration: const InputDecoration(
-                    labelText: 'Phone (optional)',
-                    prefixIcon: Icon(Icons.phone_outlined),
+                  decoration: InputDecoration(
+                    labelText: context.l10n.tr('phoneOptional'),
+                    prefixIcon: const Icon(Icons.phone_outlined),
                   ),
                 ),
                 const SizedBox(height: 16),
-
                 TextFormField(
                   controller: _passwordController,
                   obscureText: _obscurePassword,
                   decoration: InputDecoration(
-                    labelText: 'Password',
+                    labelText: context.l10n.tr('password'),
                     prefixIcon: const Icon(Icons.lock_outlined),
                     suffixIcon: IconButton(
                       icon: Icon(
@@ -159,13 +160,16 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     ),
                   ),
                   validator: (v) {
-                    if (v == null || v.isEmpty) return 'Password is required';
-                    if (v.length < 8) return 'Minimum 8 characters';
+                    if (v == null || v.isEmpty) {
+                      return context.l10n.tr('passwordRequired');
+                    }
+                    if (v.length < 8) {
+                      return context.l10n.tr('passwordMinLength');
+                    }
                     return null;
                   },
                 ),
                 const SizedBox(height: 32),
-
                 SizedBox(
                   height: 52,
                   child: ElevatedButton(
@@ -179,23 +183,22 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                               color: Colors.white,
                             ),
                           )
-                        : const Text('Create Account'),
+                        : Text(context.l10n.tr('createAccountBtn')),
                   ),
                 ),
                 const SizedBox(height: 24),
-
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Text(
-                      'Already have an account? ',
-                      style: TextStyle(color: AppTheme.textSecondary),
+                      context.l10n.tr('alreadyHaveAccount'),
+                      style: const TextStyle(color: AppTheme.textSecondary),
                     ),
                     GestureDetector(
                       onTap: () => context.go('/login'),
-                      child: const Text(
-                        'Sign In',
-                        style: TextStyle(
+                      child: Text(
+                        context.l10n.tr('signIn'),
+                        style: const TextStyle(
                           color: AppTheme.primaryColor,
                           fontWeight: FontWeight.w600,
                         ),

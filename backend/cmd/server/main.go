@@ -76,6 +76,8 @@ func main() {
 		&bettingDomain.Bet{},
 		&paymentDomain.Transaction{},
 		&paymentDomain.Wallet{},
+		&paymentDomain.WithdrawalRequest{},
+		&paymentDomain.WithdrawalAuditLog{},
 		&oddsDomain.Odds{},
 		&oddsDomain.OddsHistory{},
 		&notificationDomain.Notification{},
@@ -83,6 +85,11 @@ func main() {
 		logger.Fatal("Failed to auto-migrate", "error", err)
 	}
 	logger.Info("Database migration completed")
+
+	// Seed admin user
+	if err := database.SeedAdmin(db); err != nil {
+		logger.Fatal("Failed to seed admin user", "error", err)
+	}
 
 	// Connect to Redis
 	redisClient, err := cache.Connect(cfg.Redis.URL)
@@ -111,7 +118,15 @@ func main() {
 	// Payment module
 	txRepository := paymentRepo.NewPostgresTransactionRepo(db)
 	walletRepository := paymentRepo.NewPostgresWalletRepo(db)
-	paymentUC := paymentUsecase.NewPaymentUseCase(txRepository, walletRepository, eventBus)
+	paymentUC := paymentUsecase.NewPaymentUseCase(
+		txRepository,
+		walletRepository,
+		eventBus,
+		paymentUsecase.SecurityOptions{
+			CodePepper:    cfg.Security.WithdrawalCodePepper,
+			EncryptionKey: cfg.Security.WithdrawalDataKey,
+		},
+	)
 	paymentH := paymentHandler.NewPaymentHandler(paymentUC)
 
 	// User provider adapter for betting module (cross-module communication via interface)

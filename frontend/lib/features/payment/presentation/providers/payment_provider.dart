@@ -28,23 +28,19 @@ class WalletNotifier extends StateNotifier<AsyncValue<Wallet>> {
     }
   }
 
-  Future<bool> deposit(double amount) async {
+  Future<WithdrawalSubmission?> withdraw({
+    required double amount,
+    required String accountDetails,
+  }) async {
     try {
-      await _dataSource.deposit(amount);
+      final submission = await _dataSource.withdraw(
+        amount: amount,
+        accountDetails: accountDetails,
+      );
       await fetchBalance();
-      return true;
-    } catch (e) {
-      return false;
-    }
-  }
-  
-  Future<bool> withdraw(double amount) async {
-    try {
-      await _dataSource.withdraw(amount);
-      await fetchBalance();
-      return true;
-    } catch (e) {
-      return false;
+      return submission.toEntity();
+    } catch (_) {
+      return null;
     }
   }
 }

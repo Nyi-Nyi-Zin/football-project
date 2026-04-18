@@ -1,0 +1,174 @@
+import 'package:dio/dio.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
+
+import '../../core/network/dio_client.dart';
+import 'admin_models.dart';
+
+final adminDatasourceProvider = Provider<AdminRemoteDataSource>((ref) {
+  return AdminRemoteDataSource(ref.read(dioClientProvider));
+});
+
+class AdminRemoteDataSource {
+  final DioClient _client;
+  final _uuid = const Uuid();
+
+  AdminRemoteDataSource(this._client);
+
+  Future<PaginatedUsersResponse> getUsers({
+    String query = '',
+    String status = '',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/admin/users',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (query.trim().isNotEmpty) 'q': query,
+        if (status.trim().isNotEmpty) 'status': status,
+      },
+    );
+
+    final data = (response.data['data'] as List<dynamic>)
+        .map((e) => AdminUser.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final meta = (response.data['meta'] as Map<String, dynamic>? ?? {});
+    final stats = AdminUserStats.fromJson(
+      response.data['stats'] as Map<String, dynamic>? ?? {},
+    );
+
+    return PaginatedUsersResponse(
+      users: data,
+      stats: stats,
+      total: (meta['total'] as num?)?.toInt() ?? data.length,
+      page: (meta['page'] as num?)?.toInt() ?? page,
+      lastPage: (meta['lastPage'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Future<AdminUser> getUserDetail(String id) async {
+    final response = await _client.dio.get('/admin/users/$id');
+    return AdminUser.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<PaginatedTransactionsResponse> getTransactions({
+    String userId = '',
+    String type = '',
+    String status = '',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/admin/transactions',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (userId.trim().isNotEmpty) 'user_id': userId,
+        if (type.trim().isNotEmpty) 'type': type,
+        if (status.trim().isNotEmpty) 'status': status,
+      },
+    );
+
+    final rows = (response.data['data'] as List<dynamic>)
+        .map((e) => AdminTransaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final meta = (response.data['meta'] as Map<String, dynamic>? ?? {});
+
+    return PaginatedTransactionsResponse(
+      transactions: rows,
+      total: (meta['total'] as num?)?.toInt() ?? rows.length,
+      page: (meta['page'] as num?)?.toInt() ?? page,
+      lastPage: (meta['lastPage'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Future<PaginatedTransactionsResponse> getWithdrawals({
+    String status = '',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/admin/withdrawals',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (status.trim().isNotEmpty) 'status': status,
+      },
+    );
+
+    final rows = (response.data['data'] as List<dynamic>)
+        .map((e) => AdminTransaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final meta = (response.data['meta'] as Map<String, dynamic>? ?? {});
+
+    return PaginatedTransactionsResponse(
+      transactions: rows,
+      total: (meta['total'] as num?)?.toInt() ?? rows.length,
+      page: (meta['page'] as num?)?.toInt() ?? page,
+      lastPage: (meta['lastPage'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Future<AdminTransaction> adjustBalance({
+    required String userId,
+    required double amount,
+    required String action,
+    required String reason,
+    String currency = 'USD',
+  }) async {
+    final response = await _client.dio.post('/admin/balance/adjust', data: {
+      'user_id': userId,
+      'amount': amount,
+      'currency': currency,
+      'action': action,
+      'reason': reason,
+    });
+    return AdminTransaction.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
+  Future<void> approveWithdrawal(String txId) async {
+    await _client.dio.post('/admin/withdrawals/$txId/approve');
+  }
+
+  Future<void> rejectWithdrawal(String txId, {String reason = ''}) async {
+    await _client.dio.post('/admin/withdrawals/$txId/reject', data: {
+      'reason': reason,
+    });
+  }
+
+  Future<AdminFinancialSummary> getFinancialSummary() async {
+    final response = await _client.dio.get('/admin/dashboard/financial-summary');
+    return AdminFinancialSummary.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<String> exportTransactionsCsv({
+    String userId = '',
+    String type = '',
+    String status = '',
+  }) async {
+    final txRes = await getTransactions(
+      userId: userId,
+      type: type,
+      status: status,
+      page: 1,
+      limit: 500,
+    );
+    final buffer = StringBuffer();
+    buffer.writeln('id,user_id,type,amount,currency,status,description,created_at');
+    for (final tx in txRes.transactions) {
+      final description = tx.description.replaceAll(',', ' ');
+      buffer.writeln(
+        '${tx.id},${tx.userId},${tx.type},${tx.amount},${tx.currency},${tx.status},$description,${tx.createdAt.toIso8601String()}',
+      );
+    }
+    return buffer.toString();
+  }
+
+  Options buildSecureOptions() {
+    return Options(headers: {'X-Request-Id': _uuid.v4()});
+  }
+}

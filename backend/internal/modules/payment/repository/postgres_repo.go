@@ -3,6 +3,8 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
+	"time"
 
 	"betting-app/internal/modules/payment/domain"
 
@@ -61,12 +63,134 @@ func (r *postgresTransactionRepo) FindByUser(ctx context.Context, userID string,
 	return txs, total, nil
 }
 
+func (r *postgresTransactionRepo) ListAll(ctx context.Context, filter domain.TransactionFilter, page, limit int) ([]*domain.Transaction, int64, error) {
+	var txs []*domain.Transaction
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&domain.Transaction{})
+	if strings.TrimSpace(filter.UserID) != "" {
+		query = query.Where("user_id = ?", filter.UserID)
+	}
+	if filter.Type != "" {
+		query = query.Where("type = ?", filter.Type)
+	}
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAll: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&txs).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAll: find: %w", err)
+	}
+	return txs, total, nil
+}
+
 func (r *postgresTransactionRepo) UpdateStatus(ctx context.Context, txID string, status domain.TransactionStatus) error {
 	result := r.db.WithContext(ctx).Model(&domain.Transaction{}).
 		Where("id = ?", txID).
 		Update("status", status)
 	if result.Error != nil {
 		return fmt.Errorf("transactionRepo.UpdateStatus: %w", result.Error)
+	}
+	return nil
+}
+
+func (r *postgresTransactionRepo) UpdateStatusAndReference(ctx context.Context, txID string, status domain.TransactionStatus, reference string) error {
+	result := r.db.WithContext(ctx).Model(&domain.Transaction{}).
+		Where("id = ?", txID).
+		Updates(map[string]interface{}{
+			"status":    status,
+			"reference": reference,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("transactionRepo.UpdateStatusAndReference: %w", result.Error)
+	}
+	return nil
+}
+
+func (r *postgresTransactionRepo) FindLeastLoadedActiveAgentID(ctx context.Context) (string, error) {
+	type row struct {
+		ID string
+	}
+	var result row
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT u.id
+		FROM users.accounts u
+		LEFT JOIN payments.withdrawal_requests wr
+			ON wr.agent_id = u.id AND wr.status = ?
+		WHERE u.role = 'agent' AND u.status = 'active'
+		GROUP BY u.id, u.created_at
+		ORDER BY COUNT(wr.id) ASC, u.created_at ASC
+		LIMIT 1
+	`, domain.WithdrawalRequestPending).Scan(&result).Error
+	if err != nil {
+		return "", fmt.Errorf("transactionRepo.FindLeastLoadedActiveAgentID: %w", err)
+	}
+	if strings.TrimSpace(result.ID) == "" {
+		return "", gorm.ErrRecordNotFound
+	}
+	return result.ID, nil
+}
+
+func (r *postgresTransactionRepo) CreateWithdrawalRequest(ctx context.Context, req *domain.WithdrawalRequest) error {
+	if err := r.db.WithContext(ctx).Create(req).Error; err != nil {
+		return fmt.Errorf("transactionRepo.CreateWithdrawalRequest: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresTransactionRepo) FindPendingWithdrawalByAgentAndLookup(ctx context.Context, agentID, lookupHash string) (*domain.WithdrawalRequest, error) {
+	var req domain.WithdrawalRequest
+	if err := r.db.WithContext(ctx).
+		Where("agent_id = ? AND code_lookup_hash = ? AND status = ?", agentID, lookupHash, domain.WithdrawalRequestPending).
+		First(&req).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindPendingWithdrawalByAgentAndLookup: %w", err)
+	}
+	return &req, nil
+}
+
+func (r *postgresTransactionRepo) ListAssignedWithdrawals(ctx context.Context, agentID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequest, int64, error) {
+	var reqs []*domain.WithdrawalRequest
+	var total int64
+
+	query := r.db.WithContext(ctx).
+		Model(&domain.WithdrawalRequest{}).
+		Where("agent_id = ?", agentID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAssignedWithdrawals: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&reqs).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAssignedWithdrawals: find: %w", err)
+	}
+	return reqs, total, nil
+}
+
+func (r *postgresTransactionRepo) UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status domain.WithdrawalRequestStatus, verifiedAt *time.Time) error {
+	updates := map[string]interface{}{"status": status}
+	if verifiedAt != nil {
+		updates["verified_at"] = *verifiedAt
+	}
+	result := r.db.WithContext(ctx).Model(&domain.WithdrawalRequest{}).
+		Where("id = ? OR transaction_id = ?", requestID, requestID).
+		Updates(updates)
+	if result.Error != nil {
+		return fmt.Errorf("transactionRepo.UpdateWithdrawalRequestStatus: %w", result.Error)
+	}
+	return nil
+}
+
+func (r *postgresTransactionRepo) CreateWithdrawalAuditLog(ctx context.Context, audit *domain.WithdrawalAuditLog) error {
+	if err := r.db.WithContext(ctx).Create(audit).Error; err != nil {
+		return fmt.Errorf("transactionRepo.CreateWithdrawalAuditLog: %w", err)
 	}
 	return nil
 }

@@ -24,6 +24,11 @@ abstract class AuthRepository {
     String? phone,
   });
 
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
+
   Future<Either<Failure, void>> logout();
 
   Future<bool> isAuthenticated();

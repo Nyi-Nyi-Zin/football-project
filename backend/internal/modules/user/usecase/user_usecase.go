@@ -20,6 +20,12 @@ type UserUseCase struct {
 	eventBus   *event.Bus
 }
 
+type UserListStats struct {
+	TotalUsers     int64 `json:"total_users"`
+	ActiveUsers    int64 `json:"active_users"`
+	SuspendedUsers int64 `json:"suspended_users"`
+}
+
 // NewUserUseCase creates a new user use case
 func NewUserUseCase(repo domain.UserRepository, jwtManager *jwtpkg.Manager, eventBus *event.Bus) *UserUseCase {
 	return &UserUseCase{
@@ -136,6 +142,30 @@ func (uc *UserUseCase) UpdateProfile(ctx context.Context, userID string, req *do
 	return user.ToProfile(), nil
 }
 
+// ChangePassword updates the authenticated user's password.
+func (uc *UserUseCase) ChangePassword(ctx context.Context, userID string, req *domain.ChangePasswordRequest) error {
+	user, err := uc.repo.FindByID(ctx, userID)
+	if err != nil {
+		return apperrors.NewNotFoundError("User not found")
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(req.CurrentPassword)); err != nil {
+		return apperrors.NewUnauthorizedError("Current password is incorrect")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), 12)
+	if err != nil {
+		return fmt.Errorf("usecase.ChangePassword: hash password: %w", err)
+	}
+
+	user.PasswordHash = string(hashedPassword)
+	if err := uc.repo.Update(ctx, user); err != nil {
+		return fmt.Errorf("usecase.ChangePassword: %w", err)
+	}
+
+	return nil
+}
+
 // ListUsers returns paginated users (admin only)
 func (uc *UserUseCase) ListUsers(ctx context.Context, page, limit int) ([]*domain.UserProfile, int64, error) {
 	users, total, err := uc.repo.List(ctx, page, limit)
@@ -149,4 +179,44 @@ func (uc *UserUseCase) ListUsers(ctx context.Context, page, limit int) ([]*domai
 	}
 
 	return profiles, total, nil
+}
+
+// ListUsersAdmin returns paginated users and aggregate counters for admin screens.
+func (uc *UserUseCase) ListUsersAdmin(ctx context.Context, query, status string, page, limit int) ([]*domain.UserProfile, int64, *UserListStats, error) {
+	users, total, err := uc.repo.ListFiltered(ctx, query, status, page, limit)
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("usecase.ListUsersAdmin: %w", err)
+	}
+
+	profiles := make([]*domain.UserProfile, len(users))
+	for i, u := range users {
+		profiles[i] = u.ToProfile()
+	}
+
+	totalUsers, err := uc.repo.CountByStatus(ctx, "")
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("usecase.ListUsersAdmin: total: %w", err)
+	}
+	activeUsers, err := uc.repo.CountByStatus(ctx, "active")
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("usecase.ListUsersAdmin: active: %w", err)
+	}
+	suspendedUsers, err := uc.repo.CountByStatus(ctx, "suspended")
+	if err != nil {
+		return nil, 0, nil, fmt.Errorf("usecase.ListUsersAdmin: suspended: %w", err)
+	}
+
+	return profiles, total, &UserListStats{
+		TotalUsers:     totalUsers,
+		ActiveUsers:    activeUsers,
+		SuspendedUsers: suspendedUsers,
+	}, nil
+}
+
+func (uc *UserUseCase) GetProfileByID(ctx context.Context, userID string) (*domain.UserProfile, error) {
+	user, err := uc.repo.FindByID(ctx, userID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("User not found")
+	}
+	return user.ToProfile(), nil
 }

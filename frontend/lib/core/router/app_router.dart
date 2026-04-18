@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../i18n/app_localizations.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
+import '../../features/auth/presentation/screens/profile_screen.dart';
 import '../../features/auth/presentation/screens/register_screen.dart';
 import '../../features/betting/presentation/screens/betting_screen.dart';
 import '../../features/betting/presentation/screens/bet_detail_screen.dart';
@@ -61,6 +63,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             name: 'wallet',
             builder: (context, state) => const WalletScreen(),
           ),
+          GoRoute(
+            path: '/profile',
+            name: 'profile',
+            builder: (context, state) => const ProfileScreen(),
+          ),
         ],
       ),
 
@@ -86,32 +93,36 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  int _currentIndex = 0;
-
-  final _tabs = ['/home', '/odds', '/wallet'];
+  final _tabs = ['/home', '/odds', '/wallet', '/profile'];
 
   @override
   Widget build(BuildContext context) {
+    final location = GoRouterState.of(context).matchedLocation;
+    final currentIndex = _tabs.contains(location) ? _tabs.indexOf(location) : 0;
+
     return Scaffold(
       body: widget.child,
       bottomNavigationBar: BottomNavigationBar(
-        currentIndex: _currentIndex,
+        currentIndex: currentIndex,
         onTap: (index) {
-          setState(() => _currentIndex = index);
           context.go(_tabs[index]);
         },
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.sports_soccer),
-            label: 'Betting',
+            icon: const Icon(Icons.sports_soccer),
+            label: context.l10n.tr('betting'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.trending_up),
-            label: 'Live Odds',
+            icon: const Icon(Icons.trending_up),
+            label: context.l10n.tr('liveOdds'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.account_balance_wallet),
-            label: 'Wallet',
+            icon: const Icon(Icons.account_balance_wallet),
+            label: context.l10n.tr('wallet'),
+          ),
+          BottomNavigationBarItem(
+            icon: const Icon(Icons.person),
+            label: context.l10n.tr('profile'),
           ),
         ],
       ),

@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:dartz/dartz.dart';
 import '../../../../core/network/dio_client.dart';
+import '../../../../core/errors/failures.dart';
 import '../../data/datasources/auth_remote_datasource.dart';
 import '../../data/repositories/auth_repository_impl.dart';
 import '../../domain/entities/user_entity.dart';
@@ -98,5 +100,37 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   Future<void> logout() async {
     await _ref.read(logoutUseCaseProvider).call();
     state = const AsyncData(null);
+  }
+
+  Future<Either<Failure, User>> updateProfile({
+    String? fullName,
+    String? phone,
+  }) async {
+    final currentUser = state.valueOrNull;
+    if (currentUser == null) {
+      return const Left(AuthFailure(message: 'Not authenticated'));
+    }
+
+    final result = await _ref.read(authRepositoryProvider).updateProfile(
+          fullName: fullName,
+          phone: phone,
+        );
+
+    result.fold(
+      (_) {},
+      (user) => state = AsyncData(user),
+    );
+
+    return result;
+  }
+
+  Future<Either<Failure, void>> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) {
+    return _ref.read(authRepositoryProvider).changePassword(
+          currentPassword: currentPassword,
+          newPassword: newPassword,
+        );
   }
 }
