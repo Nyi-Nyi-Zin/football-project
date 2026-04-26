@@ -22,7 +22,7 @@ func NewPostgresOddsRepo(db *gorm.DB) domain.OddsRepository {
 func (r *postgresOddsRepo) Upsert(ctx context.Context, odds *domain.Odds) error {
 	result := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "match_id"}},
-		DoUpdates: clause.AssignmentColumns([]string{"home_odds", "away_odds", "draw_odds", "updated_at"}),
+		DoUpdates: clause.AssignmentColumns([]string{"home_odds", "away_odds", "draw_odds", "is_active", "source", "updated_at"}),
 	}).Create(odds)
 
 	if result.Error != nil {

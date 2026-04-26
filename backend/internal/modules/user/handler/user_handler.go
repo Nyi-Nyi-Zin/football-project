@@ -83,6 +83,33 @@ func (h *UserHandler) Login(c echo.Context) error {
 	}, nil))
 }
 
+// Refresh handles POST /api/v1/auth/refresh
+func (h *UserHandler) Refresh(c echo.Context) error {
+	var req domain.RefreshTokenRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	profile, tokens, err := h.useCase.RefreshToken(c.Request().Context(), req.RefreshToken)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Token refresh failed")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]interface{}{
+		"user":   profile,
+		"tokens": tokens,
+	}, nil))
+}
+
 // GetProfile handles GET /api/v1/users/me
 func (h *UserHandler) GetProfile(c echo.Context) error {
 	userID := c.Get("user_id").(string)
@@ -195,4 +222,114 @@ func (h *UserHandler) GetUserByID(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
+}
+
+// ─── KYC & Verification Endpoints ──────────────────────────────────────────
+
+// VerifyEmail handles POST /api/v1/users/me/verify-email
+func (h *UserHandler) VerifyEmail(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req domain.VerifyEmailRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.VerifyEmail(c.Request().Context(), userID, &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to verify email")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "Email verified successfully",
+	}, nil))
+}
+
+// VerifyPhone handles POST /api/v1/users/me/verify-phone
+func (h *UserHandler) VerifyPhone(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req domain.VerifyPhoneRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.VerifyPhone(c.Request().Context(), userID, &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to verify phone")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "Phone verified successfully",
+	}, nil))
+}
+
+// SubmitKYC handles POST /api/v1/users/me/kyc
+func (h *UserHandler) SubmitKYC(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req domain.SubmitKYCRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.SubmitKYC(c.Request().Context(), userID, &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to submit KYC")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "KYC documents submitted for review",
+	}, nil))
+}
+
+// AdminDecideKYC handles POST /api/v1/admin/users/:id/kyc
+func (h *UserHandler) AdminDecideKYC(c echo.Context) error {
+	targetUserID := c.Param("id")
+
+	var req domain.AdminKYCDecisionRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.AdminDecideKYC(c.Request().Context(), targetUserID, &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to process KYC decision")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "KYC decision recorded",
+	}, nil))
 }

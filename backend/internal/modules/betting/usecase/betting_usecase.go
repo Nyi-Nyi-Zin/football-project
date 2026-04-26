@@ -3,8 +3,10 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"betting-app/internal/modules/betting/domain"
+	oddsDomain "betting-app/internal/modules/odds/domain"
 	apperrors "betting-app/internal/shared/errors"
 	"betting-app/internal/shared/event"
 )
@@ -13,6 +15,7 @@ import (
 type BettingUseCase struct {
 	betRepo      domain.BetRepository
 	matchRepo    domain.MatchRepository
+	oddsRepo     oddsDomain.OddsRepository
 	userProvider domain.UserProvider
 	eventBus     *event.Bus
 }
@@ -21,12 +24,14 @@ type BettingUseCase struct {
 func NewBettingUseCase(
 	betRepo domain.BetRepository,
 	matchRepo domain.MatchRepository,
+	oddsRepo oddsDomain.OddsRepository,
 	userProvider domain.UserProvider,
 	eventBus *event.Bus,
 ) *BettingUseCase {
 	return &BettingUseCase{
 		betRepo:      betRepo,
 		matchRepo:    matchRepo,
+		oddsRepo:     oddsRepo,
 		userProvider: userProvider,
 		eventBus:     eventBus,
 	}
@@ -54,18 +59,26 @@ func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *doma
 		return nil, apperrors.NewBadRequestError("Insufficient balance")
 	}
 
-	// TODO: Get current odds from odds module
-	odds := 1.85 // placeholder — should come from odds module
+	matchMarkets, err := uc.getMatchMarkets(ctx, req.MatchID)
+	if err != nil {
+		return nil, err
+	}
+	selection := findSelection(matchMarkets, req.MarketKey, req.Selection)
+	if selection == nil {
+		return nil, apperrors.NewBadRequestError("Selected market option is not available")
+	}
 
 	// Calculate potential payout
-	potentialPayout := req.Stake * odds
+	potentialPayout := req.Stake * selection.Odds
 
 	bet := &domain.Bet{
 		UserID:          userID,
 		MatchID:         req.MatchID,
 		BetType:         req.BetType,
+		MarketKey:       req.MarketKey,
 		Selection:       req.Selection,
-		Odds:            odds,
+		SelectionLabel:  selection.Label,
+		Odds:            selection.Odds,
 		Stake:           req.Stake,
 		PotentialPayout: potentialPayout,
 		Status:          domain.BetStatusPending,
@@ -99,6 +112,72 @@ func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *doma
 	return bet, nil
 }
 
+func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *domain.PlaceBetSlipRequest) (*domain.BetSlip, error) {
+	if len(req.Legs) < 2 {
+		return nil, apperrors.NewBadRequestError("At least 2 selections are required")
+	}
+
+	balance, err := uc.userProvider.GetUserBalance(ctx, userID)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.PlaceBetSlip: get balance: %w", err)
+	}
+	if balance < req.Stake {
+		return nil, apperrors.NewBadRequestError("Insufficient balance")
+	}
+
+	combinedOdds := 1.0
+	legs := make([]*domain.BetLeg, 0, len(req.Legs))
+
+	for _, legReq := range req.Legs {
+		match, err := uc.matchRepo.FindMatchByID(ctx, legReq.MatchID)
+		if err != nil {
+			return nil, apperrors.NewNotFoundError("Match not found")
+		}
+		if match.Status != domain.MatchStatusUpcoming && match.Status != domain.MatchStatusLive {
+			return nil, apperrors.NewBadRequestError("One of the selected matches is not accepting bets")
+		}
+
+		markets, err := uc.getMatchMarkets(ctx, legReq.MatchID)
+		if err != nil {
+			return nil, err
+		}
+		selection := findSelection(markets, legReq.MarketKey, legReq.SelectionKey)
+		if selection == nil {
+			return nil, apperrors.NewBadRequestError("One of the selected market options is not available")
+		}
+
+		combinedOdds *= selection.Odds
+		legs = append(legs, &domain.BetLeg{
+			MatchID:        legReq.MatchID,
+			MarketKey:      legReq.MarketKey,
+			SelectionKey:   legReq.SelectionKey,
+			SelectionLabel: selection.Label,
+			Odds:           selection.Odds,
+		})
+	}
+
+	slip := &domain.BetSlip{
+		UserID:          userID,
+		BetType:         domain.BetTypeAccumulate,
+		Stake:           req.Stake,
+		CombinedOdds:    combinedOdds,
+		PotentialPayout: req.Stake * combinedOdds,
+		Status:          domain.BetStatusPending,
+		Legs:            legs,
+	}
+
+	if err := uc.userProvider.DeductBalance(ctx, userID, req.Stake); err != nil {
+		return nil, fmt.Errorf("usecase.PlaceBetSlip: deduct balance: %w", err)
+	}
+
+	if err := uc.betRepo.CreateBetSlip(ctx, slip); err != nil {
+		_ = uc.userProvider.AddBalance(ctx, userID, req.Stake)
+		return nil, fmt.Errorf("usecase.PlaceBetSlip: create slip: %w", err)
+	}
+
+	return slip, nil
+}
+
 // GetBet returns a single bet
 func (uc *BettingUseCase) GetBet(ctx context.Context, betID string) (*domain.Bet, error) {
 	bet, err := uc.betRepo.FindBetByID(ctx, betID)
@@ -115,6 +194,14 @@ func (uc *BettingUseCase) GetUserBets(ctx context.Context, filter *domain.BetFil
 		return nil, 0, fmt.Errorf("usecase.GetUserBets: %w", err)
 	}
 	return bets, total, nil
+}
+
+func (uc *BettingUseCase) GetUserBetSlips(ctx context.Context, filter *domain.BetFilter) ([]*domain.BetSlip, int64, error) {
+	slips, total, err := uc.betRepo.FindBetSlipsByUser(ctx, filter)
+	if err != nil {
+		return nil, 0, fmt.Errorf("usecase.GetUserBetSlips: %w", err)
+	}
+	return slips, total, nil
 }
 
 // CancelBet cancels a pending bet and refunds the stake
@@ -155,8 +242,17 @@ func (uc *BettingUseCase) CancelBet(ctx context.Context, userID, betID string) e
 }
 
 // ListMatches returns available matches
-func (uc *BettingUseCase) ListMatches(ctx context.Context, sport string, status domain.MatchStatus, page, limit int) ([]*domain.Match, int64, error) {
-	return uc.matchRepo.ListMatches(ctx, sport, status, page, limit)
+func (uc *BettingUseCase) ListMatches(ctx context.Context, sport string, leagues []string, status domain.MatchStatus, page, limit int) ([]*domain.Match, int64, error) {
+	matches, total, err := uc.matchRepo.ListMatches(ctx, sport, leagues, status, page, limit)
+	if err != nil {
+		return nil, 0, err
+	}
+	for _, match := range matches {
+		// Always attach markets; fall back to balanced odds when real odds are missing.
+		markets, _ := uc.getMatchMarkets(ctx, match.ID)
+		match.Markets = markets
+	}
+	return matches, total, nil
 }
 
 // CreateMatch creates a new match (admin)
@@ -165,4 +261,36 @@ func (uc *BettingUseCase) CreateMatch(ctx context.Context, match *domain.Match) 
 		return fmt.Errorf("usecase.CreateMatch: %w", err)
 	}
 	return nil
+}
+
+func (uc *BettingUseCase) getMatchMarkets(ctx context.Context, matchID string) ([]domain.Market, error) {
+	odds, err := uc.oddsRepo.FindByMatchID(ctx, matchID)
+	if err != nil {
+		// No odds in DB yet – return fallback balanced markets so the match is
+		// still selectable. The validate step in PlaceBet will re-check odds.
+		return buildFallbackMarkets(), nil
+	}
+
+	markets := buildMarkets(odds)
+	if len(markets) == 0 {
+		return buildFallbackMarkets(), nil
+	}
+	return markets, nil
+}
+
+func NormalizeLeagueFilters(leagues []string) []string {
+	normalized := make([]string, 0, len(leagues))
+	seen := map[string]struct{}{}
+	for _, league := range leagues {
+		trimmed := strings.TrimSpace(league)
+		if trimmed == "" {
+			continue
+		}
+		if _, exists := seen[trimmed]; exists {
+			continue
+		}
+		seen[trimmed] = struct{}{}
+		normalized = append(normalized, trimmed)
+	}
+	return normalized
 }

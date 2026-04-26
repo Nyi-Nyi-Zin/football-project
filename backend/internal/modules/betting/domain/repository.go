@@ -5,8 +5,10 @@ import "context"
 // BetRepository defines the interface for bet data access
 type BetRepository interface {
 	CreateBet(ctx context.Context, bet *Bet) error
+	CreateBetSlip(ctx context.Context, slip *BetSlip) error
 	FindBetByID(ctx context.Context, id string) (*Bet, error)
 	FindBetsByUser(ctx context.Context, filter *BetFilter) ([]*Bet, int64, error)
+	FindBetSlipsByUser(ctx context.Context, filter *BetFilter) ([]*BetSlip, int64, error)
 	UpdateBetStatus(ctx context.Context, betID string, status BetStatus) error
 	CancelBet(ctx context.Context, betID string) error
 }
@@ -14,8 +16,9 @@ type BetRepository interface {
 // MatchRepository defines the interface for match data access
 type MatchRepository interface {
 	CreateMatch(ctx context.Context, match *Match) error
+	FindMatchByExternalID(ctx context.Context, externalID string) (*Match, error)
 	FindMatchByID(ctx context.Context, id string) (*Match, error)
-	ListMatches(ctx context.Context, sport string, status MatchStatus, page, limit int) ([]*Match, int64, error)
+	ListMatches(ctx context.Context, sport string, leagues []string, status MatchStatus, page, limit int) ([]*Match, int64, error)
 	UpdateMatch(ctx context.Context, match *Match) error
 	UpdateMatchStatus(ctx context.Context, matchID string, status MatchStatus) error
 }

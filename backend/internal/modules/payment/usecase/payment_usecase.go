@@ -23,11 +23,12 @@ import (
 
 // PaymentUseCase handles payment business logic
 type PaymentUseCase struct {
-	txRepo     domain.TransactionRepository
-	walletRepo domain.WalletRepository
-	eventBus   *event.Bus
-	codePepper string
-	encKey     []byte
+	txRepo           domain.TransactionRepository
+	walletRepo       domain.WalletRepository
+	eventBus         *event.Bus
+	codePepper       string
+	encKey           []byte
+	verificationProv domain.UserVerificationProvider // KYC gate for withdrawals
 }
 
 type SecurityOptions struct {
@@ -41,6 +42,7 @@ func NewPaymentUseCase(
 	walletRepo domain.WalletRepository,
 	eventBus *event.Bus,
 	security SecurityOptions,
+	verificationProv domain.UserVerificationProvider,
 ) *PaymentUseCase {
 	pepper := strings.TrimSpace(security.CodePepper)
 	if pepper == "" {
@@ -52,13 +54,75 @@ func NewPaymentUseCase(
 	}
 	key := sha256.Sum256([]byte(keySeed))
 	return &PaymentUseCase{
-		txRepo:     txRepo,
-		walletRepo: walletRepo,
-		eventBus:   eventBus,
-		codePepper: pepper,
-		encKey:     key[:],
+		txRepo:           txRepo,
+		walletRepo:       walletRepo,
+		eventBus:         eventBus,
+		codePepper:       pepper,
+		encKey:           key[:],
+		verificationProv: verificationProv,
 	}
 }
+
+// ─── Withdrawal Guard ────────────────────────────────────────────────────────
+
+// checkWithdrawalEligibility enforces KYC verification and AML turnover rules
+// before allowing a withdrawal to proceed. Returns nil if the user is eligible,
+// or an *AppError with a specific remediation message.
+func (uc *PaymentUseCase) checkWithdrawalEligibility(ctx context.Context, userID string) error {
+	// 1. KYC / Verification gate
+	if uc.verificationProv != nil {
+		vs, err := uc.verificationProv.GetVerificationStatus(ctx, userID)
+		if err != nil {
+			return apperrors.NewBadRequestError("Unable to verify account status. Please complete your profile.")
+		}
+
+		if !vs.IsEmailVerified {
+			return apperrors.NewForbiddenError(
+				"Email verification required. Please verify your email address in your profile settings before withdrawing.",
+			)
+		}
+		if !vs.IsPhoneVerified {
+			return apperrors.NewForbiddenError(
+				"Phone verification required. Please verify your phone number in your profile settings before withdrawing.",
+			)
+		}
+		if domain.KYCStatus(vs.KYCStatus) != domain.KYCStatusApproved {
+			switch domain.KYCStatus(vs.KYCStatus) {
+			case domain.KYCStatusPending:
+				return apperrors.NewForbiddenError(
+					"KYC verification pending. Please submit your National ID and verification image in your profile, then wait for admin approval.",
+				)
+			case domain.KYCStatusRejected:
+				return apperrors.NewForbiddenError(
+					"KYC verification was rejected. Please re-submit valid documents in your profile settings.",
+				)
+			default:
+				return apperrors.NewForbiddenError(
+					"KYC verification required. Please complete identity verification in your profile before withdrawing.",
+				)
+			}
+		}
+	}
+
+	// 2. AML Turnover gate
+	requiredTurnover, currentTurnover, err := uc.walletRepo.GetTurnover(ctx, userID)
+	if err != nil {
+		// If wallet doesn't exist yet turnover is effectively 0/0 — allow.
+		logger.Warn("GetTurnover failed during withdrawal check, skipping turnover gate", "user_id", userID, "error", err)
+	} else if currentTurnover < requiredTurnover {
+		remaining := requiredTurnover - currentTurnover
+		return apperrors.NewForbiddenError(
+			fmt.Sprintf(
+				"Wagering requirement not met. You must wager %.2f more before withdrawing. Place bets with odds ≥ 1.30 to fulfil this requirement.",
+				remaining,
+			),
+		)
+	}
+
+	return nil
+}
+
+// ─── Deposit ─────────────────────────────────────────────────────────────────
 
 // Deposit adds funds to a user's wallet
 func (uc *PaymentUseCase) Deposit(ctx context.Context, userID string, req *domain.DepositRequest) (*domain.Transaction, error) {
@@ -108,6 +172,12 @@ func (uc *PaymentUseCase) Deposit(ctx context.Context, userID string, req *domai
 		return nil, fmt.Errorf("usecase.Deposit: update balance: %w", err)
 	}
 
+	// ── AML: Increment required_turnover (1:1 ratio) ──
+	if err := uc.walletRepo.IncrementRequiredTurnover(ctx, userID, req.Amount); err != nil {
+		logger.Error("Failed to increment required turnover on deposit",
+			"user_id", userID, "amount", req.Amount, "error", err)
+	}
+
 	// Mark transaction as completed
 	_ = uc.txRepo.UpdateStatus(ctx, tx.ID, domain.TransactionCompleted)
 	tx.Status = domain.TransactionCompleted
@@ -125,8 +195,15 @@ func (uc *PaymentUseCase) Deposit(ctx context.Context, userID string, req *domai
 	return tx, nil
 }
 
+// ─── Withdraw ────────────────────────────────────────────────────────────────
+
 // Withdraw removes funds from a user's wallet
 func (uc *PaymentUseCase) Withdraw(ctx context.Context, userID string, req *domain.WithdrawRequest) (*domain.CustomerWithdrawalCreated, error) {
+	// ── WITHDRAWAL GUARD: KYC + Turnover check ──
+	if err := uc.checkWithdrawalEligibility(ctx, userID); err != nil {
+		return nil, err
+	}
+
 	// Check idempotency
 	existing, _ := uc.txRepo.FindByIdempotencyKey(ctx, req.IdempotencyKey)
 	if existing != nil {
@@ -485,6 +562,8 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 	})
 	return tx, nil
 }
+
+// ─── Helpers ─────────────────────────────────────────────────────────────────
 
 func (uc *PaymentUseCase) generateVerificationCode() (string, error) {
 	const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"fmt"
@@ -60,18 +61,42 @@ func (Transaction) TableName() string {
 
 // Wallet represents a user's wallet
 type Wallet struct {
-	ID        string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	UserID    string    `json:"user_id" gorm:"type:uuid;uniqueIndex;not null"`
-	Balance   float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
-	Currency  string    `json:"currency" gorm:"default:'USD'"`
-	Status    string    `json:"status" gorm:"default:'active'"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID               string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	UserID           string    `json:"user_id" gorm:"type:uuid;uniqueIndex;not null"`
+	Balance          float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
+	Currency         string    `json:"currency" gorm:"default:'USD'"`
+	Status           string    `json:"status" gorm:"default:'active'"`
+	RequiredTurnover float64   `json:"required_turnover" gorm:"type:decimal(18,2);default:0"`
+	CurrentTurnover  float64   `json:"current_turnover" gorm:"type:decimal(18,2);default:0"`
+	CreatedAt        time.Time `json:"created_at"`
+	UpdatedAt        time.Time `json:"updated_at"`
 }
 
 // TableName overrides the table name
 func (Wallet) TableName() string {
 	return "payments.wallets"
+}
+
+// KYCStatus mirrors the user module's KYC status enum for cross-module use.
+type KYCStatus string
+
+const (
+	KYCStatusPending  KYCStatus = "pending"
+	KYCStatusApproved KYCStatus = "approved"
+	KYCStatusRejected KYCStatus = "rejected"
+)
+
+// UserVerificationStatus holds the verification state needed by the WithdrawalGuard.
+type UserVerificationStatus struct {
+	IsEmailVerified bool
+	IsPhoneVerified bool
+	KYCStatus       KYCStatus
+}
+
+// UserVerificationProvider is the interface the payment module uses to query
+// user verification state from the user module without direct imports.
+type UserVerificationProvider interface {
+	GetVerificationStatus(ctx context.Context, userID string) (*UserVerificationStatus, error)
 }
 
 // DepositRequest represents a deposit request

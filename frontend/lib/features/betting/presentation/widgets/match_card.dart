@@ -4,12 +4,15 @@ import '../../domain/entities/betting_entity.dart';
 
 class MatchCard extends StatelessWidget {
   final Match match;
-  final Function(String selection) onPlaceBet;
+  final BetCartItem? selectedItem;
+  final void Function(Match match, Market market, MarketSelection selection)
+      onSelectionTap;
 
   const MatchCard({
     super.key,
     required this.match,
-    required this.onPlaceBet,
+    required this.onSelectionTap,
+    this.selectedItem,
   });
 
   @override
@@ -96,17 +99,35 @@ class MatchCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Betting buttons
-            if (match.isUpcoming || match.isLive)
-              Row(
-                children: [
-                  _oddButton('Home', '1.85', () => onPlaceBet('home')),
-                  const SizedBox(width: 8),
-                  _oddButton('Draw', '3.40', () => onPlaceBet('draw')),
-                  const SizedBox(width: 8),
-                  _oddButton('Away', '2.10', () => onPlaceBet('away')),
-                ],
-              ),
+            if (match.isUpcoming || match.isLive) ...[
+              for (final market in match.markets) ...[
+                Text(
+                  market.name,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: AppTheme.textSecondary,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: market.selections
+                      .map(
+                        (selection) => _oddButton(
+                          market: market,
+                          selection: selection,
+                          isSelected: selectedItem?.market.key == market.key &&
+                              selectedItem?.selection.key == selection.key,
+                          onTap: () => onSelectionTap(match, market, selection),
+                        ),
+                      )
+                      .toList(),
+                ),
+                const SizedBox(height: 14),
+              ],
+            ],
           ],
         ),
       ),
@@ -131,7 +152,7 @@ class MatchCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
@@ -146,42 +167,61 @@ class MatchCard extends StatelessWidget {
     );
   }
 
-  Widget _oddButton(String label, String odds, VoidCallback onTap) {
-    return Expanded(
+  Widget _oddButton({
+    required Market market,
+    required MarketSelection selection,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final borderColor =
+        isSelected ? AppTheme.primaryColor : AppTheme.darkBorder;
+
+    return SizedBox(
+      width: 104,
       child: InkWell(
         onTap: onTap,
         borderRadius: BorderRadius.circular(8),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+          padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
-            color: AppTheme.darkBg,
+            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : AppTheme.darkBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.darkBorder),
+            border: Border.all(color: borderColor),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                label,
-                style: const TextStyle(
+                selection.label,
+                style: TextStyle(
                   fontSize: 11,
-                  color: AppTheme.textSecondary,
+                  color: isSelected
+                      ? AppTheme.primaryColor
+                      : AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
-              FittedBox(
-                fit: BoxFit.scaleDown,
-                child: Text(
-                  odds,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: AppTheme.primaryColor,
-                  ),
-                  maxLines: 1,
+              Text(
+                selection.odds.toStringAsFixed(2),
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 15,
+                  color: AppTheme.primaryColor,
                 ),
+                maxLines: 1,
+              ),
+              const SizedBox(height: 2),
+              Text(
+                market.key.replaceAll('_', ' ').toUpperCase(),
+                style: const TextStyle(
+                  fontSize: 9,
+                  color: AppTheme.textMuted,
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),

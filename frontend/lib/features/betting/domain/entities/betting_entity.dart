@@ -10,6 +10,7 @@ class Match extends Equatable {
   final String status;
   final int? homeScore;
   final int? awayScore;
+  final List<Market> markets;
 
   const Match({
     required this.id,
@@ -21,6 +22,7 @@ class Match extends Equatable {
     required this.status,
     this.homeScore,
     this.awayScore,
+    this.markets = const [],
   });
 
   bool get isLive => status == 'live';
@@ -31,12 +33,44 @@ class Match extends Equatable {
   List<Object?> get props => [id];
 }
 
+class Market extends Equatable {
+  final String key;
+  final String name;
+  final List<MarketSelection> selections;
+
+  const Market({
+    required this.key,
+    required this.name,
+    required this.selections,
+  });
+
+  @override
+  List<Object?> get props => [key, name, selections];
+}
+
+class MarketSelection extends Equatable {
+  final String key;
+  final String label;
+  final double odds;
+
+  const MarketSelection({
+    required this.key,
+    required this.label,
+    required this.odds,
+  });
+
+  @override
+  List<Object?> get props => [key, label, odds];
+}
+
 class Bet extends Equatable {
   final String id;
   final String userId;
   final String matchId;
   final String betType;
+  final String marketKey;
   final String selection;
+  final String selectionLabel;
   final double odds;
   final double stake;
   final double potentialPayout;
@@ -49,7 +83,9 @@ class Bet extends Equatable {
     required this.userId,
     required this.matchId,
     required this.betType,
+    required this.marketKey,
     required this.selection,
+    required this.selectionLabel,
     required this.odds,
     required this.stake,
     required this.potentialPayout,
@@ -84,4 +120,73 @@ class BetOdds extends Equatable {
 
   @override
   List<Object?> get props => [matchId, homeOdds, awayOdds, drawOdds];
+}
+
+class BetSlip extends Equatable {
+  final String id;
+  final String userId;
+  final String betType;
+  final double stake;
+  final double combinedOdds;
+  final double potentialPayout;
+  final String status;
+  final DateTime createdAt;
+  final List<BetLeg> legs;
+
+  const BetSlip({
+    required this.id,
+    required this.userId,
+    required this.betType,
+    required this.stake,
+    required this.combinedOdds,
+    required this.potentialPayout,
+    required this.status,
+    required this.createdAt,
+    required this.legs,
+  });
+
+  @override
+  List<Object?> get props => [id, userId, betType, createdAt];
+}
+
+class BetLeg extends Equatable {
+  final String id;
+  final String slipId;
+  final String matchId;
+  final String marketKey;
+  final String selectionKey;
+  final String selectionLabel;
+  final double odds;
+  final Match? match;
+
+  const BetLeg({
+    required this.id,
+    required this.slipId,
+    required this.matchId,
+    required this.marketKey,
+    required this.selectionKey,
+    required this.selectionLabel,
+    required this.odds,
+    this.match,
+  });
+
+  @override
+  List<Object?> get props => [id, slipId, matchId, marketKey, selectionKey, odds];
+}
+
+class BetCartItem extends Equatable {
+  final Match match;
+  final Market market;
+  final MarketSelection selection;
+
+  const BetCartItem({
+    required this.match,
+    required this.market,
+    required this.selection,
+  });
+
+  String get uniqueKey => '${match.id}:${market.key}:${selection.key}';
+
+  @override
+  List<Object?> get props => [match.id, market.key, selection.key];
 }

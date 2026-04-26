@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/network/websocket.dart';
 import '../models/odds_model.dart';
@@ -27,7 +28,7 @@ class OddsRemoteDataSource {
       }
       throw Exception('Unknown message type');
     }).handleError((e) {
-      print('WebSocket error: $e');
+      debugPrint('WebSocket error: $e');
     });
   }
 

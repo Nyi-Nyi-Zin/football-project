@@ -26,13 +26,20 @@ type FixturesResponse struct {
 }
 
 type Fixture struct {
-	ID         int    `json:"id"`
-	Name       string `json:"name"`
-	StartingAt string `json:"starting_at"`
+	ID         int         `json:"id"`
+	Name       string      `json:"name"`
+	LeagueID   int         `json:"league_id"`
+	StartingAt string      `json:"starting_at"`
+	League     LeagueEntry `json:"league"`
+}
+
+type LeagueEntry struct {
+	ID   int    `json:"id"`
+	Name string `json:"name"`
 }
 
 func (c *Client) GetFixtures() ([]Fixture, error) {
-	url := fmt.Sprintf("https://api.sportmonks.com/v3/football/fixtures?api_token=%s", c.token)
+	url := fmt.Sprintf("https://api.sportmonks.com/v3/football/fixtures?include=league&api_token=%s", c.token)
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {

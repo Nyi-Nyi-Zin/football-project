@@ -25,6 +25,13 @@ func (r *postgresBetRepo) CreateBet(ctx context.Context, bet *domain.Bet) error 
 	return nil
 }
 
+func (r *postgresBetRepo) CreateBetSlip(ctx context.Context, slip *domain.BetSlip) error {
+	if err := r.db.WithContext(ctx).Create(slip).Error; err != nil {
+		return fmt.Errorf("betRepo.CreateBetSlip: %w", err)
+	}
+	return nil
+}
+
 func (r *postgresBetRepo) FindBetByID(ctx context.Context, id string) (*domain.Bet, error) {
 	var bet domain.Bet
 	if err := r.db.WithContext(ctx).Preload("Match").Where("id = ?", id).First(&bet).Error; err != nil {
@@ -54,6 +61,29 @@ func (r *postgresBetRepo) FindBetsByUser(ctx context.Context, filter *domain.Bet
 	}
 
 	return bets, total, nil
+}
+
+func (r *postgresBetRepo) FindBetSlipsByUser(ctx context.Context, filter *domain.BetFilter) ([]*domain.BetSlip, int64, error) {
+	var slips []*domain.BetSlip
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&domain.BetSlip{}).Where("user_id = ?", filter.UserID)
+
+	if filter.Status != "" {
+		query = query.Where("status = ?", filter.Status)
+	}
+
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("betRepo.FindBetSlipsByUser: count: %w", err)
+	}
+
+	offset := (filter.Page - 1) * filter.Limit
+	if err := query.Preload("Legs.Match").Offset(offset).Limit(filter.Limit).
+		Order("created_at DESC").Find(&slips).Error; err != nil {
+		return nil, 0, fmt.Errorf("betRepo.FindBetSlipsByUser: find: %w", err)
+	}
+
+	return slips, total, nil
 }
 
 func (r *postgresBetRepo) UpdateBetStatus(ctx context.Context, betID string, status domain.BetStatus) error {
@@ -96,14 +126,26 @@ func (r *postgresMatchRepo) FindMatchByID(ctx context.Context, id string) (*doma
 	return &match, nil
 }
 
-func (r *postgresMatchRepo) ListMatches(ctx context.Context, sport string, status domain.MatchStatus, page, limit int) ([]*domain.Match, int64, error) {
+func (r *postgresMatchRepo) FindMatchByExternalID(ctx context.Context, externalID string) (*domain.Match, error) {
+	var match domain.Match
+	if err := r.db.WithContext(ctx).Where("external_id = ?", externalID).First(&match).Error; err != nil {
+		return nil, fmt.Errorf("matchRepo.FindMatchByExternalID: %w", err)
+	}
+	return &match, nil
+}
+
+func (r *postgresMatchRepo) ListMatches(ctx context.Context, sport string, leagues []string, status domain.MatchStatus, page, limit int) ([]*domain.Match, int64, error) {
 	var matches []*domain.Match
 	var total int64
 
 	query := r.db.WithContext(ctx).Model(&domain.Match{})
+	query = query.Where("external_id IS NOT NULL AND external_id <> ''")
 
 	if sport != "" {
 		query = query.Where("sport = ?", sport)
+	}
+	if len(leagues) > 0 {
+		query = query.Where("league IN ?", leagues)
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)

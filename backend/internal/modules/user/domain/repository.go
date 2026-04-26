@@ -13,4 +13,11 @@ type UserRepository interface {
 	List(ctx context.Context, page, limit int) ([]*User, int64, error)
 	ListFiltered(ctx context.Context, query, status string, page, limit int) ([]*User, int64, error)
 	CountByStatus(ctx context.Context, status string) (int64, error)
+
+	// KYC / Verification
+	SetEmailVerified(ctx context.Context, userID string, verified bool) error
+	SetPhoneVerified(ctx context.Context, userID string, verified bool) error
+	UpdateKYCSubmission(ctx context.Context, userID, nationalID, kycImageURL string) error
+	UpdateKYCStatus(ctx context.Context, userID string, status KYCStatus) error
+	GetVerificationStatus(ctx context.Context, userID string) (*UserVerificationStatus, error)
 }

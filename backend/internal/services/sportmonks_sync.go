@@ -61,6 +61,10 @@ func (s *SportmonksSyncService) syncFixtures(ctx context.Context) {
 
 		homeTeam := strings.TrimSpace(teams[0])
 		awayTeam := strings.TrimSpace(teams[1])
+		leagueName := strings.TrimSpace(fixture.League.Name)
+		if leagueName == "" {
+			leagueName = "Sportmonks"
+		}
 
 		startTime, err := time.Parse("2006-01-02 15:04:05", fixture.StartingAt)
 		if err != nil {
@@ -71,7 +75,7 @@ func (s *SportmonksSyncService) syncFixtures(ctx context.Context) {
 		match := &bettingDomain.Match{
 			ID:        uuid.New().String(),
 			Sport:     "Football",
-			League:    "Sportmonks",
+			League:    leagueName,
 			HomeTeam:  homeTeam,
 			AwayTeam:  awayTeam,
 			StartTime: startTime,

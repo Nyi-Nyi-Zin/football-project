@@ -63,6 +63,7 @@ func (uc *UserUseCase) Register(ctx context.Context, req *domain.RegisterRequest
 		Phone:        req.Phone,
 		Role:         "user",
 		Status:       "active",
+		KYCStatus:    domain.KYCStatusPending,
 	}
 
 	if err := uc.repo.Create(ctx, user); err != nil {
@@ -108,6 +109,29 @@ func (uc *UserUseCase) Login(ctx context.Context, req *domain.LoginRequest) (*do
 		Type:    event.UserLoggedIn,
 		Payload: map[string]string{"user_id": user.ID},
 	})
+
+	return user.ToProfile(), tokens, nil
+}
+
+// RefreshToken validates a refresh token and issues a new access/refresh pair.
+func (uc *UserUseCase) RefreshToken(ctx context.Context, refreshToken string) (*domain.UserProfile, *jwtpkg.TokenPair, error) {
+	claims, err := uc.jwtManager.ValidateRefreshToken(refreshToken)
+	if err != nil {
+		return nil, nil, apperrors.NewUnauthorizedError("Invalid or expired refresh token")
+	}
+
+	user, err := uc.repo.FindByID(ctx, claims.UserID)
+	if err != nil {
+		return nil, nil, apperrors.NewUnauthorizedError("Invalid refresh token subject")
+	}
+	if user.Status != "active" {
+		return nil, nil, apperrors.NewForbiddenError("Account is suspended")
+	}
+
+	tokens, err := uc.jwtManager.GenerateTokenPair(user.ID, user.Email, user.Role)
+	if err != nil {
+		return nil, nil, fmt.Errorf("usecase.RefreshToken: generate tokens: %w", err)
+	}
 
 	return user.ToProfile(), tokens, nil
 }
@@ -219,4 +243,83 @@ func (uc *UserUseCase) GetProfileByID(ctx context.Context, userID string) (*doma
 		return nil, apperrors.NewNotFoundError("User not found")
 	}
 	return user.ToProfile(), nil
+}
+
+// ─── KYC & Verification ─────────────────────────────────────────────────────
+
+// VerifyEmail marks the user's email as verified.
+// In production this would validate an OTP/link token first.
+func (uc *UserUseCase) VerifyEmail(ctx context.Context, userID string, req *domain.VerifyEmailRequest) error {
+	// TODO: In production, validate the OTP/code against a stored value.
+	// For now, any non-empty code is accepted to enable the flow.
+	if strings.TrimSpace(req.Code) == "" {
+		return apperrors.NewBadRequestError("Verification code is required")
+	}
+
+	if err := uc.repo.SetEmailVerified(ctx, userID, true); err != nil {
+		return fmt.Errorf("usecase.VerifyEmail: %w", err)
+	}
+	return nil
+}
+
+// VerifyPhone marks the user's phone as verified.
+// In production this would validate an SMS OTP first.
+func (uc *UserUseCase) VerifyPhone(ctx context.Context, userID string, req *domain.VerifyPhoneRequest) error {
+	// TODO: In production, validate the OTP/code against a stored value.
+	if strings.TrimSpace(req.Code) == "" {
+		return apperrors.NewBadRequestError("Verification code is required")
+	}
+
+	if err := uc.repo.SetPhoneVerified(ctx, userID, true); err != nil {
+		return fmt.Errorf("usecase.VerifyPhone: %w", err)
+	}
+	return nil
+}
+
+// SubmitKYC records a user's National ID and verification image for admin review.
+func (uc *UserUseCase) SubmitKYC(ctx context.Context, userID string, req *domain.SubmitKYCRequest) error {
+	user, err := uc.repo.FindByID(ctx, userID)
+	if err != nil {
+		return apperrors.NewNotFoundError("User not found")
+	}
+
+	// If already approved, no re-submission needed
+	if user.KYCStatus == domain.KYCStatusApproved {
+		return apperrors.NewBadRequestError("KYC is already approved")
+	}
+
+	if err := uc.repo.UpdateKYCSubmission(ctx, userID, req.NationalID, req.KYCImageURL); err != nil {
+		return fmt.Errorf("usecase.SubmitKYC: %w", err)
+	}
+
+	return nil
+}
+
+// AdminDecideKYC lets an admin approve or reject a user's KYC submission.
+func (uc *UserUseCase) AdminDecideKYC(ctx context.Context, targetUserID string, req *domain.AdminKYCDecisionRequest) error {
+	user, err := uc.repo.FindByID(ctx, targetUserID)
+	if err != nil {
+		return apperrors.NewNotFoundError("User not found")
+	}
+
+	// Ensure user actually submitted KYC documents
+	if strings.TrimSpace(user.NationalID) == "" || strings.TrimSpace(user.KYCImageURL) == "" {
+		return apperrors.NewBadRequestError("User has not submitted KYC documents yet")
+	}
+
+	newStatus := domain.KYCStatus(req.Decision)
+	if newStatus != domain.KYCStatusApproved && newStatus != domain.KYCStatusRejected {
+		return apperrors.NewBadRequestError("Invalid KYC decision; must be 'approved' or 'rejected'")
+	}
+
+	if err := uc.repo.UpdateKYCStatus(ctx, targetUserID, newStatus); err != nil {
+		return fmt.Errorf("usecase.AdminDecideKYC: %w", err)
+	}
+
+	return nil
+}
+
+// GetVerificationStatus returns the KYC/verification state for cross-module checks.
+func (uc *UserUseCase) GetVerificationStatus(ctx context.Context, userID string) (*domain.UserVerificationStatus, error) {
+	return uc.repo.GetVerificationStatus(ctx, userID)
 }

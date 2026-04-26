@@ -42,23 +42,69 @@ final authNotifierProvider =
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   final Ref _ref;
+  Future<void>? _restoreFuture;
 
   AuthNotifier(this._ref) : super(const AsyncLoading()) {
-    _init();
+    restoreSession(isInitialLoad: true);
   }
 
-  Future<void> _init() async {
-    final repo = _ref.read(authRepositoryProvider);
-    final isAuth = await repo.isAuthenticated();
-    if (isAuth) {
-      final profileResult = await repo.getProfile();
-      state = profileResult.fold(
-        (failure) => const AsyncData(null),
-        (user) => AsyncData(user),
-      );
-    } else {
-      state = const AsyncData(null);
+  Future<void> restoreSession({bool isInitialLoad = false}) async {
+    final inFlight = _restoreFuture;
+    if (inFlight != null) {
+      return inFlight;
     }
+
+    final future = _restoreSessionInternal(isInitialLoad: isInitialLoad);
+    _restoreFuture = future;
+    try {
+      await future;
+    } finally {
+      _restoreFuture = null;
+    }
+  }
+
+  Future<void> _restoreSessionInternal({required bool isInitialLoad}) async {
+    final repo = _ref.read(authRepositoryProvider);
+    final dioClient = _ref.read(dioClientProvider);
+    final currentUser = state.valueOrNull;
+
+    if (isInitialLoad) {
+      state = const AsyncLoading();
+    }
+
+    final hasSession = await dioClient.hasTokens();
+    if (!hasSession) {
+      state = const AsyncData(null);
+      return;
+    }
+
+    final accessTokenReady = await dioClient.ensureValidAccessToken();
+    if (!accessTokenReady) {
+      state = const AsyncData(null);
+      return;
+    }
+
+    final profileResult = await repo.getProfile();
+    Failure? failure;
+    final nextState = profileResult.fold<AsyncValue<User?>>(
+      (err) {
+        failure = err;
+        if (_shouldClearSession(err)) {
+          return const AsyncData(null);
+        }
+        if (currentUser != null) {
+          return AsyncData(currentUser);
+        }
+        return AsyncError(err, StackTrace.current);
+      },
+      AsyncData.new,
+    );
+
+    if (failure != null && _shouldClearSession(failure!)) {
+      await dioClient.clearTokens();
+    }
+
+    state = nextState;
   }
 
   Future<void> login(String email, String password) async {
@@ -132,5 +178,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
           currentPassword: currentPassword,
           newPassword: newPassword,
         );
+  }
+
+  bool _shouldClearSession(Failure failure) {
+    if (failure is AuthFailure) {
+      return true;
+    }
+
+    final code = failure.code?.toUpperCase();
+    if (code == 'AUTH_ERROR' || code == 'UNAUTHORIZED') {
+      return true;
+    }
+
+    final message = failure.message.toLowerCase();
+    return message.contains('unauthorized') ||
+        message.contains('invalid or expired token') ||
+        message.contains('invalid or expired refresh token');
   }
 }

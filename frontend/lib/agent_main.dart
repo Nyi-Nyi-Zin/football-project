@@ -6,6 +6,7 @@ import 'core/i18n/app_localizations.dart';
 import 'core/i18n/locale_provider.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'features/auth/presentation/providers/auth_provider.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,11 +17,39 @@ void main() {
   );
 }
 
-class AgentApp extends ConsumerWidget {
+class AgentApp extends ConsumerStatefulWidget {
   const AgentApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<AgentApp> createState() => _AgentAppState();
+}
+
+class _AgentAppState extends ConsumerState<AgentApp>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    Future.microtask(() {
+      ref.read(authNotifierProvider.notifier).restoreSession();
+    });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      ref.read(authNotifierProvider.notifier).restoreSession();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final router = ref.watch(agentRouterProvider);
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);

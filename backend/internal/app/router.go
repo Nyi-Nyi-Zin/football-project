@@ -43,6 +43,7 @@ func RegisterRoutes(
 	auth := v1.Group("/auth")
 	auth.POST("/register", userH.Register)
 	auth.POST("/login", userH.Login)
+	auth.POST("/refresh", userH.Refresh)
 
 	// --- Protected routes ---
 	protected := v1.Group("")
@@ -58,7 +59,9 @@ func RegisterRoutes(
 	// Betting routes
 	bets := protected.Group("/bets")
 	bets.POST("", bettingH.PlaceBet)
+	bets.POST("/slips", bettingH.PlaceBetSlip)
 	bets.GET("/my", bettingH.GetMyBets)
+	bets.GET("/slips/my", bettingH.GetMyBetSlips)
 	bets.GET("/:id", bettingH.GetBet)
 	bets.DELETE("/:id", bettingH.CancelBet)
 

@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../constants/app_constants.dart';
@@ -10,10 +13,23 @@ final dioClientProvider = Provider<DioClient>((ref) {
 
 class DioClient {
   late final Dio _dio;
+  late final Dio _refreshDio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
+  Future<bool>? _refreshingFuture;
 
   DioClient() {
     _dio = Dio(
+      BaseOptions(
+        baseUrl: AppConstants.apiBaseUrl,
+        connectTimeout: AppConstants.connectionTimeout,
+        receiveTimeout: AppConstants.receiveTimeout,
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json',
+        },
+      ),
+    );
+    _refreshDio = Dio(
       BaseOptions(
         baseUrl: AppConstants.apiBaseUrl,
         connectTimeout: AppConstants.connectionTimeout,
@@ -31,7 +47,7 @@ class DioClient {
       LogInterceptor(
         requestBody: true,
         responseBody: true,
-        logPrint: (obj) => print('[DIO] $obj'),
+        logPrint: (obj) => debugPrint('[DIO] $obj'),
       ),
     ]);
   }
@@ -42,6 +58,14 @@ class DioClient {
   InterceptorsWrapper _authInterceptor() {
     return InterceptorsWrapper(
       onRequest: (options, handler) async {
+        final path = options.path;
+        final isAuthRoute = path.contains('/auth/login') ||
+            path.contains('/auth/register') ||
+            path.contains('/auth/refresh');
+        if (isAuthRoute) {
+          handler.next(options);
+          return;
+        }
         final token = await _storage.read(key: AppConstants.accessTokenKey);
         if (token != null) {
           options.headers['Authorization'] = 'Bearer $token';
@@ -49,13 +73,18 @@ class DioClient {
         handler.next(options);
       },
       onError: (error, handler) async {
-        if (error.response?.statusCode == 401) {
+        final statusCode = error.response?.statusCode;
+        final reqPath = error.requestOptions.path;
+        final isRefreshCall = reqPath.contains('/auth/refresh');
+        final alreadyRetried = error.requestOptions.extra['retried'] == true;
+        if (statusCode == 401 && !isRefreshCall && !alreadyRetried) {
           // Try to refresh token
-          final refreshed = await _refreshToken();
+          final refreshed = await _refreshTokenGuarded();
           if (refreshed) {
             // Retry the original request
             final token = await _storage.read(key: AppConstants.accessTokenKey);
             error.requestOptions.headers['Authorization'] = 'Bearer $token';
+            error.requestOptions.extra['retried'] = true;
             final response = await _dio.fetch(error.requestOptions);
             return handler.resolve(response);
           }
@@ -104,11 +133,15 @@ class DioClient {
   /// Refresh the access token using the refresh token
   Future<bool> _refreshToken() async {
     try {
-      final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
-      if (refreshToken == null) return false;
+      final refreshToken =
+          await _storage.read(key: AppConstants.refreshTokenKey);
+      if (refreshToken == null) {
+        await clearTokens();
+        return false;
+      }
 
-      final response = await Dio().post(
-        '${AppConstants.apiBaseUrl}/auth/refresh',
+      final response = await _refreshDio.post(
+        '/auth/refresh',
         data: {'refresh_token': refreshToken},
       );
 
@@ -124,16 +157,33 @@ class DioClient {
         );
         return true;
       }
+      await clearTokens();
       return false;
     } catch (_) {
+      await clearTokens();
       return false;
+    }
+  }
+
+  Future<bool> _refreshTokenGuarded() async {
+    final inFlight = _refreshingFuture;
+    if (inFlight != null) {
+      return inFlight;
+    }
+    final future = _refreshToken();
+    _refreshingFuture = future;
+    try {
+      return await future;
+    } finally {
+      _refreshingFuture = null;
     }
   }
 
   /// Save tokens after login/register
   Future<void> saveTokens(String accessToken, String refreshToken) async {
     await _storage.write(key: AppConstants.accessTokenKey, value: accessToken);
-    await _storage.write(key: AppConstants.refreshTokenKey, value: refreshToken);
+    await _storage.write(
+        key: AppConstants.refreshTokenKey, value: refreshToken);
   }
 
   /// Clear tokens on logout
@@ -142,9 +192,49 @@ class DioClient {
     await _storage.delete(key: AppConstants.refreshTokenKey);
   }
 
+  /// Ensure an access token exists and is still valid.
+  Future<bool> ensureValidAccessToken() async {
+    final accessToken = await _storage.read(key: AppConstants.accessTokenKey);
+    if (accessToken != null && !_isJwtExpired(accessToken)) {
+      return true;
+    }
+
+    return _refreshTokenGuarded();
+  }
+
   /// Check if user has stored tokens
   Future<bool> hasTokens() async {
-    final token = await _storage.read(key: AppConstants.accessTokenKey);
-    return token != null;
+    final accessToken = await _storage.read(key: AppConstants.accessTokenKey);
+    final refreshToken = await _storage.read(key: AppConstants.refreshTokenKey);
+    return accessToken != null || refreshToken != null;
+  }
+
+  bool _isJwtExpired(String token) {
+    try {
+      final parts = token.split('.');
+      if (parts.length != 3) {
+        return true;
+      }
+
+      final payload =
+          utf8.decode(base64Url.decode(base64Url.normalize(parts[1])));
+      final claims = jsonDecode(payload) as Map<String, dynamic>;
+      final exp = claims['exp'];
+      if (exp is! num) {
+        return true;
+      }
+
+      final expiry = DateTime.fromMillisecondsSinceEpoch(
+        exp.toInt() * 1000,
+        isUtc: true,
+      );
+
+      // Refresh slightly early to avoid requests racing the expiry boundary.
+      return !expiry.isAfter(
+        DateTime.now().toUtc().add(const Duration(seconds: 30)),
+      );
+    } catch (_) {
+      return true;
+    }
   }
 }

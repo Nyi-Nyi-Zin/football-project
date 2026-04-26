@@ -28,4 +28,9 @@ type WalletRepository interface {
 	FindByUserID(ctx context.Context, userID string) (*Wallet, error)
 	UpdateBalance(ctx context.Context, userID string, amount float64) error
 	GetBalance(ctx context.Context, userID string) (float64, error)
+
+	// AML / Turnover tracking
+	IncrementRequiredTurnover(ctx context.Context, userID string, amount float64) error
+	IncrementCurrentTurnover(ctx context.Context, userID string, amount float64) error
+	GetTurnover(ctx context.Context, userID string) (required float64, current float64, err error)
 }

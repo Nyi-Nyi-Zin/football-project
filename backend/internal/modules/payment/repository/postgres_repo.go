@@ -260,3 +260,37 @@ func (r *postgresWalletRepo) GetBalance(ctx context.Context, userID string) (flo
 	}
 	return wallet.Balance, nil
 }
+
+func (r *postgresWalletRepo) IncrementRequiredTurnover(ctx context.Context, userID string, amount float64) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.Wallet{}).
+		Where("user_id = ?", userID).
+		Update("required_turnover", gorm.Expr("required_turnover + ?", amount))
+	if result.Error != nil {
+		return fmt.Errorf("walletRepo.IncrementRequiredTurnover: %w", result.Error)
+	}
+	return nil
+}
+
+func (r *postgresWalletRepo) IncrementCurrentTurnover(ctx context.Context, userID string, amount float64) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.Wallet{}).
+		Where("user_id = ?", userID).
+		Update("current_turnover", gorm.Expr("current_turnover + ?", amount))
+	if result.Error != nil {
+		return fmt.Errorf("walletRepo.IncrementCurrentTurnover: %w", result.Error)
+	}
+	return nil
+}
+
+func (r *postgresWalletRepo) GetTurnover(ctx context.Context, userID string) (float64, float64, error) {
+	var wallet domain.Wallet
+	if err := r.db.WithContext(ctx).
+		Select("required_turnover, current_turnover").
+		Where("user_id = ?", userID).
+		First(&wallet).Error; err != nil {
+		return 0, 0, fmt.Errorf("walletRepo.GetTurnover: %w", err)
+	}
+	return wallet.RequiredTurnover, wallet.CurrentTurnover, nil
+}
+

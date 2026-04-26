@@ -9,9 +9,10 @@ import (
 
 // Claims represents the JWT claims
 type Claims struct {
-	UserID string `json:"user_id"`
-	Email  string `json:"email"`
-	Role   string `json:"role"`
+	UserID    string `json:"user_id"`
+	Email     string `json:"email"`
+	Role      string `json:"role"`
+	TokenType string `json:"token_type"`
 	jwt.RegisteredClaims
 }
 
@@ -45,9 +46,10 @@ func (m *Manager) GenerateTokenPair(userID, email, role string) (*TokenPair, err
 
 	// Access token
 	accessClaims := &Claims{
-		UserID: userID,
-		Email:  email,
-		Role:   role,
+		UserID:    userID,
+		Email:     email,
+		Role:      role,
+		TokenType: "access",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -63,7 +65,8 @@ func (m *Manager) GenerateTokenPair(userID, email, role string) (*TokenPair, err
 
 	// Refresh token
 	refreshClaims := &Claims{
-		UserID: userID,
+		UserID:    userID,
+		TokenType: "refresh",
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.refreshExpiry)),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -102,5 +105,27 @@ func (m *Manager) ValidateToken(tokenString string) (*Claims, error) {
 		return nil, fmt.Errorf("jwt.ValidateToken: invalid token claims")
 	}
 
+	return claims, nil
+}
+
+func (m *Manager) ValidateAccessToken(tokenString string) (*Claims, error) {
+	claims, err := m.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.TokenType != "access" {
+		return nil, fmt.Errorf("jwt.ValidateAccessToken: invalid token type")
+	}
+	return claims, nil
+}
+
+func (m *Manager) ValidateRefreshToken(tokenString string) (*Claims, error) {
+	claims, err := m.ValidateToken(tokenString)
+	if err != nil {
+		return nil, err
+	}
+	if claims.TokenType != "refresh" {
+		return nil, fmt.Errorf("jwt.ValidateRefreshToken: invalid token type")
+	}
 	return claims, nil
 }

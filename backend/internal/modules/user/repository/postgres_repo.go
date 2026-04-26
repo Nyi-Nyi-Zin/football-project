@@ -127,3 +127,80 @@ func (r *postgresUserRepo) CountByStatus(ctx context.Context, status string) (in
 	}
 	return total, nil
 }
+
+// ─── KYC / Verification ─────────────────────────────────────────────────────
+
+func (r *postgresUserRepo) SetEmailVerified(ctx context.Context, userID string, verified bool) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("is_email_verified", verified)
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.SetEmailVerified: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("userRepo.SetEmailVerified: user not found")
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) SetPhoneVerified(ctx context.Context, userID string, verified bool) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("is_phone_verified", verified)
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.SetPhoneVerified: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("userRepo.SetPhoneVerified: user not found")
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) UpdateKYCSubmission(ctx context.Context, userID, nationalID, kycImageURL string) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"national_id":   nationalID,
+			"kyc_image_url": kycImageURL,
+			"kyc_status":    domain.KYCStatusPending,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateKYCSubmission: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("userRepo.UpdateKYCSubmission: user not found")
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) UpdateKYCStatus(ctx context.Context, userID string, status domain.KYCStatus) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("kyc_status", status)
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateKYCStatus: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("userRepo.UpdateKYCStatus: user not found")
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) GetVerificationStatus(ctx context.Context, userID string) (*domain.UserVerificationStatus, error) {
+	var user domain.User
+	if err := r.db.WithContext(ctx).
+		Select("is_email_verified, is_phone_verified, kyc_status").
+		Where("id = ?", userID).
+		First(&user).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.GetVerificationStatus: %w", err)
+	}
+	return &domain.UserVerificationStatus{
+		IsEmailVerified: user.IsEmailVerified,
+		IsPhoneVerified: user.IsPhoneVerified,
+		KYCStatus:       user.KYCStatus,
+	}, nil
+}

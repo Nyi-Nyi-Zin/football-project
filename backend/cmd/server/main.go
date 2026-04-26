@@ -74,6 +74,8 @@ func main() {
 		&userDomain.User{},
 		&bettingDomain.Match{},
 		&bettingDomain.Bet{},
+		&bettingDomain.BetSlip{},
+		&bettingDomain.BetLeg{},
 		&paymentDomain.Transaction{},
 		&paymentDomain.Wallet{},
 		&paymentDomain.WithdrawalRequest{},
@@ -135,24 +137,30 @@ func main() {
 		walletRepo: walletRepository,
 	}
 
-	// Betting module
-	betRepository := bettingRepo.NewPostgresBetRepo(db)
-	matchRepository := bettingRepo.NewPostgresMatchRepo(db)
-	bettingUC := bettingUsecase.NewBettingUseCase(betRepository, matchRepository, userProviderAdapter, eventBus)
-	bettingH := bettingHandler.NewBettingHandler(bettingUC)
-
-	// Sportmonks Sync
-	if cfg.Sportmonks.Token != "" {
-		syncService := services.NewSportmonksSyncService(cfg.Sportmonks.Token, matchRepository)
-		syncService.StartSync(context.Background())
-	} else {
-		logger.Info("Sportmonks API token empty, skipping sync")
-	}
-
 	// Odds module
 	oddsRepository := oddsRepo.NewPostgresOddsRepo(db)
 	oddsUC := oddsUsecase.NewOddsUseCase(oddsRepository, eventBus)
 	oddsH := oddsHandler.NewOddsHandler(oddsUC)
+
+	// Betting module
+	betRepository := bettingRepo.NewPostgresBetRepo(db)
+	matchRepository := bettingRepo.NewPostgresMatchRepo(db)
+	bettingUC := bettingUsecase.NewBettingUseCase(betRepository, matchRepository, oddsRepository, userProviderAdapter, eventBus)
+	bettingH := bettingHandler.NewBettingHandler(bettingUC)
+
+	// External odds data sync
+	if cfg.TheOddsAPI.Key != "" {
+		syncInterval, parseErr := time.ParseDuration(cfg.TheOddsAPI.SyncInterval)
+		if parseErr != nil {
+			logger.Warn("Invalid THE_ODDS_SYNC_INTERVAL, using default", "value", cfg.TheOddsAPI.SyncInterval, "error", parseErr)
+			syncInterval = 30 * time.Minute
+		}
+		syncService := services.NewTheOddsSyncService(cfg.TheOddsAPI.Key, syncInterval, matchRepository, oddsRepository)
+		syncService.StartSync(context.Background())
+		logger.Info("The Odds API sync enabled", "interval", syncInterval.String())
+	} else {
+		logger.Info("The Odds API key is empty, skipping external odds sync")
+	}
 
 	// Notification module
 	notifRepository := notificationRepo.NewPostgresNotificationRepo(db)

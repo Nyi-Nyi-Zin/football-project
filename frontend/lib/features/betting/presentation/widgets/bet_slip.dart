@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
-import '../../domain/entities/betting_entity.dart';
 import '../providers/betting_provider.dart';
 
 class BetSlip extends ConsumerStatefulWidget {
-  final Match match;
-  final String selection;
-
-  const BetSlip({super.key, required this.match, required this.selection});
+  const BetSlip({super.key});
 
   @override
   ConsumerState<BetSlip> createState() => _BetSlipState();
@@ -17,12 +13,6 @@ class BetSlip extends ConsumerStatefulWidget {
 class _BetSlipState extends ConsumerState<BetSlip> {
   final _stakeController = TextEditingController();
   bool _isPlacing = false;
-  final double _odds = 1.85; // Would come from odds module
-
-  double get _potentialPayout {
-    final stake = double.tryParse(_stakeController.text) ?? 0;
-    return stake * _odds;
-  }
 
   @override
   void dispose() {
@@ -32,26 +22,30 @@ class _BetSlipState extends ConsumerState<BetSlip> {
 
   Future<void> _placeBet() async {
     final stake = double.tryParse(_stakeController.text);
-    if (stake == null || stake <= 0) return;
+    final items = ref.read(betCartProvider);
+    if (stake == null || stake <= 0 || items.isEmpty) return;
 
     setState(() => _isPlacing = true);
 
-    final bet = await ref.read(myBetsProvider.notifier).placeBet(
-          matchId: widget.match.id,
-          selection: widget.selection,
-          stake: stake,
-        );
+    final success = await ref.read(betCartProvider.notifier).placeSelections(stake);
 
     setState(() => _isPlacing = false);
 
     if (mounted) {
-      Navigator.pop(context);
+      if (success) {
+        Navigator.pop(context);
+      }
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            bet != null ? 'Bet placed successfully!' : 'Failed to place bet',
+            success
+                ? (items.length == 1
+                    ? 'Bet placed successfully!'
+                    : 'Accumulator placed successfully!')
+                : 'Failed to place bet',
           ),
-          backgroundColor: bet != null ? AppTheme.successColor : AppTheme.errorColor,
+          backgroundColor:
+              success ? AppTheme.successColor : AppTheme.errorColor,
         ),
       );
     }
@@ -59,6 +53,13 @@ class _BetSlipState extends ConsumerState<BetSlip> {
 
   @override
   Widget build(BuildContext context) {
+    final items = ref.watch(betCartProvider);
+    final combinedOdds = items.isEmpty
+        ? 0.0
+        : items.fold<double>(1, (value, item) => value * item.selection.odds);
+    final stake = double.tryParse(_stakeController.text) ?? 0;
+    final potentialPayout = stake * combinedOdds;
+
     return SingleChildScrollView(
       child: Padding(
         padding: EdgeInsets.only(
@@ -67,152 +68,189 @@ class _BetSlipState extends ConsumerState<BetSlip> {
           top: 24,
           bottom: MediaQuery.of(context).viewInsets.bottom + 24,
         ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Handle bar
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: AppTheme.textMuted,
-                borderRadius: BorderRadius.circular(2),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppTheme.textMuted,
+                  borderRadius: BorderRadius.circular(2),
+                ),
               ),
             ),
-          ),
-          const SizedBox(height: 20),
-
-          const Text(
-            'Place Bet',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-              color: AppTheme.textPrimary,
+            const SizedBox(height: 20),
+            const Text(
+              'Accumulator Slip',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.textPrimary,
+              ),
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Match info
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: AppTheme.darkBg,
-              borderRadius: BorderRadius.circular(10),
+            const SizedBox(height: 6),
+            Text(
+              items.isEmpty
+                  ? 'Add a selection to place a bet'
+                  : items.length == 1
+                      ? 'Single bet ready'
+                      : '${items.length} selections added',
+              style: const TextStyle(
+                color: AppTheme.textSecondary,
+                fontSize: 13,
+              ),
             ),
-            child: Column(
-              children: [
-                Text(
-                  '${widget.match.homeTeam} vs ${widget.match.awayTeam}',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
+            const SizedBox(height: 16),
+            if (items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.symmetric(vertical: 16),
+                child: Text(
+                  'No selections yet',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: AppTheme.textSecondary),
                 ),
-                const SizedBox(height: 4),
+              )
+            else
+              ...items.map(
+                (item) => Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: AppTheme.darkBg,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${item.match.homeTeam} vs ${item.match.awayTeam}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${item.match.league} • ${item.market.name} • ${item.selection.label}',
+                              style: const TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      Column(
+                        children: [
+                          Text(
+                            item.selection.odds.toStringAsFixed(2),
+                            style: const TextStyle(
+                              color: AppTheme.primaryColor,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () => ref
+                                .read(betCartProvider.notifier)
+                                .removeMatch(item.match.id),
+                            icon: const Icon(
+                              Icons.close,
+                              size: 18,
+                              color: AppTheme.textMuted,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Combined Odds',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
                 Text(
-                  '${widget.match.league} • Selection: ${widget.selection.toUpperCase()}',
+                  combinedOdds.toStringAsFixed(2),
                   style: const TextStyle(
-                    color: AppTheme.textSecondary,
-                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.primaryColor,
+                    fontSize: 18,
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 16),
-
-          // Odds display
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Odds', style: TextStyle(color: AppTheme.textSecondary)),
-              Text(
-                _odds.toStringAsFixed(2),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.primaryColor,
-                  fontSize: 18,
-                ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _stakeController,
+              keyboardType: TextInputType.number,
+              decoration: const InputDecoration(
+                labelText: 'Stake Amount',
+                suffixText: ' MMK',
               ),
-            ],
-          ),
-          const SizedBox(height: 16),
-
-          // Stake input
-          TextField(
-            controller: _stakeController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: 'Stake Amount',
-              suffixText: ' MMK',
+              onChanged: (_) => setState(() {}),
             ),
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: 8),
-
-          // Quick stake buttons
-          Row(
-            children: [500, 1000, 2000, 5000, 10000].map((amount) {
-              return Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 2),
-                  child: OutlinedButton(
-                    onPressed: () {
-                      _stakeController.text = amount.toString();
-                      setState(() {});
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 8),
-                      minimumSize: Size.zero,
-                    ),
-                    child: Text(
-                      '$amount MMK',
-                      style: const TextStyle(fontSize: 12),
-                    ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: [500, 1000, 2000, 5000, 10000].map((amount) {
+                return OutlinedButton(
+                  onPressed: () {
+                    _stakeController.text = amount.toString();
+                    setState(() {});
+                  },
+                  child: Text('$amount MMK'),
+                );
+              }).toList(),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text(
+                  'Potential Payout',
+                  style: TextStyle(color: AppTheme.textSecondary),
+                ),
+                Text(
+                  '${potentialPayout.toStringAsFixed(2)} MMK',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: AppTheme.accentColor,
+                    fontSize: 20,
                   ),
                 ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 16),
-
-          // Potential payout
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Potential Payout',
-                style: TextStyle(color: AppTheme.textSecondary),
-              ),
-              Text(
-                '${_potentialPayout.toStringAsFixed(2)} MMK',
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.accentColor,
-                  fontSize: 20,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-
-          // Place bet button
-          SizedBox(
-            height: 52,
-            child: ElevatedButton(
-              onPressed: _isPlacing ? null : _placeBet,
-              child: _isPlacing
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
-                      ),
-                    )
-                  : const Text('Place Bet'),
+              ],
             ),
-          ),
-        ],
+            const SizedBox(height: 20),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton(
+                onPressed: _isPlacing || items.isEmpty ? null : _placeBet,
+                child: _isPlacing
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        items.length == 1
+                            ? 'Place Bet'
+                            : 'Place Accumulator',
+                      ),
+              ),
+            ),
+          ],
         ),
       ),
     );

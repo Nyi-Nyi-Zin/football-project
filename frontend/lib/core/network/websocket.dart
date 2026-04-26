@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 import '../constants/app_constants.dart';
@@ -35,7 +36,7 @@ class WebSocketService {
             final decoded = jsonDecode(data as String) as Map<String, dynamic>;
             _controller?.add(decoded);
           } catch (e) {
-            print('[WebSocket] Error decoding message: $e');
+            debugPrint('[WebSocket] Error decoding message: $e');
           }
         },
         onDone: () {
@@ -43,13 +44,13 @@ class WebSocketService {
           _scheduleReconnect();
         },
         onError: (error) {
-          print('[WebSocket] Error: $error');
+          debugPrint('[WebSocket] Error: $error');
           _isConnected = false;
           _scheduleReconnect();
         },
       );
     } catch (e) {
-      print('[WebSocket] Connection failed: $e');
+      debugPrint('[WebSocket] Connection failed: $e');
       _scheduleReconnect();
     }
   }
@@ -58,7 +59,7 @@ class WebSocketService {
     _reconnectTimer?.cancel();
     _reconnectTimer = Timer(const Duration(seconds: 5), () {
       if (!_isConnected) {
-        print('[WebSocket] Attempting reconnection...');
+        debugPrint('[WebSocket] Attempting reconnection...');
         _connectInternal();
       }
     });

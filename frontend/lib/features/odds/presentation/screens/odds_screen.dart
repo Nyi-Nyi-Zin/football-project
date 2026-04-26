@@ -32,9 +32,9 @@ class OddsScreen extends ConsumerWidget {
           // Connection status
           Container(
             padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-            color: wsStream.isLoading 
-                ? AppTheme.warningColor.withOpacity(0.1) 
-                : AppTheme.successColor.withOpacity(0.1),
+            color: wsStream.isLoading
+                ? AppTheme.warningColor.withValues(alpha: 0.1)
+                : AppTheme.successColor.withValues(alpha: 0.1),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -146,7 +146,9 @@ class _LiveOddsCard extends StatelessWidget {
           decoration: BoxDecoration(
             color: AppTheme.darkBg,
             borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: AppTheme.primaryColor.withOpacity(0.3)),
+            border: Border.all(
+              color: AppTheme.primaryColor.withValues(alpha: 0.3),
+            ),
           ),
           child: Text(
             oddValue.toStringAsFixed(2),

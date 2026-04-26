@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"betting-app/internal/modules/betting/domain"
 	"betting-app/internal/modules/betting/usecase"
@@ -17,6 +18,33 @@ import (
 type BettingHandler struct {
 	useCase  *usecase.BettingUseCase
 	validate *validator.Validate
+}
+
+// PlaceBetSlip handles POST /api/v1/bets/slips
+func (h *BettingHandler) PlaceBetSlip(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req domain.PlaceBetSlipRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	slip, err := h.useCase.PlaceBetSlip(c.Request().Context(), userID, &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to place bet slip")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusCreated, apperrors.NewSuccessResponse(slip, nil))
 }
 
 // NewBettingHandler creates a new betting handler
@@ -107,6 +135,43 @@ func (h *BettingHandler) GetMyBets(c echo.Context) error {
 	}))
 }
 
+// GetMyBetSlips handles GET /api/v1/bets/slips/my
+func (h *BettingHandler) GetMyBetSlips(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	status := c.QueryParam("status")
+
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	filter := &domain.BetFilter{
+		UserID: userID,
+		Status: domain.BetStatus(status),
+		Page:   page,
+		Limit:  limit,
+	}
+
+	slips, total, err := h.useCase.GetUserBetSlips(c.Request().Context(), filter)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get bet slips")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	lastPage := int(math.Ceil(float64(total) / float64(limit)))
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(slips, &apperrors.PaginationMeta{
+		Total:    total,
+		Page:     page,
+		LastPage: lastPage,
+	}))
+}
+
 // CancelBet handles DELETE /api/v1/bets/:id
 func (h *BettingHandler) CancelBet(c echo.Context) error {
 	userID := c.Get("user_id").(string)
@@ -131,6 +196,13 @@ func (h *BettingHandler) ListMatches(c echo.Context) error {
 	limit, _ := strconv.Atoi(c.QueryParam("limit"))
 	sport := c.QueryParam("sport")
 	status := c.QueryParam("status")
+	leagueFilters := make([]string, 0)
+	if leagues := c.QueryParam("leagues"); leagues != "" {
+		leagueFilters = append(leagueFilters, strings.Split(leagues, ",")...)
+	}
+	if league := c.QueryParam("league"); league != "" {
+		leagueFilters = append(leagueFilters, league)
+	}
 
 	if page < 1 {
 		page = 1
@@ -142,6 +214,7 @@ func (h *BettingHandler) ListMatches(c echo.Context) error {
 	matches, total, err := h.useCase.ListMatches(
 		c.Request().Context(),
 		sport,
+		usecase.NormalizeLeagueFilters(leagueFilters),
 		domain.MatchStatus(status),
 		page, limit,
 	)

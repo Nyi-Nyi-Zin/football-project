@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/betting_entity.dart';
 import '../providers/betting_provider.dart';
+import '../widgets/bet_slip.dart' as slip_widget;
 import '../widgets/match_card.dart';
-import '../widgets/bet_slip.dart';
-import '../../../auth/presentation/providers/auth_provider.dart';
 
 class BettingScreen extends ConsumerWidget {
   const BettingScreen({super.key});
@@ -12,6 +12,8 @@ class BettingScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final matchesState = ref.watch(matchesProvider);
+    final selectedLeagues = ref.watch(selectedLeaguesProvider);
+    final cartItems = ref.watch(betCartProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -21,255 +23,394 @@ class BettingScreen extends ConsumerWidget {
         ),
         actions: [
           IconButton(
-            icon: const Icon(Icons.receipt_long),
-            onPressed: () => _showMyBets(context, ref),
+            onPressed: () {
+              ref.read(matchesRefreshKeyProvider.notifier).state++;
+              ref.invalidate(myBetSlipsProvider);
+            },
+            icon: const Icon(Icons.refresh),
           ),
           IconButton(
-            icon: const Icon(Icons.logout),
-            onPressed: () {
-              ref.read(authNotifierProvider.notifier).logout();
-            },
+            onPressed: () => _openBetSlip(context),
+            icon: Badge.count(
+              count: cartItems.length,
+              isLabelVisible: cartItems.isNotEmpty,
+              child: const Icon(Icons.shopping_bag_outlined),
+            ),
           ),
         ],
       ),
-      body: RefreshIndicator(
-        color: AppTheme.primaryColor,
-        onRefresh: () => ref.read(matchesProvider.notifier).refresh(),
-        child: matchesState.when(
-          data: (matches) {
-            if (matches.isEmpty) {
-              return const Center(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(Icons.sports_soccer,
-                        size: 64, color: AppTheme.textMuted),
-                    SizedBox(height: 16),
-                    Text(
-                      'No matches available',
-                      style: TextStyle(
-                        color: AppTheme.textSecondary,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              );
+      body: matchesState.when(
+        data: (matches) => _MatchesList(
+          matches: matches,
+          cartItems: cartItems,
+          selectedLeagues: selectedLeagues,
+          onClearFilters: selectedLeagues.isEmpty
+              ? null
+              : () =>
+                  ref.read(selectedLeaguesProvider.notifier).state = const [],
+          onLeagueTap: (league, isSelected) {
+            final next = [...selectedLeagues];
+            if (isSelected) {
+              next.remove(league);
+            } else {
+              next.add(league);
             }
-
-            // Group matches by sport
-            final grouped = <String, List>{};
-            for (final match in matches) {
-              grouped.putIfAbsent(match.sport, () => []).add(match);
-            }
-
-            return ListView.builder(
-              padding: const EdgeInsets.all(16),
-              itemCount: grouped.length,
-              itemBuilder: (context, index) {
-                final sport = grouped.keys.elementAt(index);
-                final sportMatches = grouped[sport]!;
-
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    // Sport header
-                    Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      child: Row(
-                        children: [
-                          Icon(
-                            _sportIcon(sport),
-                            color: AppTheme.primaryColor,
-                            size: 20,
-                          ),
-                          const SizedBox(width: 8),
-                          Text(
-                            sport.toUpperCase(),
-                            style: const TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                              color: AppTheme.textSecondary,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    // Match cards
-                    ...sportMatches.map((match) => MatchCard(
-                          match: match,
-                          onPlaceBet: (selection) {
-                            _showBetSlip(context, ref, match, selection);
-                          },
-                        )),
-                  ],
-                );
-              },
-            );
+            ref.read(selectedLeaguesProvider.notifier).state = next;
           },
-          loading: () => const Center(
-            child: CircularProgressIndicator(color: AppTheme.primaryColor),
-          ),
-          error: (error, _) => Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Icon(Icons.error_outline,
-                    size: 48, color: AppTheme.errorColor),
-                const SizedBox(height: 16),
-                const Text(
-                  'Failed to load matches',
-                  style: TextStyle(color: AppTheme.textSecondary),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () => ref.read(matchesProvider.notifier).refresh(),
-                  child: const Text('Retry'),
-                ),
-              ],
-            ),
-          ),
+          onRefresh: () async {
+            ref.read(matchesRefreshKeyProvider.notifier).state++;
+            ref.invalidate(matchesProvider);
+            await ref.read(matchesProvider.future);
+          },
+          onSelectionTap: (match, market, selection) {
+            ref.read(betCartProvider.notifier).toggleItem(
+                  match: match,
+                  market: market,
+                  selection: selection,
+                );
+          },
+        ),
+        loading: () => const Center(child: CircularProgressIndicator()),
+        error: (error, _) => _ErrorState(
+          message: error.toString(),
+          onRetry: () =>
+              ref.read(matchesRefreshKeyProvider.notifier).state++,
         ),
       ),
+      floatingActionButton: cartItems.isEmpty
+          ? null
+          : FloatingActionButton.extended(
+              onPressed: () => _openBetSlip(context),
+              backgroundColor: AppTheme.primaryColor,
+              foregroundColor: Colors.white,
+              icon: const Icon(Icons.receipt_long),
+              label: Text(
+                cartItems.length >= 2
+                    ? 'Slip (${cartItems.length})'
+                    : 'Add More (${cartItems.length})',
+              ),
+            ),
     );
   }
 
-  IconData _sportIcon(String sport) {
-    switch (sport.toLowerCase()) {
-      case 'football':
-      case 'soccer':
-        return Icons.sports_soccer;
-      case 'basketball':
-        return Icons.sports_basketball;
-      case 'tennis':
-        return Icons.sports_tennis;
-      case 'cricket':
-        return Icons.sports_cricket;
-      default:
-        return Icons.sports;
-    }
-  }
-
-  void _showBetSlip(
-      BuildContext context, WidgetRef ref, dynamic match, String selection) {
-    showModalBottomSheet(
+  void _openBetSlip(BuildContext context) {
+    showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: AppTheme.darkCard,
+      backgroundColor: Theme.of(context).cardColor,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
-      builder: (ctx) => BetSlip(match: match, selection: selection),
+      builder: (_) => const slip_widget.BetSlip(),
     );
   }
+}
 
-  void _showMyBets(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: AppTheme.darkCard,
-      isScrollControlled: true,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+class _HeaderSummary extends StatelessWidget {
+  final List<String> selectedLeagues;
+  final int selectionCount;
+  final double combinedOdds;
+  final VoidCallback? onClearFilters;
+
+  const _HeaderSummary({
+    required this.selectedLeagues,
+    required this.selectionCount,
+    required this.combinedOdds,
+    required this.onClearFilters,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.primaryColor.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: AppTheme.primaryColor.withValues(alpha: 0.25),
+        ),
       ),
-      builder: (ctx) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        maxChildSize: 0.95,
-        minChildSize: 0.5,
-        expand: false,
-        builder: (_, controller) {
-          final betsState = ref.watch(myBetsProvider);
-          return Column(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            '1xBet-style Markets',
+            style: TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 18,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            selectedLeagues.isEmpty
+                ? 'Showing all tracked leagues with generic market options.'
+                : 'Filtering ${selectedLeagues.length} league(s) with market-based selections.',
+            style: const TextStyle(color: AppTheme.textSecondary),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: [
-              Container(
-                margin: const EdgeInsets.symmetric(vertical: 12),
-                width: 40,
-                height: 4,
-                decoration: BoxDecoration(
-                  color: AppTheme.textMuted,
-                  borderRadius: BorderRadius.circular(2),
-                ),
-              ),
-              const Text(
-                'My Bets',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: AppTheme.textPrimary,
-                ),
-              ),
-              const SizedBox(height: 16),
               Expanded(
-                child: betsState.when(
-                  data: (bets) => bets.isEmpty
-                      ? const Center(
-                          child: Text(
-                            'No bets yet',
-                            style: TextStyle(color: AppTheme.textSecondary),
-                          ),
-                        )
-                      : ListView.builder(
-                          controller: controller,
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          itemCount: bets.length,
-                          itemBuilder: (_, i) {
-                            final bet = bets[i];
-                            return Card(
-                              margin: const EdgeInsets.only(bottom: 8),
-                              child: ListTile(
-                                title: Text(
-                                  '${bet.selection.toUpperCase()} — ${bet.stake.toStringAsFixed(2)} MMK',
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.w600),
-                                ),
-                                subtitle: Text(
-                                  'Odds: ${bet.odds} • Payout: ${bet.potentialPayout.toStringAsFixed(2)} MMK',
-                                  style: const TextStyle(
-                                      color: AppTheme.textSecondary),
-                                ),
-                                trailing: _betStatusChip(bet.status),
-                              ),
-                            );
-                          },
-                        ),
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (_, __) =>
-                      const Center(child: Text('Error loading bets')),
+                child: _SummaryPill(
+                  label: 'Leagues',
+                  value: selectedLeagues.isEmpty
+                      ? 'All 6'
+                      : selectedLeagues.length.toString(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryPill(
+                  label: 'Selections',
+                  value: selectionCount.toString(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: _SummaryPill(
+                  label: 'Combined',
+                  value: selectionCount == 0
+                      ? '--'
+                      : combinedOdds.toStringAsFixed(2),
                 ),
               ),
             ],
+          ),
+          if (onClearFilters != null) ...[
+            const SizedBox(height: 12),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: TextButton.icon(
+                onPressed: onClearFilters,
+                icon: const Icon(Icons.clear_all),
+                label: const Text('Clear league filters'),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _SummaryPill extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _SummaryPill({
+    required this.label,
+    required this.value,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Theme.of(context).cardColor,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: const TextStyle(
+              color: AppTheme.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: const TextStyle(
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MatchesList extends StatelessWidget {
+  final List<Match> matches;
+  final List<BetCartItem> cartItems;
+  final List<String> selectedLeagues;
+  final VoidCallback? onClearFilters;
+  final void Function(String league, bool isSelected) onLeagueTap;
+  final RefreshCallback onRefresh;
+  final void Function(Match match, Market market, MarketSelection selection)
+      onSelectionTap;
+
+  const _MatchesList({
+    required this.matches,
+    required this.cartItems,
+    required this.selectedLeagues,
+    required this.onClearFilters,
+    required this.onLeagueTap,
+    required this.onRefresh,
+    required this.onSelectionTap,
+  });
+
+  // Number of extra header items before the match cards
+  static const int _headerCount = 2; // header summary + league chips row
+
+  @override
+  Widget build(BuildContext context) {
+    final selectionCount = cartItems.length;
+    final combinedOdds = cartItems.isEmpty
+        ? 0.0
+        : cartItems.fold<double>(1, (v, item) => v * item.selection.odds);
+
+    if (matches.isEmpty) {
+      return RefreshIndicator(
+        color: AppTheme.primaryColor,
+        onRefresh: onRefresh,
+        child: ListView(
+          padding: const EdgeInsets.all(24),
+          children: [
+            _HeaderSummary(
+              selectedLeagues: selectedLeagues,
+              selectionCount: selectionCount,
+              combinedOdds: combinedOdds,
+              onClearFilters: onClearFilters,
+            ),
+            _LeagueFilterRow(
+              selectedLeagues: selectedLeagues,
+              onLeagueTap: onLeagueTap,
+            ),
+            const SizedBox(height: 120),
+            const Icon(
+              Icons.sports_soccer_outlined,
+              size: 72,
+              color: AppTheme.textMuted,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'No matches found for the selected league filters.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppTheme.textSecondary),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return RefreshIndicator(
+      color: AppTheme.primaryColor,
+      onRefresh: onRefresh,
+      child: ListView.builder(
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
+        itemCount: matches.length + _headerCount,
+        itemBuilder: (context, index) {
+          if (index == 0) {
+            return _HeaderSummary(
+              selectedLeagues: selectedLeagues,
+              selectionCount: selectionCount,
+              combinedOdds: combinedOdds,
+              onClearFilters: onClearFilters,
+            );
+          }
+          if (index == 1) {
+            return _LeagueFilterRow(
+              selectedLeagues: selectedLeagues,
+              onLeagueTap: onLeagueTap,
+            );
+          }
+          final match = matches[index - _headerCount];
+          final selectedItem =
+              cartItems.where((item) => item.match.id == match.id).firstOrNull;
+          return MatchCard(
+            match: match,
+            selectedItem: selectedItem,
+            onSelectionTap: onSelectionTap,
           );
         },
       ),
     );
   }
+}
 
-  Widget _betStatusChip(String status) {
-    Color color;
-    switch (status) {
-      case 'won':
-        color = AppTheme.successColor;
-        break;
-      case 'lost':
-        color = AppTheme.errorColor;
-        break;
-      case 'cancelled':
-        color = AppTheme.textMuted;
-        break;
-      default:
-        color = AppTheme.warningColor;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(12),
+class _LeagueFilterRow extends StatelessWidget {
+  final List<String> selectedLeagues;
+  final void Function(String league, bool isSelected) onLeagueTap;
+
+  const _LeagueFilterRow({
+    required this.selectedLeagues,
+    required this.onLeagueTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        padding: const EdgeInsets.symmetric(horizontal: 0),
+        scrollDirection: Axis.horizontal,
+        itemCount: availableLeagueFilters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final league = availableLeagueFilters[index];
+          final isSelected = selectedLeagues.contains(league);
+          return FilterChip(
+            label: Text(league),
+            selected: isSelected,
+            onSelected: (_) => onLeagueTap(league, isSelected),
+          );
+        },
       ),
-      child: Text(
-        status.toUpperCase(),
-        style:
-            TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
+    );
+  }
+}
+
+class _ErrorState extends StatelessWidget {
+  final String message;
+  final VoidCallback onRetry;
+
+  const _ErrorState({
+    required this.message,
+    required this.onRetry,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(
+              Icons.error_outline,
+              size: 56,
+              color: AppTheme.errorColor,
+            ),
+            const SizedBox(height: 12),
+            const Text(
+              'Failed to load matches',
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppTheme.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton.icon(
+              onPressed: onRetry,
+              icon: const Icon(Icons.refresh),
+              label: const Text('Retry'),
+            ),
+          ],
+        ),
       ),
     );
   }

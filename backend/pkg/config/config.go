@@ -16,6 +16,7 @@ type Config struct {
 	App        AppConfig
 	Security   SecurityConfig
 	Sportmonks SportmonksConfig
+	TheOddsAPI TheOddsAPIConfig
 }
 
 type ServerConfig struct {
@@ -49,6 +50,11 @@ type SportmonksConfig struct {
 	Token string `mapstructure:"SPORTMONKS_API_TOKEN"`
 }
 
+type TheOddsAPIConfig struct {
+	Key          string `mapstructure:"THE_ODDS_API_KEY"`
+	SyncInterval string `mapstructure:"THE_ODDS_SYNC_INTERVAL"`
+}
+
 // Load reads configuration from .env file and environment variables
 func Load() (*Config, error) {
 	viper.SetConfigFile(".env")
@@ -64,6 +70,7 @@ func Load() (*Config, error) {
 	viper.SetDefault("REDIS_URL", "redis://localhost:6379")
 	viper.SetDefault("WITHDRAWAL_CODE_PEPPER", "dev-withdrawal-pepper")
 	viper.SetDefault("WITHDRAWAL_DATA_KEY", "dev-withdrawal-encryption-key")
+	viper.SetDefault("THE_ODDS_SYNC_INTERVAL", "30m")
 
 	envPaths := []string{".env", "../../.env", "../../../.env"}
 	var readErr error
@@ -106,7 +113,20 @@ func Load() (*Config, error) {
 		Sportmonks: SportmonksConfig{
 			Token: viper.GetString("SPORTMONKS_API_TOKEN"),
 		},
+		TheOddsAPI: TheOddsAPIConfig{
+			Key:          firstNonEmpty(viper.GetString("THE_ODDS_API_KEY"), viper.GetString("ODDS_API_KEY")),
+			SyncInterval: viper.GetString("THE_ODDS_SYNC_INTERVAL"),
+		},
 	}
 
 	return cfg, nil
+}
+
+func firstNonEmpty(values ...string) string {
+	for _, value := range values {
+		if strings.TrimSpace(value) != "" {
+			return value
+		}
+	}
+	return ""
 }

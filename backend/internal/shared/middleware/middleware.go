@@ -42,7 +42,7 @@ func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient) 
 			}
 
 			// Validate token
-			claims, err := jwtManager.ValidateToken(tokenString)
+			claims, err := jwtManager.ValidateAccessToken(tokenString)
 			if err != nil {
 				appErr := apperrors.NewUnauthorizedError("Invalid or expired token")
 				return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
