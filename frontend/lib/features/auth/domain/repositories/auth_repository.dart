@@ -22,6 +22,17 @@ abstract class AuthRepository {
   Future<Either<Failure, User>> updateProfile({
     String? fullName,
     String? phone,
+    String? nrc,
+    String? nrcRegion,
+    String? nrcTownship,
+    String? nrcType,
+    String? nrcNumber,
+    int? nrcRegionId,
+    int? nrcTownshipId,
+    int? nrcTypeId,
+    String? gmail,
+    String? location,
+    String? customCode,
   });
 
   Future<Either<Failure, void>> changePassword({
@@ -32,4 +43,8 @@ abstract class AuthRepository {
   Future<Either<Failure, void>> logout();
 
   Future<bool> isAuthenticated();
+
+  Future<Either<Failure, List<dynamic>>> getNRCCodes();
+
+  Future<Either<Failure, List<dynamic>>> getNRCTownships(int codeId);
 }

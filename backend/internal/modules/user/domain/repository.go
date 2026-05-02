@@ -2,7 +2,7 @@ package domain
 
 import "context"
 
-// UserRepository defines the interface for user data access
+// UserRepository defines the interface for user data operations
 type UserRepository interface {
 	Create(ctx context.Context, user *User) error
 	FindByID(ctx context.Context, id string) (*User, error)
@@ -20,4 +20,9 @@ type UserRepository interface {
 	UpdateKYCSubmission(ctx context.Context, userID, nationalID, kycImageURL string) error
 	UpdateKYCStatus(ctx context.Context, userID string, status KYCStatus) error
 	GetVerificationStatus(ctx context.Context, userID string) (*UserVerificationStatus, error)
+
+	// NRC Reference Data
+	FindNRCRegionByID(ctx context.Context, id int) (*NRCRegion, error)
+	FindNRCTownshipByID(ctx context.Context, id int) (*NRCTownship, error)
+	FindNRCTypeByID(ctx context.Context, id int) (*NRCType, error)
 }

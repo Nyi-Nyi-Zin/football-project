@@ -85,11 +85,33 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<Either<Failure, User>> updateProfile({
     String? fullName,
     String? phone,
+    String? nrc,
+    String? nrcRegion,
+    String? nrcTownship,
+    String? nrcType,
+    String? nrcNumber,
+    int? nrcRegionId,
+    int? nrcTownshipId,
+    int? nrcTypeId,
+    String? gmail,
+    String? location,
+    String? customCode,
   }) async {
     try {
       final model = await _remoteDataSource.updateProfile(
         fullName: fullName,
         phone: phone,
+        nrc: nrc,
+        nrcRegion: nrcRegion,
+        nrcTownship: nrcTownship,
+        nrcType: nrcType,
+        nrcNumber: nrcNumber,
+        nrcRegionId: nrcRegionId,
+        nrcTownshipId: nrcTownshipId,
+        nrcTypeId: nrcTypeId,
+        gmail: gmail,
+        location: location,
+        customCode: customCode,
       );
       return Right(model.toEntity());
     } on DioException catch (e) {
@@ -130,6 +152,30 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<bool> isAuthenticated() async {
     return _dioClient.hasTokens();
+  }
+
+  @override
+  Future<Either<Failure, List<dynamic>>> getNRCCodes() async {
+    try {
+      final codes = await _remoteDataSource.getNRCCodes();
+      return Right(codes);
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, List<dynamic>>> getNRCTownships(int codeId) async {
+    try {
+      final townships = await _remoteDataSource.getNRCTownships(codeId);
+      return Right(townships);
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
   }
 
   Failure _handleDioError(DioException e) {

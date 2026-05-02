@@ -50,6 +50,7 @@ type Match struct {
 	CreatedAt   time.Time   `json:"created_at"`
 	UpdatedAt   time.Time   `json:"updated_at"`
 	Markets     []Market    `json:"markets,omitempty" gorm:"-"`
+    Testing      string     `json:"testing" gorm:"not null"`
 }
 
 // TableName overrides the table name

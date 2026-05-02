@@ -608,7 +608,163 @@ func (uc *PaymentUseCase) encryptSensitive(value string) (string, error) {
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
 		return "", err
 	}
-	ciphertext := gcm.Seal(nil, nonce, []byte(value), nil)
-	raw := append(nonce, ciphertext...)
-	return base64.StdEncoding.EncodeToString(raw), nil
+	ciphertext := gcm.Seal(nonce, nonce, []byte(value), nil)
+	return base64.StdEncoding.EncodeToString(ciphertext), nil
+}
+
+// ─── Location-based Withdrawal Flow ─────────────────────────────────
+
+// GetAgentsByLocation returns active agents for a given location
+func (uc *PaymentUseCase) GetAgentsByLocation(ctx context.Context, location string) ([]*domain.AgentInfo, error) {
+	return uc.txRepo.FindAgentsByLocation(ctx, location)
+}
+
+// CreateLocationBasedWithdrawal creates a withdrawal request with location and agent selection
+func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, userID string, req *domain.CreateWithdrawalRequest, agentID string) (*domain.WithdrawalRequest, error) {
+	// Get agent info to check for custom code
+	agents, err := uc.txRepo.FindAgentsByLocation(ctx, req.Location)
+	if err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	}
+
+	var agentCustomCode string
+	for _, agent := range agents {
+		if agent.ID == agentID {
+			agentCustomCode = agent.CustomCode
+			break
+		}
+	}
+
+	// Use custom code if set, otherwise generate random code
+	var code string
+	if agentCustomCode != "" {
+		code = agentCustomCode
+	} else {
+		code, err = uc.generateVerificationCode()
+		if err != nil {
+			return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+		}
+	}
+
+	// Hash the code
+	codeHash, err := hashCode(code)
+	if err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	}
+
+	// Encrypt account details
+	encryptedDetails, err := uc.encryptSensitive(req.AccountDetails)
+	if err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	}
+
+	// Create transaction record first
+	tx := &domain.Transaction{
+		UserID:      userID,
+		Type:        "withdrawal",
+		Amount:      req.Amount,
+		Status:      "pending",
+		Description: "Withdrawal request",
+	}
+	if err := uc.txRepo.Create(ctx, tx); err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	}
+
+	// Create withdrawal request
+	withdrawalReq := &domain.WithdrawalRequest{
+		TransactionID:           tx.ID,
+		CustomerID:              userID,
+		AgentID:                 agentID,
+		VerificationCodeHash:    codeHash,
+		CodeLookupHash:          uc.lookupHash(code),
+		AccountDetailsEncrypted: encryptedDetails,
+		Status:                  domain.WithdrawalRequestPending,
+		Location:                req.Location,
+		Code:                    code,
+		ExpiresAt:               timePtr(time.Now().Add(24 * time.Hour)),
+	}
+
+	if err := uc.txRepo.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	}
+
+	return withdrawalReq, nil
+}
+
+// ApproveWithdrawalByCode approves a withdrawal request using the verification code
+func (uc *PaymentUseCase) ApproveWithdrawalByCode(ctx context.Context, code string) (*domain.WithdrawalRequest, error) {
+	// Find withdrawal request by code
+	req, err := uc.txRepo.FindWithdrawalRequestByCode(ctx, code)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Invalid withdrawal code")
+	}
+
+	// Check status
+	if req.Status != domain.WithdrawalRequestPending {
+		return nil, apperrors.NewBadRequestError("Withdrawal request is not pending")
+	}
+
+	// Check expiration
+	if req.ExpiresAt != nil && time.Now().After(*req.ExpiresAt) {
+		return nil, apperrors.NewBadRequestError("Withdrawal code has expired")
+	}
+
+	// Get transaction to get amount
+	tx, err := uc.txRepo.FindByID(ctx, req.TransactionID)
+	if err != nil {
+		return nil, fmt.Errorf("paymentUseCase.ApproveWithdrawalByCode: %w", err)
+	}
+
+	// Approve the request
+	now := time.Now()
+	if err := uc.txRepo.ApproveWithdrawalRequest(ctx, req.ID, now); err != nil {
+		return nil, fmt.Errorf("paymentUseCase.ApproveWithdrawalByCode: %w", err)
+	}
+
+	// Update transaction status
+	if err := uc.txRepo.UpdateStatus(ctx, req.TransactionID, "completed"); err != nil {
+		return nil, fmt.Errorf("paymentUseCase.ApproveWithdrawalByCode: %w", err)
+	}
+
+	// Deduct from user wallet
+	if err := uc.walletRepo.UpdateBalance(ctx, req.CustomerID, -tx.Amount); err != nil {
+		return nil, fmt.Errorf("paymentUseCase.ApproveWithdrawalByCode: %w", err)
+	}
+
+	// Refresh the request
+	req.Status = domain.WithdrawalRequestApproved
+	req.ApprovedAt = &now
+
+	return req, nil
+}
+
+// CancelWithdrawalRequest cancels a pending withdrawal request
+func (uc *PaymentUseCase) CancelWithdrawalRequest(ctx context.Context, requestID string) error {
+	// Find the request
+	req, err := uc.txRepo.FindWithdrawalRequestByCode(ctx, requestID)
+	if err != nil {
+		return apperrors.NewNotFoundError("Withdrawal request not found")
+	}
+
+	// Check status
+	if req.Status != domain.WithdrawalRequestPending {
+		return apperrors.NewBadRequestError("Only pending withdrawals can be cancelled")
+	}
+
+	// Cancel the request
+	now := time.Now()
+	if err := uc.txRepo.CancelWithdrawalRequest(ctx, req.ID, now); err != nil {
+		return fmt.Errorf("paymentUseCase.CancelWithdrawalRequest: %w", err)
+	}
+
+	// Update transaction status
+	if err := uc.txRepo.UpdateStatus(ctx, req.TransactionID, "cancelled"); err != nil {
+		return fmt.Errorf("paymentUseCase.CancelWithdrawalRequest: %w", err)
+	}
+
+	return nil
+}
+
+func timePtr(t time.Time) *time.Time {
+	return &t
 }

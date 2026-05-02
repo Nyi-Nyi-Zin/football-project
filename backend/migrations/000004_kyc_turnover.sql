@@ -1,8 +1,16 @@
--- ============================================================
--- Migration 000004: KYC verification fields + AML turnover tracking
--- ============================================================
+-- +goose Up
+ALTER TABLE users.accounts
+    DROP COLUMN IF EXISTS is_email_verified,
+    DROP COLUMN IF EXISTS is_phone_verified,
+    DROP COLUMN IF EXISTS kyc_status,
+    DROP COLUMN IF EXISTS national_id,
+    DROP COLUMN IF EXISTS kyc_image_url;
 
--- 1. KYC / Verification columns on user accounts
+ALTER TABLE payments.wallets
+    DROP COLUMN IF EXISTS required_turnover,
+    DROP COLUMN IF EXISTS current_turnover;
+
+-- +goose Down
 ALTER TABLE users.accounts
     ADD COLUMN IF NOT EXISTS is_email_verified BOOLEAN NOT NULL DEFAULT false,
     ADD COLUMN IF NOT EXISTS is_phone_verified BOOLEAN NOT NULL DEFAULT false,

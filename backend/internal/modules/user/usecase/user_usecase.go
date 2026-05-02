@@ -64,6 +64,7 @@ func (uc *UserUseCase) Register(ctx context.Context, req *domain.RegisterRequest
 		Role:         "user",
 		Status:       "active",
 		KYCStatus:    domain.KYCStatusPending,
+		// CustomCode is nil by default (NULL in database)
 	}
 
 	if err := uc.repo.Create(ctx, user); err != nil {
@@ -157,6 +158,75 @@ func (uc *UserUseCase) UpdateProfile(ctx context.Context, userID string, req *do
 	}
 	if req.Phone != "" {
 		user.Phone = req.Phone
+	}
+	if req.NRC != "" {
+		user.NRC = req.NRC
+	}
+	// Update NRC component fields if provided
+	if req.NRCRegion != "" {
+		user.NRCRegion = req.NRCRegion
+	}
+	if req.NRCTownship != "" {
+		user.NRCTownship = req.NRCTownship
+	}
+	if req.NRCType != "" {
+		user.NRCType = req.NRCType
+	}
+	if req.NRCNumber != "" {
+		user.NRCNumber = req.NRCNumber
+	}
+	// Update NRC ID fields if provided (these take precedence for constructing NRC string)
+	if req.NRCRegionID != nil {
+		user.NRCRegionID = req.NRCRegionID
+		// Look up region code from reference table
+		region, err := uc.repo.FindNRCRegionByID(ctx, *req.NRCRegionID)
+		if err == nil && region != nil {
+			user.NRCRegion = region.Code
+		}
+	}
+	if req.NRCTownshipID != nil {
+		user.NRCTownshipID = req.NRCTownshipID
+		// Look up township data from reference table
+		township, err := uc.repo.FindNRCTownshipByID(ctx, *req.NRCTownshipID)
+		if err == nil && township != nil {
+			user.NRCTownship = township.NrcCode
+		}
+	}
+	if req.NRCTypeID != nil {
+		user.NRCTypeID = req.NRCTypeID
+		// Look up type name from reference table
+		nrcType, err := uc.repo.FindNRCTypeByID(ctx, *req.NRCTypeID)
+		if err == nil && nrcType != nil {
+			user.NRCType = nrcType.NameMm
+		}
+	}
+	// Construct combined NRC string from components if all are provided
+	if req.NRCRegion != "" && req.NRCTownship != "" && req.NRCType != "" && req.NRCNumber != "" {
+		user.NRC = fmt.Sprintf("%s/%s%s%s", req.NRCRegion, req.NRCTownship, req.NRCType, req.NRCNumber)
+	} else if req.NRCRegionID != nil && req.NRCTownshipID != nil && req.NRCTypeID != nil && req.NRCNumber != "" {
+		// Use ID-based values to construct NRC string
+		region, _ := uc.repo.FindNRCRegionByID(ctx, *req.NRCRegionID)
+		township, _ := uc.repo.FindNRCTownshipByID(ctx, *req.NRCTownshipID)
+		nrcType, _ := uc.repo.FindNRCTypeByID(ctx, *req.NRCTypeID)
+		if region != nil && township != nil && nrcType != nil {
+			user.NRC = fmt.Sprintf("%s/%s%s%s", region.Code, township.NrcCode, nrcType.NameMm, req.NRCNumber)
+		}
+	}
+	if req.Gmail != "" {
+		user.Gmail = req.Gmail
+	}
+	if req.Location != "" {
+		user.Location = req.Location
+	}
+	// Only update custom_code if it's provided and different from current value
+	if req.CustomCode != "" {
+		currentCode := ""
+		if user.CustomCode != nil {
+			currentCode = *user.CustomCode
+		}
+		if req.CustomCode != currentCode {
+			user.CustomCode = &req.CustomCode
+		}
 	}
 
 	if err := uc.repo.Update(ctx, user); err != nil {

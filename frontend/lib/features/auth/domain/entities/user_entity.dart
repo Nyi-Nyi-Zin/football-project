@@ -11,6 +11,17 @@ class User extends Equatable {
   final String status;
   final double balance;
   final DateTime createdAt;
+  final String? nrc;
+  final String? nrcRegion;
+  final String? nrcTownship;
+  final String? nrcType;
+  final String? nrcNumber;
+  final int? nrcRegionId;
+  final int? nrcTownshipId;
+  final int? nrcTypeId;
+  final String? gmail;
+  final String? location;
+  final String? customCode;
 
   const User({
     required this.id,
@@ -22,10 +33,21 @@ class User extends Equatable {
     required this.status,
     required this.balance,
     required this.createdAt,
+    this.nrc,
+    this.nrcRegion,
+    this.nrcTownship,
+    this.nrcType,
+    this.nrcNumber,
+    this.nrcRegionId,
+    this.nrcTownshipId,
+    this.nrcTypeId,
+    this.gmail,
+    this.location,
+    this.customCode,
   });
 
   @override
-  List<Object?> get props => [id, email, username];
+  List<Object?> get props => [id, email, username, nrc, nrcRegion, nrcTownship, nrcType, nrcNumber, nrcRegionId, nrcTownshipId, nrcTypeId, gmail, location, customCode];
 }
 
 /// Token pair entity

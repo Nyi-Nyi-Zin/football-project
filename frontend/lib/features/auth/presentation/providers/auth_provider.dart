@@ -151,6 +151,17 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   Future<Either<Failure, User>> updateProfile({
     String? fullName,
     String? phone,
+    String? nrc,
+    String? nrcRegion,
+    String? nrcTownship,
+    String? nrcType,
+    String? nrcNumber,
+    int? nrcRegionId,
+    int? nrcTownshipId,
+    int? nrcTypeId,
+    String? gmail,
+    String? location,
+    String? customCode,
   }) async {
     final currentUser = state.valueOrNull;
     if (currentUser == null) {
@@ -160,6 +171,17 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     final result = await _ref.read(authRepositoryProvider).updateProfile(
           fullName: fullName,
           phone: phone,
+          nrc: nrc,
+          nrcRegion: nrcRegion,
+          nrcTownship: nrcTownship,
+          nrcType: nrcType,
+          nrcNumber: nrcNumber,
+          nrcRegionId: nrcRegionId,
+          nrcTownshipId: nrcTownshipId,
+          nrcTypeId: nrcTypeId,
+          gmail: gmail,
+          location: location,
+          customCode: customCode,
         );
 
     result.fold(
@@ -194,5 +216,13 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     return message.contains('unauthorized') ||
         message.contains('invalid or expired token') ||
         message.contains('invalid or expired refresh token');
+  }
+
+  Future<Either<Failure, List<dynamic>>> getNRCCodes() async {
+    return _ref.read(authRepositoryProvider).getNRCCodes();
+  }
+
+  Future<Either<Failure, List<dynamic>>> getNRCTownships(int codeId) async {
+    return _ref.read(authRepositoryProvider).getNRCTownships(codeId);
   }
 }

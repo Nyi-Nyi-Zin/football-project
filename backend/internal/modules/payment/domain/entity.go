@@ -144,10 +144,31 @@ type WithdrawalRequest struct {
 	VerifiedAt              *time.Time              `json:"verified_at"`
 	CreatedAt               time.Time               `json:"created_at"`
 	UpdatedAt               time.Time               `json:"updated_at"`
+	Location                string                  `json:"location" gorm:"type:varchar(100)"`
+	Code                    string                  `json:"code" gorm:"type:varchar(10)"`
+	ApprovedAt              *time.Time              `json:"approved_at"`
+	CancelledAt             *time.Time              `json:"cancelled_at"`
 }
 
 func (WithdrawalRequest) TableName() string {
 	return "payments.withdrawal_requests"
+}
+
+// CreateWithdrawalRequest represents a request to create a withdrawal
+type CreateWithdrawalRequest struct {
+	Amount         float64 `json:"amount" validate:"required,gt=0"`
+	Location       string  `json:"location" validate:"required"`
+	AccountDetails string  `json:"account_details" validate:"required"`
+}
+
+// ApproveWithdrawalRequest represents a request to approve a withdrawal
+type ApproveWithdrawalRequest struct {
+	Code string `json:"code" validate:"required"`
+}
+
+// CancelWithdrawalRequest represents a request to cancel a withdrawal
+type CancelWithdrawalRequest struct {
+	Reason string `json:"reason"`
 }
 
 type JSONMap map[string]interface{}

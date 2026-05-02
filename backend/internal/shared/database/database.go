@@ -1,19 +1,20 @@
 package database
 
 import (
+	"database/sql"
 	"fmt"
 
 	"betting-app/pkg/logger"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
+	"github.com/pressly/goose/v3"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	gormlogger "gorm.io/gorm/logger"
 )
 
-// DB holds the database connection
 var DB *gorm.DB
 
-// Connect initializes the database connection pool
 func Connect(databaseURL string, env string) (*gorm.DB, error) {
 	var logLevel gormlogger.LogLevel
 	if env == "production" {
@@ -34,7 +35,6 @@ func Connect(databaseURL string, env string) (*gorm.DB, error) {
 		return nil, fmt.Errorf("database.Connect: get sql.DB: %w", err)
 	}
 
-	// Connection pool settings
 	sqlDB.SetMaxOpenConns(25)
 	sqlDB.SetMaxIdleConns(10)
 
@@ -43,7 +43,28 @@ func Connect(databaseURL string, env string) (*gorm.DB, error) {
 	return db, nil
 }
 
-// CreateSchemas creates the schema-per-module if they don't exist
+// RunMigrations runs goose migrations from the given directory.
+func RunMigrations(databaseURL, migrationsDir string) error {
+	db, err := sql.Open("pgx", databaseURL)
+	if err != nil {
+		return fmt.Errorf("database.RunMigrations: open: %w", err)
+	}
+	defer db.Close()
+
+	goose.SetBaseFS(nil)
+
+	if err := goose.SetDialect("postgres"); err != nil {
+		return fmt.Errorf("database.RunMigrations: set dialect: %w", err)
+	}
+
+	if err := goose.Up(db, migrationsDir); err != nil {
+		return fmt.Errorf("database.RunMigrations: up: %w", err)
+	}
+
+	logger.Info("Database migrations completed successfully")
+	return nil
+}
+
 func CreateSchemas(db *gorm.DB) error {
 	schemas := []string{"users", "betting", "payments", "odds", "notifications"}
 	for _, schema := range schemas {
@@ -56,7 +77,6 @@ func CreateSchemas(db *gorm.DB) error {
 	return nil
 }
 
-// Close closes the database connection
 func Close(db *gorm.DB) {
 	sqlDB, err := db.DB()
 	if err != nil {

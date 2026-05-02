@@ -29,6 +29,17 @@ type User struct {
 	KYCStatus       KYCStatus `json:"kyc_status" gorm:"default:'pending'"`
 	NationalID      string    `json:"national_id,omitempty" gorm:"size:100"`
 	KYCImageURL     string    `json:"kyc_image_url,omitempty" gorm:"type:text"`
+	NRC             string    `json:"nrc,omitempty" gorm:"size:100"`
+	NRCRegion       string    `json:"nrc_region,omitempty" gorm:"size:50"`
+	NRCTownship     string    `json:"nrc_township,omitempty" gorm:"size:100"`
+	NRCType         string    `json:"nrc_type,omitempty" gorm:"size:50"`
+	NRCNumber       string    `json:"nrc_number,omitempty" gorm:"size:20"`
+	NRCRegionID     *int      `json:"nrc_region_id,omitempty" gorm:"column:nrc_region_id"`
+	NRCTownshipID   *int      `json:"nrc_township_id,omitempty" gorm:"column:nrc_township_id"`
+	NRCTypeID       *int      `json:"nrc_type_id,omitempty" gorm:"column:nrc_type_id"`
+	Gmail           string    `json:"gmail,omitempty" gorm:"size:255"`
+	Location        string    `json:"location,omitempty" gorm:"type:text"`
+	CustomCode      *string   `json:"custom_code,omitempty" gorm:"size:10;uniqueIndex"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
@@ -51,11 +62,26 @@ type UserProfile struct {
 	IsEmailVerified bool      `json:"is_email_verified"`
 	IsPhoneVerified bool      `json:"is_phone_verified"`
 	KYCStatus       KYCStatus `json:"kyc_status"`
+	NRC             string    `json:"nrc,omitempty"`
+	NRCRegion       string    `json:"nrc_region,omitempty"`
+	NRCTownship     string    `json:"nrc_township,omitempty"`
+	NRCType         string    `json:"nrc_type,omitempty"`
+	NRCNumber       string    `json:"nrc_number,omitempty"`
+	NRCRegionID     *int      `json:"nrc_region_id,omitempty"`
+	NRCTownshipID   *int      `json:"nrc_township_id,omitempty"`
+	NRCTypeID       *int      `json:"nrc_type_id,omitempty"`
+	Gmail           string    `json:"gmail,omitempty"`
+	Location        string    `json:"location,omitempty"`
+	CustomCode      string    `json:"custom_code,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 }
 
 // ToProfile converts a User to a safe UserProfile
 func (u *User) ToProfile() *UserProfile {
+	customCode := ""
+	if u.CustomCode != nil {
+		customCode = *u.CustomCode
+	}
 	return &UserProfile{
 		ID:              u.ID,
 		Email:           u.Email,
@@ -68,6 +94,17 @@ func (u *User) ToProfile() *UserProfile {
 		IsEmailVerified: u.IsEmailVerified,
 		IsPhoneVerified: u.IsPhoneVerified,
 		KYCStatus:       u.KYCStatus,
+		NRC:             u.NRC,
+		NRCRegion:       u.NRCRegion,
+		NRCTownship:     u.NRCTownship,
+		NRCType:         u.NRCType,
+		NRCNumber:       u.NRCNumber,
+		NRCRegionID:     u.NRCRegionID,
+		NRCTownshipID:   u.NRCTownshipID,
+		NRCTypeID:       u.NRCTypeID,
+		Gmail:           u.Gmail,
+		Location:        u.Location,
+		CustomCode:      customCode,
 		CreatedAt:       u.CreatedAt,
 	}
 }
@@ -93,8 +130,19 @@ type RefreshTokenRequest struct {
 
 // UpdateProfileRequest represents a profile update request
 type UpdateProfileRequest struct {
-	FullName string `json:"full_name"`
-	Phone    string `json:"phone"`
+	FullName      string `json:"full_name" validate:"omitempty,min=2"`
+	Phone         string `json:"phone" validate:"omitempty"`
+	NRC           string `json:"nrc" validate:"omitempty"`
+	NRCRegion     string `json:"nrc_region" validate:"omitempty"`
+	NRCTownship   string `json:"nrc_township" validate:"omitempty"`
+	NRCType       string `json:"nrc_type" validate:"omitempty"`
+	NRCNumber     string `json:"nrc_number" validate:"omitempty"`
+	NRCRegionID   *int   `json:"nrc_region_id,omitempty" validate:"omitempty"`
+	NRCTownshipID *int  `json:"nrc_township_id,omitempty" validate:"omitempty"`
+	NRCTypeID     *int   `json:"nrc_type_id,omitempty" validate:"omitempty"`
+	Gmail         string `json:"gmail" validate:"omitempty,email"`
+	Location      string `json:"location" validate:"omitempty"`
+	CustomCode    string `json:"custom_code" validate:"omitempty,min=3,max=10"`
 }
 
 // ChangePasswordRequest represents a password change request

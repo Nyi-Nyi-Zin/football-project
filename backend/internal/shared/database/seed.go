@@ -55,6 +55,8 @@ func SeedAdmin(db *gorm.DB) error {
 		agent.Role = "agent"
 		agent.Status = "active"
 		agent.PasswordHash = string(agentPassword)
+		// Set custom_code to nil (NULL in database) to avoid unique constraint violation
+		agent.CustomCode = nil
 		if saveErr := db.Save(&agent).Error; saveErr != nil {
 			return fmt.Errorf("seed.SeedAdmin: update agent: %w", saveErr)
 		}

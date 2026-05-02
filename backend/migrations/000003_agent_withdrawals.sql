@@ -1,3 +1,4 @@
+-- +goose Up
 CREATE TABLE IF NOT EXISTS payments.withdrawal_requests (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     transaction_id UUID NOT NULL UNIQUE REFERENCES payments.transactions(id) ON DELETE CASCADE,
@@ -33,3 +34,7 @@ CREATE TABLE IF NOT EXISTS payments.withdrawal_audit_logs (
 
 CREATE INDEX IF NOT EXISTS idx_withdrawal_audit_logs_transaction_id
     ON payments.withdrawal_audit_logs(transaction_id);
+
+-- +goose Down
+DROP TABLE IF EXISTS payments.withdrawal_audit_logs;
+DROP TABLE IF EXISTS payments.withdrawal_requests;

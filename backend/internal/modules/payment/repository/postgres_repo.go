@@ -294,3 +294,53 @@ func (r *postgresWalletRepo) GetTurnover(ctx context.Context, userID string) (fl
 	return wallet.RequiredTurnover, wallet.CurrentTurnover, nil
 }
 
+// ─── Location-based Withdrawal Flow ─────────────────────────────────
+
+func (r *postgresTransactionRepo) FindAgentsByLocation(ctx context.Context, location string) ([]*domain.AgentInfo, error) {
+	var agents []*domain.AgentInfo
+	if err := r.db.WithContext(ctx).
+		Table("users.accounts").
+		Select("id, username, full_name, location, custom_code").
+		Where("role = ? AND location = ? AND status = ?", "agent", location, "active").
+		Find(&agents).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindAgentsByLocation: %w", err)
+	}
+	return agents, nil
+}
+
+func (r *postgresTransactionRepo) FindWithdrawalRequestByCode(ctx context.Context, code string) (*domain.WithdrawalRequest, error) {
+	var req domain.WithdrawalRequest
+	if err := r.db.WithContext(ctx).
+		Where("code = ?", code).
+		First(&req).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindWithdrawalRequestByCode: %w", err)
+	}
+	return &req, nil
+}
+
+func (r *postgresTransactionRepo) ApproveWithdrawalRequest(ctx context.Context, requestID string, approvedAt time.Time) error {
+	if err := r.db.WithContext(ctx).
+		Model(&domain.WithdrawalRequest{}).
+		Where("id = ?", requestID).
+		Updates(map[string]interface{}{
+			"status":      domain.WithdrawalRequestApproved,
+			"approved_at": approvedAt,
+		}).Error; err != nil {
+		return fmt.Errorf("transactionRepo.ApproveWithdrawalRequest: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresTransactionRepo) CancelWithdrawalRequest(ctx context.Context, requestID string, cancelledAt time.Time) error {
+	if err := r.db.WithContext(ctx).
+		Model(&domain.WithdrawalRequest{}).
+		Where("id = ?", requestID).
+		Updates(map[string]interface{}{
+			"status":       domain.WithdrawalRequestRejected,
+			"cancelled_at": cancelledAt,
+		}).Error; err != nil {
+		return fmt.Errorf("transactionRepo.CancelWithdrawalRequest: %w", err)
+	}
+	return nil
+}
+

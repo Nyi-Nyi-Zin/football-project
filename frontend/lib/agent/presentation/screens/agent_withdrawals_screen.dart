@@ -17,11 +17,14 @@ class AgentWithdrawalsScreen extends ConsumerStatefulWidget {
 class _AgentWithdrawalsScreenState
     extends ConsumerState<AgentWithdrawalsScreen> {
   final _codeCtrl = TextEditingController();
+  final _customCodeCtrl = TextEditingController();
   bool _submitting = false;
+  bool _savingCustomCode = false;
 
   @override
   void dispose() {
     _codeCtrl.dispose();
+    _customCodeCtrl.dispose();
     super.dispose();
   }
 
@@ -51,6 +54,50 @@ class _AgentWithdrawalsScreenState
                 padding: const EdgeInsets.all(12),
                 child: Column(
                   children: [
+                    const Text(
+                      'Set Custom Code',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _customCodeCtrl,
+                            textCapitalization: TextCapitalization.characters,
+                            maxLength: 10,
+                            decoration: const InputDecoration(
+                              labelText: 'Custom code (3-10 chars)',
+                              counterText: '',
+                              helperText: 'Leave empty to use auto-generated codes',
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        ElevatedButton(
+                          onPressed: _savingCustomCode ? null : _saveCustomCode,
+                          child: _savingCustomCode
+                              ? const SizedBox(
+                                  width: 16,
+                                  height: 16,
+                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                )
+                              : const Text('Save'),
+                        ),
+                      ],
+                    ),
+                    const Divider(height: 24),
+                    const Text(
+                      'Verify Withdrawal Code',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -178,6 +225,33 @@ class _AgentWithdrawalsScreenState
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _saveCustomCode() async {
+    final customCode = _customCodeCtrl.text.trim().toUpperCase();
+    if (customCode.isNotEmpty && (customCode.length < 3 || customCode.length > 10)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Custom code must be 3-10 characters')),
+      );
+      return;
+    }
+    setState(() => _savingCustomCode = true);
+    try {
+      await ref.read(authNotifierProvider.notifier).updateProfile(
+        customCode: customCode.isEmpty ? null : customCode,
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Custom code saved successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to save custom code: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingCustomCode = false);
     }
   }
 }

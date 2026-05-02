@@ -1,5 +1,6 @@
 import '../../../../core/network/dio_client.dart';
 import '../models/user_model.dart';
+import '../models/nrc_model.dart';
 
 class AuthRemoteDataSource {
   final DioClient _client;
@@ -36,10 +37,35 @@ class AuthRemoteDataSource {
     return UserModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
-  Future<UserModel> updateProfile({String? fullName, String? phone}) async {
+  Future<UserModel> updateProfile({
+    String? fullName,
+    String? phone,
+    String? nrc,
+    String? nrcRegion,
+    String? nrcTownship,
+    String? nrcType,
+    String? nrcNumber,
+    int? nrcRegionId,
+    int? nrcTownshipId,
+    int? nrcTypeId,
+    String? gmail,
+    String? location,
+    String? customCode,
+  }) async {
     final response = await _client.dio.patch('/users/me', data: {
       if (fullName != null) 'full_name': fullName,
       if (phone != null) 'phone': phone,
+      if (nrc != null) 'nrc': nrc,
+      if (nrcRegion != null) 'nrc_region': nrcRegion,
+      if (nrcTownship != null) 'nrc_township': nrcTownship,
+      if (nrcType != null) 'nrc_type': nrcType,
+      if (nrcNumber != null) 'nrc_number': nrcNumber,
+      if (nrcRegionId != null) 'nrc_region_id': nrcRegionId,
+      if (nrcTownshipId != null) 'nrc_township_id': nrcTownshipId,
+      if (nrcTypeId != null) 'nrc_type_id': nrcTypeId,
+      if (gmail != null) 'gmail': gmail,
+      if (location != null) 'location': location,
+      if (customCode != null) 'custom_code': customCode,
     });
     return UserModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
@@ -52,5 +78,17 @@ class AuthRemoteDataSource {
       'current_password': currentPassword,
       'new_password': newPassword,
     });
+  }
+
+  Future<List<NRCCode>> getNRCCodes() async {
+    final response = await _client.dio.get('/nrc/codes');
+    final data = response.data['data'] as List;
+    return data.map((json) => NRCCode.fromJson(json)).toList();
+  }
+
+  Future<List<NRCTownship>> getNRCTownships(int codeId) async {
+    final response = await _client.dio.get('/nrc/townships/$codeId');
+    final data = response.data['data'] as List;
+    return data.map((json) => NRCTownship.fromJson(json)).toList();
   }
 }

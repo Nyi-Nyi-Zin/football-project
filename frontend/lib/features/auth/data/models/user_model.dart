@@ -11,6 +11,17 @@ class UserModel {
   final String status;
   final double balance;
   final DateTime createdAt;
+  final String? nrc;
+  final String? nrcRegion;
+  final String? nrcTownship;
+  final String? nrcType;
+  final String? nrcNumber;
+  final int? nrcRegionId;
+  final int? nrcTownshipId;
+  final int? nrcTypeId;
+  final String? gmail;
+  final String? location;
+  final String? customCode;
 
   const UserModel({
     required this.id,
@@ -22,6 +33,17 @@ class UserModel {
     required this.status,
     required this.balance,
     required this.createdAt,
+    this.nrc,
+    this.nrcRegion,
+    this.nrcTownship,
+    this.nrcType,
+    this.nrcNumber,
+    this.nrcRegionId,
+    this.nrcTownshipId,
+    this.nrcTypeId,
+    this.gmail,
+    this.location,
+    this.customCode,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +57,17 @@ class UserModel {
       status: json['status'] as String? ?? 'active',
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(json['created_at'] as String),
+      nrc: json['nrc'] as String?,
+      nrcRegion: json['nrc_region'] as String?,
+      nrcTownship: json['nrc_township'] as String?,
+      nrcType: json['nrc_type'] as String?,
+      nrcNumber: json['nrc_number'] as String?,
+      nrcRegionId: json['nrc_region_id'] as int?,
+      nrcTownshipId: json['nrc_township_id'] as int?,
+      nrcTypeId: json['nrc_type_id'] as int?,
+      gmail: json['gmail'] as String?,
+      location: json['location'] as String?,
+      customCode: json['custom_code'] as String?,
     );
   }
 
@@ -49,6 +82,17 @@ class UserModel {
       'status': status,
       'balance': balance,
       'created_at': createdAt.toIso8601String(),
+      'nrc': nrc,
+      'nrc_region': nrcRegion,
+      'nrc_township': nrcTownship,
+      'nrc_type': nrcType,
+      'nrc_number': nrcNumber,
+      'nrc_region_id': nrcRegionId,
+      'nrc_township_id': nrcTownshipId,
+      'nrc_type_id': nrcTypeId,
+      'gmail': gmail,
+      'location': location,
+      'custom_code': customCode,
     };
   }
 
@@ -64,6 +108,17 @@ class UserModel {
       status: status,
       balance: balance,
       createdAt: createdAt,
+      nrc: nrc,
+      nrcRegion: nrcRegion,
+      nrcTownship: nrcTownship,
+      nrcType: nrcType,
+      nrcNumber: nrcNumber,
+      nrcRegionId: nrcRegionId,
+      nrcTownshipId: nrcTownshipId,
+      nrcTypeId: nrcTypeId,
+      gmail: gmail,
+      location: location,
+      customCode: customCode,
     );
   }
 }

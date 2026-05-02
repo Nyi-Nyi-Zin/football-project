@@ -204,3 +204,29 @@ func (r *postgresUserRepo) GetVerificationStatus(ctx context.Context, userID str
 		KYCStatus:       user.KYCStatus,
 	}, nil
 }
+
+// NRC Reference Data Methods
+
+func (r *postgresUserRepo) FindNRCRegionByID(ctx context.Context, id int) (*domain.NRCRegion, error) {
+	var region domain.NRCRegion
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&region).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindNRCRegionByID: %w", err)
+	}
+	return &region, nil
+}
+
+func (r *postgresUserRepo) FindNRCTownshipByID(ctx context.Context, id int) (*domain.NRCTownship, error) {
+	var township domain.NRCTownship
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&township).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindNRCTownshipByID: %w", err)
+	}
+	return &township, nil
+}
+
+func (r *postgresUserRepo) FindNRCTypeByID(ctx context.Context, id int) (*domain.NRCType, error) {
+	var nrcType domain.NRCType
+	if err := r.db.WithContext(ctx).Where("id = ?", id).First(&nrcType).Error; err != nil {
+		return nil, fmt.Errorf("userRepo.FindNRCTypeByID: %w", err)
+	}
+	return &nrcType, nil
+}

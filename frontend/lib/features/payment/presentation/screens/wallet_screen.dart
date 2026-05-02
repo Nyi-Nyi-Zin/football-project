@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../providers/payment_provider.dart';
+import 'withdrawal_screen.dart';
 
 class WalletScreen extends ConsumerWidget {
   const WalletScreen({super.key});
@@ -77,8 +78,14 @@ class WalletScreen extends ConsumerWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _showWithdrawalDialog(context, ref),
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => const WithdrawalScreen(),
+                                ),
+                              );
+                            },
                             icon: const Icon(Icons.arrow_circle_up),
                             label: Text(context.l10n.tr('withdraw')),
                           ),

@@ -1,4 +1,4 @@
--- Users module tables
+-- +goose Up
 CREATE TABLE IF NOT EXISTS users.accounts (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     email VARCHAR(255) NOT NULL UNIQUE,
@@ -116,3 +116,16 @@ CREATE TABLE IF NOT EXISTS notifications.notifications (
 );
 
 CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON notifications.notifications(user_id);
+
+-- +goose Down
+DROP TABLE IF EXISTS notifications.notifications;
+DROP TABLE IF EXISTS odds.odds_history;
+DROP TABLE IF EXISTS odds.match_odds;
+DROP TABLE IF EXISTS payments.transactions;
+DROP TABLE IF EXISTS payments.wallets;
+DROP TABLE IF EXISTS betting.bets;
+DROP TABLE IF EXISTS betting.matches;
+DROP TABLE IF EXISTS users.accounts;
+
+
+

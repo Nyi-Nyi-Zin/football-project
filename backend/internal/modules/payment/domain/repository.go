@@ -20,6 +20,21 @@ type TransactionRepository interface {
 	ListAssignedWithdrawals(ctx context.Context, agentID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
 	UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status WithdrawalRequestStatus, verifiedAt *time.Time) error
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
+	
+	// New methods for location-based withdrawal flow
+	FindAgentsByLocation(ctx context.Context, location string) ([]*AgentInfo, error)
+	FindWithdrawalRequestByCode(ctx context.Context, code string) (*WithdrawalRequest, error)
+	ApproveWithdrawalRequest(ctx context.Context, requestID string, approvedAt time.Time) error
+	CancelWithdrawalRequest(ctx context.Context, requestID string, cancelledAt time.Time) error
+}
+
+// AgentInfo represents minimal agent information for withdrawal flow
+type AgentInfo struct {
+	ID         string `json:"id"`
+	Username   string `json:"username"`
+	FullName   string `json:"full_name"`
+	Location   string `json:"location"`
+	CustomCode string `json:"custom_code"`
 }
 
 // WalletRepository defines the interface for wallet data access

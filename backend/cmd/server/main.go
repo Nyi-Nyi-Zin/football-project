@@ -6,11 +6,12 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
+	"runtime"
 	"syscall"
 	"time"
 
 	"betting-app/internal/app"
-	bettingDomain "betting-app/internal/modules/betting/domain"
 	bettingHandler "betting-app/internal/modules/betting/handler"
 	bettingRepo "betting-app/internal/modules/betting/repository"
 	bettingUsecase "betting-app/internal/modules/betting/usecase"
@@ -18,7 +19,6 @@ import (
 	notificationHandler "betting-app/internal/modules/notification/handler"
 	notificationRepo "betting-app/internal/modules/notification/repository"
 	notificationUsecase "betting-app/internal/modules/notification/usecase"
-	oddsDomain "betting-app/internal/modules/odds/domain"
 	oddsHandler "betting-app/internal/modules/odds/handler"
 	oddsRepo "betting-app/internal/modules/odds/repository"
 	oddsUsecase "betting-app/internal/modules/odds/usecase"
@@ -41,14 +41,40 @@ import (
 	"github.com/labstack/echo/v4"
 )
 
+// migrationsDir resolves the migrations folder regardless of where the binary
+// is invoked from. Priority:
+//  1. MIGRATIONS_DIR env variable  (override for Docker / CI)
+//  2. Path relative to this source file (works with `go run`)
+//  3. Path relative to the compiled binary (works in production)
+func migrationsDir() string {
+	if dir := os.Getenv("MIGRATIONS_DIR"); dir != "" {
+		return dir
+	}
+
+	// __file__ trick: works when using `go run`
+	_, filename, _, ok := runtime.Caller(0)
+	if ok {
+		// filename = .../backend/cmd/server/main.go
+		// migrations = .../backend/migrations
+		return filepath.Join(filepath.Dir(filename), "..", "..", "migrations")
+	}
+
+	// Fallback: relative to compiled binary location
+	exe, err := os.Executable()
+	if err == nil {
+		return filepath.Join(filepath.Dir(exe), "migrations")
+	}
+
+	// Last resort default
+	return "migrations"
+}
+
 func main() {
-	// Load configuration
 	cfg, err := config.Load()
 	if err != nil {
 		panic("Failed to load config: " + err.Error())
 	}
 
-	// Initialize logger
 	logger.Init(cfg.App.Env)
 	defer logger.Sync()
 
@@ -57,43 +83,20 @@ func main() {
 		"port", cfg.Server.Port,
 	)
 
-	// Connect to PostgreSQL
 	db, err := database.Connect(cfg.Database.URL, cfg.App.Env)
 	if err != nil {
 		logger.Fatal("Failed to connect to database", "error", err)
 	}
 	defer database.Close(db)
 
-	// Create schemas
-	if err := database.CreateSchemas(db); err != nil {
-		logger.Fatal("Failed to create schemas", "error", err)
+	if err := database.RunMigrations(cfg.Database.URL, migrationsDir()); err != nil {
+		logger.Fatal("Failed to run migrations", "error", err)
 	}
 
-	// Auto-migrate tables
-	if err := db.AutoMigrate(
-		&userDomain.User{},
-		&bettingDomain.Match{},
-		&bettingDomain.Bet{},
-		&bettingDomain.BetSlip{},
-		&bettingDomain.BetLeg{},
-		&paymentDomain.Transaction{},
-		&paymentDomain.Wallet{},
-		&paymentDomain.WithdrawalRequest{},
-		&paymentDomain.WithdrawalAuditLog{},
-		&oddsDomain.Odds{},
-		&oddsDomain.OddsHistory{},
-		&notificationDomain.Notification{},
-	); err != nil {
-		logger.Fatal("Failed to auto-migrate", "error", err)
-	}
-	logger.Info("Database migration completed")
-
-	// Seed admin user
 	if err := database.SeedAdmin(db); err != nil {
 		logger.Fatal("Failed to seed admin user", "error", err)
 	}
 
-	// Connect to Redis
 	redisClient, err := cache.Connect(cfg.Redis.URL)
 	if err != nil {
 		logger.Error("Failed to connect to Redis, dropping cache", "error", err)
@@ -102,22 +105,16 @@ func main() {
 		defer redisClient.Close()
 	}
 
-	// Initialize JWT manager
 	jwtExpiry, _ := time.ParseDuration(cfg.JWT.Expiry)
 	refreshExpiry, _ := time.ParseDuration(cfg.JWT.RefreshExpiry)
 	jwtManager := jwtpkg.NewManager(cfg.JWT.Secret, jwtExpiry, refreshExpiry)
 
-	// Initialize event bus
 	eventBus := event.NewBus()
 
-	// --- Wire up modules ---
-
-	// User module
 	userRepository := userRepo.NewPostgresUserRepo(db)
 	userUC := userUsecase.NewUserUseCase(userRepository, jwtManager, eventBus)
 	userH := userHandler.NewUserHandler(userUC)
 
-	// Payment module
 	txRepository := paymentRepo.NewPostgresTransactionRepo(db)
 	walletRepository := paymentRepo.NewPostgresWalletRepo(db)
 	paymentUC := paymentUsecase.NewPaymentUseCase(
@@ -128,27 +125,24 @@ func main() {
 			CodePepper:    cfg.Security.WithdrawalCodePepper,
 			EncryptionKey: cfg.Security.WithdrawalDataKey,
 		},
+		nil,
 	)
 	paymentH := paymentHandler.NewPaymentHandler(paymentUC)
 
-	// User provider adapter for betting module (cross-module communication via interface)
 	userProviderAdapter := &UserProviderAdapter{
 		userRepo:   userRepository,
 		walletRepo: walletRepository,
 	}
 
-	// Odds module
 	oddsRepository := oddsRepo.NewPostgresOddsRepo(db)
 	oddsUC := oddsUsecase.NewOddsUseCase(oddsRepository, eventBus)
 	oddsH := oddsHandler.NewOddsHandler(oddsUC)
 
-	// Betting module
 	betRepository := bettingRepo.NewPostgresBetRepo(db)
 	matchRepository := bettingRepo.NewPostgresMatchRepo(db)
 	bettingUC := bettingUsecase.NewBettingUseCase(betRepository, matchRepository, oddsRepository, userProviderAdapter, eventBus)
 	bettingH := bettingHandler.NewBettingHandler(bettingUC)
 
-	// External odds data sync
 	if cfg.TheOddsAPI.Key != "" {
 		syncInterval, parseErr := time.ParseDuration(cfg.TheOddsAPI.SyncInterval)
 		if parseErr != nil {
@@ -162,21 +156,17 @@ func main() {
 		logger.Info("The Odds API key is empty, skipping external odds sync")
 	}
 
-	// Notification module
 	notifRepository := notificationRepo.NewPostgresNotificationRepo(db)
 	notifUC := notificationUsecase.NewNotificationUseCase(notifRepository, eventBus)
 	notifH := notificationHandler.NewNotificationHandler(notifUC)
 
-	// Register event handlers
 	registerEventHandlers(eventBus, notifUC)
 
-	// Create Echo instance and register routes
 	e := echo.New()
 	e.HideBanner = true
 
 	app.RegisterRoutes(e, jwtManager, redisClient, userH, bettingH, paymentH, oddsH, notifH)
 
-	// Graceful shutdown
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)
 		logger.Info("Server starting", "address", addr)
@@ -185,7 +175,6 @@ func main() {
 		}
 	}()
 
-	// Wait for interrupt signal
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
@@ -202,7 +191,6 @@ func main() {
 	logger.Info("Server exited gracefully")
 }
 
-// UserProviderAdapter adapts user/payment repos to the BettingModule's UserProvider interface
 type UserProviderAdapter struct {
 	userRepo   userDomain.UserRepository
 	walletRepo paymentDomain.WalletRepository
@@ -220,9 +208,7 @@ func (a *UserProviderAdapter) AddBalance(ctx context.Context, userID string, amo
 	return a.walletRepo.UpdateBalance(ctx, userID, amount)
 }
 
-// registerEventHandlers wires up cross-module event handlers
 func registerEventHandlers(bus *event.Bus, notifUC *notificationUsecase.NotificationUseCase) {
-	// When a user registers, send a welcome notification
 	bus.Subscribe(event.UserRegistered, func(ctx context.Context, evt event.Event) error {
 		payload := evt.Payload.(map[string]string)
 		_, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
@@ -234,7 +220,6 @@ func registerEventHandlers(bus *event.Bus, notifUC *notificationUsecase.Notifica
 		return err
 	})
 
-	// When a bet is placed, notify the user
 	bus.Subscribe(event.BetPlaced, func(ctx context.Context, evt event.Event) error {
 		payload := evt.Payload.(map[string]interface{})
 		_, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
@@ -246,7 +231,6 @@ func registerEventHandlers(bus *event.Bus, notifUC *notificationUsecase.Notifica
 		return err
 	})
 
-	// When a deposit is made, notify the user
 	bus.Subscribe(event.PaymentDeposit, func(ctx context.Context, evt event.Event) error {
 		payload := evt.Payload.(map[string]interface{})
 		_, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{

@@ -8,6 +8,7 @@ import (
 	"betting-app/internal/modules/user/domain"
 	"betting-app/internal/modules/user/usecase"
 	apperrors "betting-app/internal/shared/errors"
+	"betting-app/pkg/logger"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -138,6 +139,7 @@ func (h *UserHandler) UpdateProfile(c echo.Context) error {
 
 	profile, err := h.useCase.UpdateProfile(c.Request().Context(), userID, &req)
 	if err != nil {
+		logger.Error("UpdateProfile failed", "error", err)
 		if appErr, ok := err.(*apperrors.AppError); ok {
 			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 		}

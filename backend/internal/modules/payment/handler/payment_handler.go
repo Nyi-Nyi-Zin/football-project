@@ -362,3 +362,104 @@ func (h *PaymentHandler) AgentVerifyWithdrawalByCode(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(tx, nil))
 }
+
+// ─── Location-based Withdrawal Flow ─────────────────────────────────
+
+// GetAgentsByLocation handles GET /api/v1/withdrawals/agents/:location
+func (h *PaymentHandler) GetAgentsByLocation(c echo.Context) error {
+	location := c.Param("location")
+	if location == "" {
+		appErr := apperrors.NewBadRequestError("Location is required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	agents, err := h.useCase.GetAgentsByLocation(c.Request().Context(), location)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agents")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(agents, nil))
+}
+
+// CreateLocationBasedWithdrawal handles POST /api/v1/withdrawals
+func (h *PaymentHandler) CreateLocationBasedWithdrawal(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+
+	var req struct {
+		Amount         float64 `json:"amount" validate:"required,gt=0"`
+		Location       string  `json:"location" validate:"required"`
+		AgentID        string  `json:"agent_id" validate:"required"`
+		AccountDetails string  `json:"account_details" validate:"required"`
+	}
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	createReq := &domain.CreateWithdrawalRequest{
+		Amount:         req.Amount,
+		Location:       req.Location,
+		AccountDetails: req.AccountDetails,
+	}
+
+	withdrawal, err := h.useCase.CreateLocationBasedWithdrawal(c.Request().Context(), userID, createReq, req.AgentID)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to create withdrawal request")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(withdrawal, nil))
+}
+
+// ApproveWithdrawalByCode handles POST /api/v1/withdrawals/approve
+func (h *PaymentHandler) ApproveWithdrawalByCode(c echo.Context) error {
+	var req domain.ApproveWithdrawalRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	withdrawal, err := h.useCase.ApproveWithdrawalByCode(c.Request().Context(), req.Code)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to approve withdrawal")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(withdrawal, nil))
+}
+
+// CancelWithdrawalRequest handles DELETE /api/v1/withdrawals/:id
+func (h *PaymentHandler) CancelWithdrawalRequest(c echo.Context) error {
+	requestID := c.Param("id")
+	if requestID == "" {
+		appErr := apperrors.NewBadRequestError("Request ID is required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	if err := h.useCase.CancelWithdrawalRequest(c.Request().Context(), requestID); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to cancel withdrawal")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "Withdrawal request cancelled successfully",
+	}, nil))
+}
