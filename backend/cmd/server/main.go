@@ -204,7 +204,7 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 
-	app.RegisterRoutes(e, jwtManager, redisClient, userH, bettingH, paymentH, oddsH, notifH)
+	app.RegisterRoutes(e, jwtManager, redisClient, userH, userRepository, bettingH, paymentH, oddsH, notifH)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)

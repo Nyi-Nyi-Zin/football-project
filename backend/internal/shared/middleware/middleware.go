@@ -4,6 +4,7 @@ import (
 	"strings"
 	"time"
 
+	userDomain "betting-app/internal/modules/user/domain"
 	"betting-app/internal/shared/cache"
 	apperrors "betting-app/internal/shared/errors"
 	jwtpkg "betting-app/pkg/jwt"
@@ -14,7 +15,7 @@ import (
 )
 
 // AuthMiddleware creates JWT authentication middleware
-func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient) echo.MiddlewareFunc {
+func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient, userRepo userDomain.UserRepository) echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(c echo.Context) error {
 			authHeader := c.Request().Header.Get("Authorization")
@@ -48,8 +49,21 @@ func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient) 
 				return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 			}
 
+			if userRepo != nil {
+				user, userErr := userRepo.FindByID(c.Request().Context(), claims.UserID)
+				if userErr != nil || user == nil {
+					appErr := apperrors.NewUnauthorizedError("User account could not be verified")
+					return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+				}
+				if user.Status != "active" && user.Role != "admin" {
+					appErr := apperrors.NewForbiddenError("Account is not active")
+					return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+				}
+			}
+
 			// Set user info in context
 			c.Set("user_id", claims.UserID)
+
 			c.Set("email", claims.Email)
 			c.Set("role", claims.Role)
 			c.Set("token", tokenString)

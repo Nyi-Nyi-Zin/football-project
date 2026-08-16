@@ -7,7 +7,9 @@ import (
 	notificationHandler "betting-app/internal/modules/notification/handler"
 	oddsHandler "betting-app/internal/modules/odds/handler"
 	paymentHandler "betting-app/internal/modules/payment/handler"
+	userDomain "betting-app/internal/modules/user/domain"
 	userHandler "betting-app/internal/modules/user/handler"
+
 	"betting-app/internal/shared/cache"
 	"betting-app/internal/shared/middleware"
 	jwtpkg "betting-app/pkg/jwt"
@@ -21,6 +23,7 @@ func RegisterRoutes(
 	jwtManager *jwtpkg.Manager,
 	redisClient *cache.RedisClient,
 	userH *userHandler.UserHandler,
+	userRepo userDomain.UserRepository,
 	bettingH *bettingHandler.BettingHandler,
 	paymentH *paymentHandler.PaymentHandler,
 	oddsH *oddsHandler.OddsHandler,
@@ -47,7 +50,7 @@ func RegisterRoutes(
 
 	// --- Protected routes ---
 	protected := v1.Group("")
-	protected.Use(middleware.AuthMiddleware(jwtManager, redisClient))
+	protected.Use(middleware.AuthMiddleware(jwtManager, redisClient, userRepo))
 
 	// User routes
 	users := protected.Group("/users")
