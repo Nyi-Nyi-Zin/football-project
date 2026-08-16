@@ -14,6 +14,9 @@ class BetSlip extends ConsumerStatefulWidget {
 }
 
 class _BetSlipState extends ConsumerState<BetSlip> {
+  static const minimumStakeMmk = 500.0;
+  static const maximumStakeMmk = 1000000.0;
+  static const maximumPayoutMmk = 50000000.0;
   final _stakeController = TextEditingController();
   bool _isPlacing = false;
 
@@ -26,7 +29,13 @@ class _BetSlipState extends ConsumerState<BetSlip> {
   Future<void> _placeBet() async {
     final stake = double.tryParse(_stakeController.text);
     var items = ref.read(betCartProvider);
-    if (stake == null || stake <= 0 || items.isEmpty) return;
+    if (stake == null || items.isEmpty) return;
+    if (stake < minimumStakeMmk || stake > maximumStakeMmk) {
+      _showValidationMessage(
+        'Stake must be between ${minimumStakeMmk.toStringAsFixed(0)} and ${maximumStakeMmk.toStringAsFixed(0)} MMK',
+      );
+      return;
+    }
 
     final liveUpdates = ref.read(matchOddsStateProvider);
     final changedItems = items.where((item) {
@@ -43,6 +52,17 @@ class _BetSlipState extends ConsumerState<BetSlip> {
       if (!accepted || !mounted) return;
       ref.read(betCartProvider.notifier).acceptLiveOdds(liveUpdates);
       items = ref.read(betCartProvider);
+    }
+
+    final combinedOdds = items.fold<double>(
+      1,
+      (value, item) => value * item.selection.odds,
+    );
+    if (stake * combinedOdds > maximumPayoutMmk) {
+      _showValidationMessage(
+        'Maximum possible payout is ${maximumPayoutMmk.toStringAsFixed(0)} MMK',
+      );
+      return;
     }
 
     setState(() => _isPlacing = true);
@@ -70,6 +90,13 @@ class _BetSlipState extends ConsumerState<BetSlip> {
         ),
       );
     }
+  }
+
+  void _showValidationMessage(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: AppTheme.errorColor),
+    );
   }
 
   Future<bool> _confirmOddsChanges(
@@ -259,9 +286,11 @@ class _BetSlipState extends ConsumerState<BetSlip> {
             TextField(
               controller: _stakeController,
               keyboardType: TextInputType.number,
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
                 labelText: 'Stake Amount',
                 suffixText: ' MMK',
+                helperText:
+                    'Min ${minimumStakeMmk.toStringAsFixed(0)} MMK · Max ${maximumStakeMmk.toStringAsFixed(0)} MMK',
               ),
               onChanged: (_) => setState(() {}),
             ),
@@ -289,9 +318,11 @@ class _BetSlipState extends ConsumerState<BetSlip> {
                 ),
                 Text(
                   '${potentialPayout.toStringAsFixed(2)} MMK',
-                  style: const TextStyle(
+                  style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: AppTheme.accentColor,
+                    color: potentialPayout > maximumPayoutMmk
+                        ? AppTheme.errorColor
+                        : AppTheme.accentColor,
                     fontSize: 20,
                   ),
                 ),
