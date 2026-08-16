@@ -73,7 +73,8 @@ class BetDetailScreen extends ConsumerWidget {
                         _detailRow('Selection', bet.selection.toUpperCase()),
                         _detailRow('Type', bet.betType),
                         _detailRow('Odds', bet.odds.toStringAsFixed(2)),
-                        _detailRow('Stake', '${bet.stake.toStringAsFixed(2)} MMK'),
+                        _detailRow(
+                            'Stake', '${bet.stake.toStringAsFixed(2)} MMK'),
                         _detailRow(
                           'Potential Payout',
                           '${bet.potentialPayout.toStringAsFixed(2)} MMK',
@@ -85,6 +86,14 @@ class BetDetailScreen extends ConsumerWidget {
                 ),
                 const Spacer(),
 
+                if (bet.status.toLowerCase() == 'active') ...[
+                  ElevatedButton.icon(
+                    onPressed: () => _showCashOutQuote(context, ref, bet.id),
+                    icon: const Icon(Icons.lock_clock_outlined),
+                    label: const Text('Get Cash-out Quote'),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 if (bet.isPending)
                   OutlinedButton(
                     onPressed: () async {
@@ -110,6 +119,63 @@ class BetDetailScreen extends ConsumerWidget {
         error: (_, __) => const Center(child: Text('Error loading bet')),
       ),
     );
+  }
+
+  Future<void> _showCashOutQuote(
+    BuildContext context,
+    WidgetRef ref,
+    String betId,
+  ) async {
+    try {
+      final quote =
+          await ref.read(bettingDataSourceProvider).getCashOutQuote(betId);
+      if (!context.mounted) return;
+      final amount = (quote['quoted_amount'] as num?)?.toDouble() ?? 0;
+      final currentOdds = (quote['current_odds'] as num?)?.toDouble() ?? 0;
+      final expiresAt = DateTime.tryParse(quote['expires_at'] as String? ?? '');
+      await showDialog<void>(
+        context: context,
+        builder: (_) => AlertDialog(
+          title: const Text('Cash-out Quote'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                '${amount.toStringAsFixed(2)} MMK',
+                style: const TextStyle(
+                  color: AppTheme.primaryColor,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 10),
+              Text('Current odds: ${currentOdds.toStringAsFixed(2)}'),
+              if (expiresAt != null)
+                Text('Valid until: ${expiresAt.toLocal()}'),
+              const SizedBox(height: 12),
+              const Text(
+                'This quote is informational and expires quickly. Final cash-out execution must revalidate the live odds.',
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (error) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cash-out is unavailable: $error'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 
   Widget _detailRow(String label, String value, {Color? valueColor}) {

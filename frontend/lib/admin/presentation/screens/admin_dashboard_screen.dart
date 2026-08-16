@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../../core/theme/app_theme.dart';
 import '../providers/admin_provider.dart';
 
 class AdminDashboardScreen extends ConsumerWidget {
@@ -45,6 +46,18 @@ class AdminDashboardScreen extends ConsumerWidget {
                       value: currency.format(financial.totalWithdrawals),
                     ),
                     _KpiCard(
+                      title: 'Bet Winnings Paid',
+                      value: currency.format(financial.totalBetWins),
+                    ),
+                    _KpiCard(
+                      title: 'Refunds Paid',
+                      value: currency.format(financial.totalRefunds),
+                    ),
+                    _KpiCard(
+                      title: 'Net Cash Flow',
+                      value: currency.format(financial.netCashFlow),
+                    ),
+                    _KpiCard(
                       title: 'Pending Withdrawals',
                       value: '${financial.pendingWithdrawals}',
                     ),
@@ -78,22 +91,36 @@ class AdminDashboardScreen extends ConsumerWidget {
                                     BarChartRodData(
                                       toY: financial.totalDeposits,
                                       width: 28,
-                                      color: Colors.green,
+                                      color: AppTheme.primaryColor,
                                     ),
                                   ]),
                                   BarChartGroupData(x: 1, barRods: [
                                     BarChartRodData(
                                       toY: financial.totalWithdrawals,
                                       width: 28,
-                                      color: Colors.orange,
+                                      color: AppTheme.warningColor,
                                     ),
                                   ]),
                                   BarChartGroupData(x: 2, barRods: [
                                     BarChartRodData(
+                                      toY: financial.totalBetWins,
+                                      width: 28,
+                                      color: AppTheme.successColor,
+                                    ),
+                                  ]),
+                                  BarChartGroupData(x: 3, barRods: [
+                                    BarChartRodData(
+                                      toY: financial.totalRefunds,
+                                      width: 28,
+                                      color: AppTheme.secondaryColor,
+                                    ),
+                                  ]),
+                                  BarChartGroupData(x: 4, barRods: [
+                                    BarChartRodData(
                                       toY: financial.pendingWithdrawals
                                           .toDouble(),
                                       width: 28,
-                                      color: Colors.redAccent,
+                                      color: AppTheme.errorColor,
                                     ),
                                   ]),
                                 ],
@@ -114,7 +141,9 @@ class AdminDashboardScreen extends ConsumerWidget {
                                         const labels = [
                                           'Deposits',
                                           'Withdrawals',
-                                          'Pending'
+                                          'Bet wins',
+                                          'Refunds',
+                                          'Pending',
                                         ];
                                         final i = value.toInt();
                                         return Padding(
@@ -164,11 +193,22 @@ class _KpiCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(title, style: const TextStyle(color: Colors.grey)),
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
               const SizedBox(height: 8),
-              Text(value,
-                  style: const TextStyle(
-                      fontSize: 20, fontWeight: FontWeight.bold)),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppTheme.textPrimary,
+                  fontSize: 20,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ],
           ),
         ),

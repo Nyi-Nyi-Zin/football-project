@@ -37,20 +37,20 @@ const (
 
 // Match represents a sporting event
 type Match struct {
-	ID          string      `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	ExternalID  string      `json:"external_id,omitempty" gorm:"index"`
-	Sport       string      `json:"sport" gorm:"not null;index"`
-	League      string      `json:"league" gorm:"not null"`
-	HomeTeam    string      `json:"home_team" gorm:"not null"`
-	AwayTeam    string      `json:"away_team" gorm:"not null"`
-	StartTime   time.Time   `json:"start_time" gorm:"not null;index"`
-	Status      MatchStatus `json:"status" gorm:"default:'upcoming'"`
-	HomeScore   *int        `json:"home_score"`
-	AwayScore   *int        `json:"away_score"`
-	CreatedAt   time.Time   `json:"created_at"`
-	UpdatedAt   time.Time   `json:"updated_at"`
-	Markets     []Market    `json:"markets,omitempty" gorm:"-"`
-    Testing      string     `json:"testing" gorm:"not null"`
+	ID         string      `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	ExternalID string      `json:"external_id,omitempty" gorm:"index"`
+	Sport      string      `json:"sport" gorm:"not null;index"`
+	League     string      `json:"league" gorm:"not null"`
+	HomeTeam   string      `json:"home_team" gorm:"not null"`
+	AwayTeam   string      `json:"away_team" gorm:"not null"`
+	StartTime  time.Time   `json:"start_time" gorm:"not null;index"`
+	Status     MatchStatus `json:"status" gorm:"default:'upcoming'"`
+	HomeScore  *int        `json:"home_score"`
+	AwayScore  *int        `json:"away_score"`
+	CreatedAt  time.Time   `json:"created_at"`
+	UpdatedAt  time.Time   `json:"updated_at"`
+	Markets    []Market    `json:"markets,omitempty" gorm:"-"`
+	Testing    string      `json:"testing" gorm:"not null"`
 }
 
 // TableName overrides the table name
@@ -127,6 +127,15 @@ type MarketSelection struct {
 	Key   string  `json:"key"`
 	Label string  `json:"label"`
 	Odds  float64 `json:"odds"`
+}
+
+type CashOutQuote struct {
+	BetID        string    `json:"bet_id"`
+	QuotedAmount float64   `json:"quoted_amount"`
+	OriginalOdds float64   `json:"original_odds"`
+	CurrentOdds  float64   `json:"current_odds"`
+	ExpiresAt    time.Time `json:"expires_at"`
+	Status       string    `json:"status"`
 }
 
 // PlaceBetRequest represents a request to place a bet

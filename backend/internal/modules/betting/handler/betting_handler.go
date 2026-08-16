@@ -124,6 +124,21 @@ func (h *BettingHandler) PreviewSettlement(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(decision, nil))
 }
 
+// GetCashOutQuote handles GET /api/v1/bets/:id/cashout-quote
+func (h *BettingHandler) GetCashOutQuote(c echo.Context) error {
+	userID := c.Get("user_id").(string)
+	betID := c.Param("id")
+	quote, err := h.useCase.GetCashOutQuote(c.Request().Context(), userID, betID)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to get cash-out quote")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(quote, nil))
+}
+
 // GetBet handles GET /api/v1/bets/:id
 func (h *BettingHandler) GetBet(c echo.Context) error {
 	betID := c.Param("id")

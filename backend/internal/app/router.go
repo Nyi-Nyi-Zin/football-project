@@ -62,6 +62,7 @@ func RegisterRoutes(
 	bets.POST("/slips", bettingH.PlaceBetSlip)
 	bets.GET("/my", bettingH.GetMyBets)
 	bets.GET("/slips/my", bettingH.GetMyBetSlips)
+	bets.GET("/:id/cashout-quote", bettingH.GetCashOutQuote)
 	bets.GET("/:id", bettingH.GetBet)
 	bets.DELETE("/:id", bettingH.CancelBet)
 

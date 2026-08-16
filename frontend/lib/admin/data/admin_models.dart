@@ -97,12 +97,18 @@ class AdminFinancialSummary {
   final int totalTransactions;
   final double totalDeposits;
   final double totalWithdrawals;
+  final double totalBetWins;
+  final double totalRefunds;
+  final double netCashFlow;
   final int pendingWithdrawals;
 
   const AdminFinancialSummary({
     required this.totalTransactions,
     required this.totalDeposits,
     required this.totalWithdrawals,
+    required this.totalBetWins,
+    required this.totalRefunds,
+    required this.netCashFlow,
     required this.pendingWithdrawals,
   });
 
@@ -111,6 +117,9 @@ class AdminFinancialSummary {
       totalTransactions: (json['total_transactions'] as num?)?.toInt() ?? 0,
       totalDeposits: (json['total_deposits'] as num?)?.toDouble() ?? 0,
       totalWithdrawals: (json['total_withdrawals'] as num?)?.toDouble() ?? 0,
+      totalBetWins: (json['total_bet_wins'] as num?)?.toDouble() ?? 0,
+      totalRefunds: (json['total_refunds'] as num?)?.toDouble() ?? 0,
+      netCashFlow: (json['net_cash_flow'] as num?)?.toDouble() ?? 0,
       pendingWithdrawals: (json['pending_withdrawals'] as num?)?.toInt() ?? 0,
     );
   }

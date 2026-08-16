@@ -91,6 +91,11 @@ class BettingRemoteDataSource {
     return BetModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<Map<String, dynamic>> getCashOutQuote(String id) async {
+    final response = await _client.dio.get('/bets/$id/cashout-quote');
+    return Map<String, dynamic>.from(response.data['data'] as Map);
+  }
+
   Future<void> cancelBet(String id) async {
     await _client.dio.delete('/bets/$id');
   }

@@ -291,6 +291,8 @@ func (h *PaymentHandler) AdminDashboardSummary(c echo.Context) error {
 
 	var totalDeposits float64
 	var totalWithdrawals float64
+	var totalBetWins float64
+	var totalRefunds float64
 	var pendingWithdrawals int
 	for _, tx := range allTxs {
 		if tx.Type == domain.TransactionDeposit && tx.Status == domain.TransactionCompleted {
@@ -304,12 +306,21 @@ func (h *PaymentHandler) AdminDashboardSummary(c echo.Context) error {
 				pendingWithdrawals++
 			}
 		}
+		if tx.Type == domain.TransactionBetWin && tx.Status == domain.TransactionCompleted {
+			totalBetWins += tx.Amount
+		}
+		if tx.Type == domain.TransactionRefund && tx.Status == domain.TransactionCompleted {
+			totalRefunds += tx.Amount
+		}
 	}
 
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]interface{}{
 		"total_transactions":  len(allTxs),
 		"total_deposits":      totalDeposits,
 		"total_withdrawals":   totalWithdrawals,
+		"total_bet_wins":      totalBetWins,
+		"total_refunds":       totalRefunds,
+		"net_cash_flow":       totalDeposits - totalWithdrawals,
 		"pending_withdrawals": pendingWithdrawals,
 	}, nil))
 }

@@ -3,7 +3,9 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"math"
 	"strings"
+	"time"
 
 	"betting-app/internal/modules/betting/domain"
 	oddsDomain "betting-app/internal/modules/odds/domain"
@@ -183,6 +185,49 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 	}
 
 	return slip, nil
+}
+
+// GetCashOutQuote returns a short-lived quote for an owned live single bet.
+// It does not mutate the bet or wallet; execution must revalidate the quote in
+// a transaction because odds may change before the user accepts it.
+func (uc *BettingUseCase) GetCashOutQuote(ctx context.Context, userID, betID string) (*domain.CashOutQuote, error) {
+	bet, err := uc.betRepo.FindBetByID(ctx, betID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Bet not found")
+	}
+	if bet.UserID != userID {
+		return nil, apperrors.NewForbiddenError("Not authorized to cash out this bet")
+	}
+	if bet.BetType != domain.BetTypeSingle {
+		return nil, apperrors.NewBadRequestError("Cash out is currently available for single bets only")
+	}
+	if bet.Status != domain.BetStatusActive {
+		return nil, apperrors.NewBadRequestError("Only active bets can be cashed out")
+	}
+	if bet.Match == nil || bet.Match.Status != domain.MatchStatusLive {
+		return nil, apperrors.NewBadRequestError("Cash out is available only while the match is live")
+	}
+	markets, err := uc.getMatchMarkets(ctx, bet.MatchID)
+	if err != nil {
+		return nil, err
+	}
+	selection := findSelection(markets, bet.MarketKey, bet.Selection)
+	if selection == nil || selection.Odds <= 1 || bet.Odds <= 1 {
+		return nil, apperrors.NewBadRequestError("Current odds are unavailable for cash out")
+	}
+	quote := bet.Stake * (selection.Odds / bet.Odds) * 0.95
+	quote = math.Max(0, math.Min(quote, bet.PotentialPayout))
+	if quote <= 0 {
+		return nil, apperrors.NewBadRequestError("Cash out is not available for this selection")
+	}
+	return &domain.CashOutQuote{
+		BetID:        bet.ID,
+		QuotedAmount: math.Round(quote*100) / 100,
+		OriginalOdds: bet.Odds,
+		CurrentOdds:  selection.Odds,
+		ExpiresAt:    time.Now().UTC().Add(15 * time.Second),
+		Status:       "available",
+	}, nil
 }
 
 // SettleBet applies a single-bet settlement and wallet ledger entry atomically.
