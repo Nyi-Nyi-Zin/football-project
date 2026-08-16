@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../data/admin_models.dart';
 import '../../data/admin_remote_datasource.dart';
 
 class AdminOddsScreen extends ConsumerStatefulWidget {
@@ -16,7 +17,15 @@ class _AdminOddsScreenState extends ConsumerState<AdminOddsScreen> {
   final _homeController = TextEditingController(text: '2.00');
   final _drawController = TextEditingController(text: '3.00');
   final _awayController = TextEditingController(text: '2.00');
+  late Future<List<AdminMatchSummary>> _matchesFuture;
+  AdminMatchSummary? _selectedMatch;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _matchesFuture = ref.read(adminDatasourceProvider).getMatches();
+  }
 
   @override
   void dispose() {
@@ -57,6 +66,13 @@ class _AdminOddsScreenState extends ConsumerState<AdminOddsScreen> {
     return null;
   }
 
+  void _selectMatch(AdminMatchSummary? match) {
+    setState(() {
+      _selectedMatch = match;
+      _matchIdController.text = match?.id ?? '';
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -82,6 +98,58 @@ class _AdminOddsScreenState extends ConsumerState<AdminOddsScreen> {
                       'Changes are persisted on the backend and broadcast to live sportsbook clients through WebSocket.',
                     ),
                     const SizedBox(height: 20),
+                    FutureBuilder<List<AdminMatchSummary>>(
+                      future: _matchesFuture,
+                      builder: (context, snapshot) {
+                        if (snapshot.hasError) {
+                          return Row(
+                            children: [
+                              const Expanded(
+                                child: Text(
+                                    'Could not load matches. Use a match ID below.'),
+                              ),
+                              IconButton(
+                                onPressed: () => setState(() {
+                                  _matchesFuture = ref
+                                      .read(adminDatasourceProvider)
+                                      .getMatches();
+                                }),
+                                icon: const Icon(Icons.refresh),
+                              ),
+                            ],
+                          );
+                        }
+                        if (!snapshot.hasData) {
+                          return const LinearProgressIndicator();
+                        }
+                        final matches = snapshot.data!;
+                        if (matches.isEmpty) {
+                          return const Text(
+                              'No matches are currently available.');
+                        }
+                        return DropdownButtonFormField<AdminMatchSummary>(
+                          initialValue: _selectedMatch,
+                          isExpanded: true,
+                          decoration: const InputDecoration(
+                            labelText: 'Select a live fixture',
+                            border: OutlineInputBorder(),
+                          ),
+                          items: matches
+                              .map(
+                                (match) => DropdownMenuItem(
+                                  value: match,
+                                  child: Text(
+                                    '${match.label} (${match.status})',
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: _saving ? null : _selectMatch,
+                        );
+                      },
+                    ),
+                    const SizedBox(height: 16),
                     TextFormField(
                       controller: _matchIdController,
                       decoration: const InputDecoration(

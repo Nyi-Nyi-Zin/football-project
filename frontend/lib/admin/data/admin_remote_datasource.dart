@@ -122,6 +122,16 @@ class AdminRemoteDataSource {
     );
   }
 
+  Future<List<AdminMatchSummary>> getMatches() async {
+    final response = await _client.dio.get(
+      '/matches',
+      queryParameters: {'page': 1, 'limit': 100},
+    );
+    return (response.data['data'] as List<dynamic>)
+        .map((item) => AdminMatchSummary.fromJson(item as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<void> updateOdds({
     required String matchId,
     required double homeOdds,

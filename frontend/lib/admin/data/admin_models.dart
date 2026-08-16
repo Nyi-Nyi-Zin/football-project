@@ -54,6 +54,38 @@ class AdminUser {
   }
 }
 
+class AdminMatchSummary {
+  final String id;
+  final String league;
+  final String homeTeam;
+  final String awayTeam;
+  final String status;
+  final DateTime startTime;
+
+  const AdminMatchSummary({
+    required this.id,
+    required this.league,
+    required this.homeTeam,
+    required this.awayTeam,
+    required this.status,
+    required this.startTime,
+  });
+
+  factory AdminMatchSummary.fromJson(Map<String, dynamic> json) {
+    return AdminMatchSummary(
+      id: json['id'] as String? ?? '',
+      league: json['league'] as String? ?? '',
+      homeTeam: json['home_team'] as String? ?? '',
+      awayTeam: json['away_team'] as String? ?? '',
+      status: json['status'] as String? ?? '',
+      startTime: DateTime.tryParse(json['start_time'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+
+  String get label => '$homeTeam vs $awayTeam · $league';
+}
+
 class AdminTransaction {
   final String id;
   final String userId;
