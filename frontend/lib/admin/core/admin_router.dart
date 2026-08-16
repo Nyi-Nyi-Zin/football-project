@@ -6,6 +6,7 @@ import '../../features/auth/presentation/providers/auth_provider.dart';
 import '../presentation/screens/admin_balances_screen.dart';
 import '../presentation/screens/admin_dashboard_screen.dart';
 import '../presentation/screens/admin_login_screen.dart';
+import '../presentation/screens/admin_odds_screen.dart';
 import '../presentation/screens/admin_transactions_screen.dart';
 import '../presentation/screens/admin_user_detail_screen.dart';
 import '../presentation/screens/admin_users_screen.dart';
@@ -71,6 +72,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/withdrawals',
             builder: (_, __) => const AdminWithdrawalsScreen(),
+          ),
+          GoRoute(
+            path: '/odds',
+            builder: (_, __) => const AdminOddsScreen(),
           ),
         ],
       ),

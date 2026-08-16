@@ -122,6 +122,20 @@ class AdminRemoteDataSource {
     );
   }
 
+  Future<void> updateOdds({
+    required String matchId,
+    required double homeOdds,
+    required double drawOdds,
+    required double awayOdds,
+  }) async {
+    await _client.dio.put('/odds', data: {
+      'match_id': matchId,
+      'home_odds': homeOdds,
+      'draw_odds': drawOdds,
+      'away_odds': awayOdds,
+    });
+  }
+
   Future<AdminTransaction> adjustBalance({
     required String userId,
     required double amount,

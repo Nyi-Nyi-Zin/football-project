@@ -15,6 +15,7 @@ class AdminShell extends ConsumerWidget {
     '/balances',
     '/transactions',
     '/withdrawals',
+    '/odds',
   ];
 
   @override
@@ -48,6 +49,11 @@ class AdminShell extends ConsumerWidget {
         icon: Icon(Icons.payments_outlined),
         selectedIcon: Icon(Icons.payments),
         label: Text('Withdrawals'),
+      ),
+      NavigationRailDestination(
+        icon: Icon(Icons.candlestick_chart_outlined),
+        selectedIcon: Icon(Icons.candlestick_chart),
+        label: Text('Odds'),
       ),
     ];
 
@@ -101,6 +107,11 @@ class AdminShell extends ConsumerWidget {
                   icon: Icon(Icons.payments_outlined),
                   selectedIcon: Icon(Icons.payments),
                   label: 'Wd',
+                ),
+                NavigationDestination(
+                  icon: Icon(Icons.candlestick_chart_outlined),
+                  selectedIcon: Icon(Icons.candlestick_chart),
+                  label: 'Odds',
                 ),
               ],
             )
