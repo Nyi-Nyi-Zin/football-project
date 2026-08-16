@@ -17,6 +17,7 @@ type Config struct {
 	Security   SecurityConfig
 	Sportmonks SportmonksConfig
 	TheOddsAPI TheOddsAPIConfig
+	OpenLigaDB OpenLigaDBConfig
 }
 
 type ServerConfig struct {
@@ -55,6 +56,12 @@ type TheOddsAPIConfig struct {
 	SyncInterval string `mapstructure:"THE_ODDS_SYNC_INTERVAL"`
 }
 
+type OpenLigaDBConfig struct {
+	Leagues      string `mapstructure:"OPENLIGADB_LEAGUES"`
+	Season       int    `mapstructure:"OPENLIGADB_SEASON"`
+	SyncInterval string `mapstructure:"OPENLIGADB_SYNC_INTERVAL"`
+}
+
 // Load reads configuration from .env file and environment variables
 func Load() (*Config, error) {
 	viper.SetConfigFile(".env")
@@ -71,6 +78,9 @@ func Load() (*Config, error) {
 	viper.SetDefault("WITHDRAWAL_CODE_PEPPER", "dev-withdrawal-pepper")
 	viper.SetDefault("WITHDRAWAL_DATA_KEY", "dev-withdrawal-encryption-key")
 	viper.SetDefault("THE_ODDS_SYNC_INTERVAL", "30m")
+	viper.SetDefault("OPENLIGADB_LEAGUES", "bl1")
+	viper.SetDefault("OPENLIGADB_SEASON", 2026)
+	viper.SetDefault("OPENLIGADB_SYNC_INTERVAL", "6h")
 
 	envPaths := []string{".env", "../../.env", "../../../.env"}
 	var readErr error
@@ -116,6 +126,11 @@ func Load() (*Config, error) {
 		TheOddsAPI: TheOddsAPIConfig{
 			Key:          firstNonEmpty(viper.GetString("THE_ODDS_API_KEY"), viper.GetString("ODDS_API_KEY")),
 			SyncInterval: viper.GetString("THE_ODDS_SYNC_INTERVAL"),
+		},
+		OpenLigaDB: OpenLigaDBConfig{
+			Leagues:      viper.GetString("OPENLIGADB_LEAGUES"),
+			Season:       viper.GetInt("OPENLIGADB_SEASON"),
+			SyncInterval: viper.GetString("OPENLIGADB_SYNC_INTERVAL"),
 		},
 	}
 

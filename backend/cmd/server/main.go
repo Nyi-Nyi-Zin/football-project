@@ -152,7 +152,22 @@ func main() {
 	)
 	bettingH := bettingHandler.NewBettingHandler(bettingUC)
 
+	openLigaInterval, parseErr := time.ParseDuration(cfg.OpenLigaDB.SyncInterval)
+	if parseErr != nil {
+		logger.Warn("Invalid OPENLIGADB_SYNC_INTERVAL, using default", "value", cfg.OpenLigaDB.SyncInterval, "error", parseErr)
+		openLigaInterval = 6 * time.Hour
+	}
+	openLigaSync := services.NewOpenLigaDBSyncService(
+		cfg.OpenLigaDB.Leagues,
+		cfg.OpenLigaDB.Season,
+		openLigaInterval,
+		matchRepository,
+	)
+	openLigaSync.StartSync(context.Background())
+	logger.Info("OpenLigaDB football fixture sync enabled", "leagues", cfg.OpenLigaDB.Leagues, "season", cfg.OpenLigaDB.Season, "interval", openLigaInterval.String())
+
 	if cfg.TheOddsAPI.Key != "" {
+
 		syncInterval, parseErr := time.ParseDuration(cfg.TheOddsAPI.SyncInterval)
 		if parseErr != nil {
 			logger.Warn("Invalid THE_ODDS_SYNC_INTERVAL, using default", "value", cfg.TheOddsAPI.SyncInterval, "error", parseErr)
