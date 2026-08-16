@@ -26,6 +26,28 @@ class PaymentRemoteDataSource {
         .toList();
   }
 
+  Future<TransactionModel> deposit({
+    required double amount,
+    String currency = 'MMK',
+    String paymentMethod = 'manual_demo',
+  }) async {
+    final idempotencyKey = _uuid.v4();
+    final response = await _client.dio.post(
+      '/payments/deposit',
+      data: {
+        'amount': amount,
+        'currency': currency,
+        'payment_method': paymentMethod,
+        'idempotency_key': idempotencyKey,
+      },
+      options: Options(
+        headers: {'X-Idempotency-Key': idempotencyKey},
+      ),
+    );
+    return TransactionModel.fromJson(
+        response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<WithdrawalSubmissionModel> withdraw({
     required double amount,
     required String accountDetails,

@@ -7,7 +7,8 @@ final paymentDatasourceProvider = Provider<PaymentRemoteDataSource>((ref) {
   return PaymentRemoteDataSource(ref.read(dioClientProvider));
 });
 
-final walletProvider = StateNotifierProvider<WalletNotifier, AsyncValue<Wallet>>((ref) {
+final walletProvider =
+    StateNotifierProvider<WalletNotifier, AsyncValue<Wallet>>((ref) {
   return WalletNotifier(ref.read(paymentDatasourceProvider));
 });
 
@@ -28,6 +29,22 @@ class WalletNotifier extends StateNotifier<AsyncValue<Wallet>> {
     }
   }
 
+  Future<Transaction?> deposit({
+    required double amount,
+    String paymentMethod = 'manual_demo',
+  }) async {
+    try {
+      final transaction = await _dataSource.deposit(
+        amount: amount,
+        paymentMethod: paymentMethod,
+      );
+      await fetchBalance();
+      return transaction.toEntity();
+    } catch (_) {
+      return null;
+    }
+  }
+
   Future<WithdrawalSubmission?> withdraw({
     required double amount,
     required String accountDetails,
@@ -45,7 +62,8 @@ class WalletNotifier extends StateNotifier<AsyncValue<Wallet>> {
   }
 }
 
-final transactionsProvider = FutureProvider.autoDispose<List<Transaction>>((ref) async {
+final transactionsProvider =
+    FutureProvider.autoDispose<List<Transaction>>((ref) async {
   final ds = ref.read(paymentDatasourceProvider);
   final txs = await ds.getTransactions();
   return txs.map((t) => t.toEntity()).toList();

@@ -102,6 +102,14 @@ class WalletScreen extends ConsumerWidget {
                     Row(
                       children: [
                         Expanded(
+                          child: FilledButton.icon(
+                            onPressed: () => _showDepositDialog(context, ref),
+                            icon: const Icon(Icons.add_circle_outline),
+                            label: const Text('Deposit'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
                           child: OutlinedButton.icon(
                             onPressed: () {
                               Navigator.push(
@@ -225,6 +233,98 @@ class WalletScreen extends ConsumerWidget {
       return 'Your session may have expired. Please log in again and retry.';
     }
     return 'Please retry in a moment.';
+  }
+
+  void _showDepositDialog(BuildContext context, WidgetRef ref) {
+    final amountCtrl = TextEditingController();
+    bool isLoading = false;
+
+    showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (dialogContext, setState) {
+            return AlertDialog(
+              title: const Text('Deposit funds'),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Text(
+                    'Demo deposit credits your wallet immediately. Connect a real payment provider before production money is accepted.',
+                    style:
+                        TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount (MMK)',
+                      prefixIcon: Icon(Icons.payments_outlined),
+                    ),
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed:
+                      isLoading ? null : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  onPressed: isLoading
+                      ? null
+                      : () async {
+                          final amount =
+                              double.tryParse(amountCtrl.text.trim());
+                          if (amount == null || amount <= 0) return;
+                          setState(() => isLoading = true);
+                          final transaction = await ref
+                              .read(walletProvider.notifier)
+                              .deposit(amount: amount);
+                          if (!dialogContext.mounted) return;
+                          setState(() => isLoading = false);
+                          Navigator.pop(dialogContext);
+                          if (transaction != null) {
+                            ref.invalidate(transactionsProvider);
+                            await showDialog<void>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                title: const Text('Deposit successful'),
+                                content: Text(
+                                  '${amount.toStringAsFixed(2)} MMK was added to your wallet.',
+                                ),
+                                actions: [
+                                  FilledButton(
+                                    onPressed: () => Navigator.pop(context),
+                                    child: const Text('Done'),
+                                  ),
+                                ],
+                              ),
+                            );
+                          } else {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Deposit failed. Please retry.'),
+                              ),
+                            );
+                          }
+                        },
+                  child: isLoading
+                      ? const SizedBox(
+                          height: 18,
+                          width: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Text('Deposit'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
   }
 
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref) {
