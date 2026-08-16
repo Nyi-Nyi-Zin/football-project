@@ -20,6 +20,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   bool _obscurePassword = true;
+  bool _registrationSuccessHandled = false;
 
   @override
   void dispose() {
@@ -33,6 +34,7 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
   void _handleRegister() {
     if (_formKey.currentState?.validate() ?? false) {
+      _registrationSuccessHandled = false;
       ref.read(authNotifierProvider.notifier).register(
             email: _emailController.text.trim(),
             username: _usernameController.text.trim(),
@@ -45,6 +47,29 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     }
   }
 
+  Future<void> _showRegistrationSuccess() async {
+    if (!mounted) return;
+    await showDialog<void>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Account created'),
+        content: const Text(
+          'Your account was created successfully. Please sign in to continue.',
+        ),
+        actions: [
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(),
+            child: const Text('Go to login'),
+          ),
+        ],
+      ),
+    );
+    if (!mounted) return;
+    await ref.read(authNotifierProvider.notifier).logout();
+    if (mounted) context.go('/login');
+  }
+
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
@@ -52,7 +77,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.listen(authNotifierProvider, (_, next) {
       next.whenOrNull(
         data: (user) {
-          if (user != null) context.go('/home');
+          if (user != null && !_registrationSuccessHandled) {
+            _registrationSuccessHandled = true;
+            _showRegistrationSuccess();
+          }
         },
         error: (error, _) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -149,8 +177,9 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                         if (v == null || v.isEmpty) {
                           return context.l10n.tr('emailRequired');
                         }
-                        if (!v.contains('@'))
+                        if (!v.contains('@')) {
                           return context.l10n.tr('emailValid');
+                        }
                         return null;
                       },
                     ),
