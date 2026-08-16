@@ -51,6 +51,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
     if (!mounted) return;
     ref.read(authNotifierProvider.notifier).setAuthenticated(user);
+    // Explicit navigation avoids relying only on the router-provider rebuild
+    // after the deferred authentication state is committed.
+    await Future<void>.delayed(Duration.zero);
+    if (!mounted) return;
+    context.go('/home');
   }
 
   @override
