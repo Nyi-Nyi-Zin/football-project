@@ -21,7 +21,8 @@ class AuthRepositoryImpl implements AuthRepository {
     try {
       final data = await _remoteDataSource.login(email, password);
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-      final tokens = TokenPairModel.fromJson(data['tokens'] as Map<String, dynamic>);
+      final tokens =
+          TokenPairModel.fromJson(data['tokens'] as Map<String, dynamic>);
 
       // Save tokens
       await _dioClient.saveTokens(tokens.accessToken, tokens.refreshToken);
@@ -54,10 +55,10 @@ class AuthRepositoryImpl implements AuthRepository {
         phone: phone,
       );
       final user = UserModel.fromJson(data['user'] as Map<String, dynamic>);
-      final tokens = TokenPairModel.fromJson(data['tokens'] as Map<String, dynamic>);
+      final tokens =
+          TokenPairModel.fromJson(data['tokens'] as Map<String, dynamic>);
 
-      await _dioClient.saveTokens(tokens.accessToken, tokens.refreshToken);
-
+      // Registration creates the account but does not start a session.
       return Right(AuthResult(
         user: user.toEntity(),
         tokens: tokens.toEntity(),

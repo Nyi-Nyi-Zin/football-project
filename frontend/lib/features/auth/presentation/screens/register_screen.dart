@@ -20,7 +20,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   bool _obscurePassword = true;
-  bool _registrationSuccessHandled = false;
 
   @override
   void dispose() {
@@ -32,18 +31,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     super.dispose();
   }
 
-  void _handleRegister() {
-    if (_formKey.currentState?.validate() ?? false) {
-      _registrationSuccessHandled = false;
-      ref.read(authNotifierProvider.notifier).register(
-            email: _emailController.text.trim(),
-            username: _usernameController.text.trim(),
-            password: _passwordController.text,
-            fullName: _fullNameController.text.trim(),
-            phone: _phoneController.text.trim().isEmpty
-                ? null
-                : _phoneController.text.trim(),
-          );
+  Future<void> _handleRegister() async {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+
+    final createdUser = await ref.read(authNotifierProvider.notifier).register(
+          email: _emailController.text.trim(),
+          username: _usernameController.text.trim(),
+          password: _passwordController.text,
+          fullName: _fullNameController.text.trim(),
+          phone: _phoneController.text.trim().isEmpty
+              ? null
+              : _phoneController.text.trim(),
+        );
+    if (createdUser != null && mounted) {
+      await _showRegistrationSuccess();
     }
   }
 
@@ -65,8 +66,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
         ],
       ),
     );
-    if (!mounted) return;
-    await ref.read(authNotifierProvider.notifier).logout();
     if (mounted) context.go('/login');
   }
 
@@ -76,12 +75,6 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
 
     ref.listen(authNotifierProvider, (_, next) {
       next.whenOrNull(
-        data: (user) {
-          if (user != null && !_registrationSuccessHandled) {
-            _registrationSuccessHandled = true;
-            _showRegistrationSuccess();
-          }
-        },
         error: (error, _) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -225,13 +218,20 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                       child: ElevatedButton(
                         onPressed: authState.isLoading ? null : _handleRegister,
                         child: authState.isLoading
-                            ? const SizedBox(
-                                height: 20,
-                                width: 20,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: Colors.white,
-                                ),
+                            ? const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  SizedBox(
+                                    height: 20,
+                                    width: 20,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  SizedBox(width: 10),
+                                  Text('Creating account...'),
+                                ],
                               )
                             : Text(context.l10n.tr('createAccountBtn')),
                       ),

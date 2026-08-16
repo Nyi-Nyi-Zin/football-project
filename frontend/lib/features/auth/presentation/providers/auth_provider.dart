@@ -107,19 +107,31 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     state = nextState;
   }
 
-  Future<void> login(String email, String password) async {
+  Future<User?> login(
+    String email,
+    String password, {
+    bool deferNavigation = false,
+  }) async {
     state = const AsyncLoading();
     final result = await _ref
         .read(loginUseCaseProvider)
         .call(LoginParams(email: email, password: password));
 
-    state = result.fold(
-      (failure) => AsyncError(failure, StackTrace.current),
-      (authResult) => AsyncData(authResult.user),
+    return result.fold(
+      (failure) {
+        state = AsyncError(failure, StackTrace.current);
+        return null;
+      },
+      (authResult) {
+        state = deferNavigation
+            ? const AsyncData(null)
+            : AsyncData(authResult.user);
+        return authResult.user;
+      },
     );
   }
 
-  Future<void> register({
+  Future<User?> register({
     required String email,
     required String username,
     required String password,
@@ -137,10 +149,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
           ),
         );
 
-    state = result.fold(
-      (failure) => AsyncError(failure, StackTrace.current),
-      (authResult) => AsyncData(authResult.user),
+    return result.fold(
+      (failure) {
+        state = AsyncError(failure, StackTrace.current);
+        return null;
+      },
+      (authResult) {
+        // Registration does not authenticate or navigate automatically.
+        state = const AsyncData(null);
+        return authResult.user;
+      },
     );
+  }
+
+  void setAuthenticated(User user) {
+    state = AsyncData(user);
   }
 
   Future<void> logout() async {
