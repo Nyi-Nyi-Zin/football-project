@@ -1,30 +1,30 @@
 # Build stage
-FROM golang:1.22-alpine AS builder
+FROM golang:1.25-alpine AS builder
 
 RUN apk add --no-cache git
 
 WORKDIR /app
 
-# Copy go mod files first for dependency caching
+# Copy dependency manifests first for better layer caching.
 COPY go.mod go.sum ./
 RUN go mod download
 
-# Copy source code
+# Copy source code and migrations.
 COPY . .
 
-# Build binary
 RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o /app/server ./cmd/server
 
 # Runtime stage
-FROM alpine:3.19
+FROM alpine:3.21
 
 RUN apk add --no-cache ca-certificates tzdata
 
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /app/server .
-COPY --from=builder /app/.env.example .env
+COPY --from=builder /app/server ./server
+COPY --from=builder /app/migrations ./migrations
+
+ENV MIGRATIONS_DIR=/app/migrations
 
 EXPOSE 8080
 

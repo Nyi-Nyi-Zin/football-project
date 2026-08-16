@@ -1,11 +1,19 @@
 class AppConstants {
   AppConstants._();
 
-  // API
-  static const String baseUrl = 'http://localhost:8080';
+  // API endpoints are injected for production builds with --dart-define.
+  // Localhost remains the safe default for local development.
+  static const String apiBaseUrlOverride =
+      String.fromEnvironment('API_BASE_URL');
+  static const String wsBaseUrlOverride = String.fromEnvironment('WS_BASE_URL');
+
+  static const String baseUrl =
+      apiBaseUrlOverride != '' ? apiBaseUrlOverride : 'http://localhost:8080';
   static const String apiVersion = '/api/v1';
   static const String apiBaseUrl = '$baseUrl$apiVersion';
-  static const String wsBaseUrl = 'ws://localhost:8080';
+
+  static const String wsBaseUrl =
+      wsBaseUrlOverride != '' ? wsBaseUrlOverride : 'ws://localhost:8080';
   static const String wsOddsUrl = '$wsBaseUrl/ws/odds';
 
   // Storage keys

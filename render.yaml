@@ -1,0 +1,33 @@
+services:
+  - type: web
+    name: football-project-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    healthCheckPath: /health
+    envVars:
+      - key: ENV
+        value: production
+      - key: JWT_SECRET
+        generateValue: true
+      - key: JWT_EXPIRY
+        value: 15m
+      - key: REFRESH_EXPIRY
+        value: 168h
+      - key: WITHDRAWAL_CODE_PEPPER
+        generateValue: true
+      - key: WITHDRAWAL_DATA_KEY
+        generateValue: true
+      - key: THE_ODDS_SYNC_INTERVAL
+        value: 30m
+      - key: DATABASE_URL
+        fromDatabase:
+          name: football-project-db
+          property: connectionString
+
+databases:
+  - name: football-project-db
+    plan: free
+    databaseName: appdb
+    user: appuser
