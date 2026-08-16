@@ -53,6 +53,17 @@ class AdminRemoteDataSource {
     return AdminUser.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<AdminUser> updateUserStatus({
+    required String userId,
+    required String status,
+  }) async {
+    final response = await _client.dio.patch(
+      '/admin/users/$userId/status',
+      data: {'status': status},
+    );
+    return AdminUser.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<PaginatedTransactionsResponse> getTransactions({
     String userId = '',
     String type = '',
@@ -125,7 +136,8 @@ class AdminRemoteDataSource {
       'action': action,
       'reason': reason,
     });
-    return AdminTransaction.fromJson(response.data['data'] as Map<String, dynamic>);
+    return AdminTransaction.fromJson(
+        response.data['data'] as Map<String, dynamic>);
   }
 
   Future<void> approveWithdrawal(String txId) async {
@@ -139,7 +151,8 @@ class AdminRemoteDataSource {
   }
 
   Future<AdminFinancialSummary> getFinancialSummary() async {
-    final response = await _client.dio.get('/admin/dashboard/financial-summary');
+    final response =
+        await _client.dio.get('/admin/dashboard/financial-summary');
     return AdminFinancialSummary.fromJson(
       response.data['data'] as Map<String, dynamic>,
     );
@@ -158,7 +171,8 @@ class AdminRemoteDataSource {
       limit: 500,
     );
     final buffer = StringBuffer();
-    buffer.writeln('id,user_id,type,amount,currency,status,description,created_at');
+    buffer.writeln(
+        'id,user_id,type,amount,currency,status,description,created_at');
     for (final tx in txRes.transactions) {
       final description = tx.description.replaceAll(',', ' ');
       buffer.writeln(
