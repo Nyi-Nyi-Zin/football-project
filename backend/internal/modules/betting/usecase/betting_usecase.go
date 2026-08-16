@@ -15,6 +15,13 @@ import (
 )
 
 // BettingUseCase handles betting business logic
+const (
+	MinimumStakeMMK        = 500.0
+	MaximumStakeMMK        = 1_000_000.0
+	MaximumPayoutMMK       = 50_000_000.0
+	MaximumAccumulatorLegs = 20
+)
+
 type BettingUseCase struct {
 	betRepo           domain.BetRepository
 	matchRepo         domain.MatchRepository
@@ -49,6 +56,10 @@ func NewBettingUseCase(
 
 // PlaceBet places a new bet
 func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *domain.PlaceBetRequest) (*domain.Bet, error) {
+	if err := validateStake(req.Stake); err != nil {
+		return nil, err
+	}
+
 	// Verify match exists and is accepting bets
 	match, err := uc.matchRepo.FindMatchByID(ctx, req.MatchID)
 	if err != nil {
@@ -80,6 +91,9 @@ func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *doma
 
 	// Calculate potential payout
 	potentialPayout := req.Stake * selection.Odds
+	if err := validatePayout(potentialPayout); err != nil {
+		return nil, err
+	}
 
 	bet := &domain.Bet{
 		UserID:          userID,
@@ -126,6 +140,12 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 	if len(req.Legs) < 2 {
 		return nil, apperrors.NewBadRequestError("At least 2 selections are required")
 	}
+	if len(req.Legs) > MaximumAccumulatorLegs {
+		return nil, apperrors.NewBadRequestError(fmt.Sprintf("An accumulator can have at most %d selections", MaximumAccumulatorLegs))
+	}
+	if err := validateStake(req.Stake); err != nil {
+		return nil, err
+	}
 
 	balance, err := uc.userProvider.GetUserBalance(ctx, userID)
 	if err != nil {
@@ -166,12 +186,17 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 		})
 	}
 
+	potentialPayout := req.Stake * combinedOdds
+	if err := validatePayout(potentialPayout); err != nil {
+		return nil, err
+	}
+
 	slip := &domain.BetSlip{
 		UserID:          userID,
 		BetType:         domain.BetTypeAccumulate,
 		Stake:           req.Stake,
 		CombinedOdds:    combinedOdds,
-		PotentialPayout: req.Stake * combinedOdds,
+		PotentialPayout: potentialPayout,
 		Status:          domain.BetStatusPending,
 		Legs:            legs,
 	}
@@ -186,6 +211,20 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 	}
 
 	return slip, nil
+}
+
+func validateStake(stake float64) error {
+	if math.IsNaN(stake) || math.IsInf(stake, 0) || stake < MinimumStakeMMK || stake > MaximumStakeMMK {
+		return apperrors.NewBadRequestError(fmt.Sprintf("Stake must be between %.0f and %.0f MMK", MinimumStakeMMK, MaximumStakeMMK))
+	}
+	return nil
+}
+
+func validatePayout(payout float64) error {
+	if math.IsNaN(payout) || math.IsInf(payout, 0) || payout > MaximumPayoutMMK {
+		return apperrors.NewBadRequestError(fmt.Sprintf("Maximum possible payout is %.0f MMK", MaximumPayoutMMK))
+	}
+	return nil
 }
 
 // GetCashOutQuote returns a short-lived quote for an owned live single bet.
