@@ -178,6 +178,28 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 	return slip, nil
 }
 
+// PreviewBetSettlement evaluates the outcome of a bet without mutating any
+// wallet or bet state. An admin settlement worker can later apply the same
+// decision inside a database transaction.
+func (uc *BettingUseCase) PreviewBetSettlement(ctx context.Context, betID string) (*domain.SettlementDecision, error) {
+	bet, err := uc.betRepo.FindBetByID(ctx, betID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Bet not found")
+	}
+	match := bet.Match
+	if match == nil {
+		match, err = uc.matchRepo.FindMatchByID(ctx, bet.MatchID)
+		if err != nil {
+			return nil, apperrors.NewNotFoundError("Match not found")
+		}
+	}
+	decision, err := domain.EvaluateBetSettlement(match, bet)
+	if err != nil {
+		return nil, apperrors.NewBadRequestError(err.Error())
+	}
+	return &decision, nil
+}
+
 // GetBet returns a single bet
 func (uc *BettingUseCase) GetBet(ctx context.Context, betID string) (*domain.Bet, error) {
 	bet, err := uc.betRepo.FindBetByID(ctx, betID)

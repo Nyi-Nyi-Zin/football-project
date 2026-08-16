@@ -42,7 +42,7 @@ func NewPaymentUseCase(
 	walletRepo domain.WalletRepository,
 	eventBus *event.Bus,
 	security SecurityOptions,
-	verificationProv domain.UserVerificationProvider,
+	verificationProv ...domain.UserVerificationProvider,
 ) *PaymentUseCase {
 	pepper := strings.TrimSpace(security.CodePepper)
 	if pepper == "" {
@@ -59,8 +59,15 @@ func NewPaymentUseCase(
 		eventBus:         eventBus,
 		codePepper:       pepper,
 		encKey:           key[:],
-		verificationProv: verificationProv,
+		verificationProv: firstVerificationProvider(verificationProv),
 	}
+}
+
+func firstVerificationProvider(providers []domain.UserVerificationProvider) domain.UserVerificationProvider {
+	if len(providers) == 0 {
+		return nil
+	}
+	return providers[0]
 }
 
 // ─── Withdrawal Guard ────────────────────────────────────────────────────────

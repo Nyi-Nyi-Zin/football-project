@@ -96,6 +96,32 @@ func (f *fakeTxRepo) CreateWithdrawalAuditLog(_ context.Context, _ *domain.Withd
 	return nil
 }
 
+func (f *fakeTxRepo) FindAgentsByLocation(_ context.Context, _ string) ([]*domain.AgentInfo, error) {
+	return nil, nil
+}
+
+func (f *fakeTxRepo) FindWithdrawalRequestByCode(_ context.Context, code string) (*domain.WithdrawalRequest, error) {
+	return f.withdrawalByKey[code], nil
+}
+
+func (f *fakeTxRepo) ApproveWithdrawalRequest(_ context.Context, requestID string, approvedAt time.Time) error {
+	req := f.withdrawalByID[requestID]
+	if req != nil {
+		req.Status = domain.WithdrawalRequestApproved
+		req.ApprovedAt = &approvedAt
+	}
+	return nil
+}
+
+func (f *fakeTxRepo) CancelWithdrawalRequest(_ context.Context, requestID string, cancelledAt time.Time) error {
+	req := f.withdrawalByID[requestID]
+	if req != nil {
+		req.Status = domain.WithdrawalRequestRejected
+		req.CancelledAt = &cancelledAt
+	}
+	return nil
+}
+
 type fakeWalletRepo struct {
 	balances map[string]float64
 }
@@ -110,6 +136,15 @@ func (f *fakeWalletRepo) UpdateBalance(_ context.Context, userID string, amount 
 }
 func (f *fakeWalletRepo) GetBalance(_ context.Context, userID string) (float64, error) {
 	return f.balances[userID], nil
+}
+func (f *fakeWalletRepo) IncrementRequiredTurnover(_ context.Context, _ string, _ float64) error {
+	return nil
+}
+func (f *fakeWalletRepo) IncrementCurrentTurnover(_ context.Context, _ string, _ float64) error {
+	return nil
+}
+func (f *fakeWalletRepo) GetTurnover(_ context.Context, _ string) (float64, float64, error) {
+	return 0, 0, nil
 }
 
 func TestWithdrawCreatesSecureAgentRequest(t *testing.T) {
