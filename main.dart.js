@@ -53383,7 +53383,7 @@ if(r.ga9(a))return new A.bf(B.rp,A.dH(A.am(A.bk(this.a).bA("noTransactions"),s,s
 return A.Vd(new A.aD9(a),r.gA(a),s,B.a4T,!0)},
 $S:719}
 A.aD9.prototype={
-$2(a,b){var s,r,q=null,p=J.aF(this.a,b),o=p.b,n=o==="deposit"||o==="bet_won",m=n?B.bG.er(0.2):B.aN.er(0.2),l=n?B.QJ:B.R4
+$2(a,b){var s,r,q=null,p=J.aF(this.a,b),o=p.b,n=o==="deposit"||o==="bet_win"||o==="cash_out"||o==="refund",m=n?B.bG.er(0.2):B.aN.er(0.2),l=n?B.QJ:B.R4
 m=A.b_k(m,A.m5(l,n?B.bG:B.aN,q,q))
 o=A.am(A.eO(o.toUpperCase(),"_"," "),q,q,q,q,B.cj,q,q)
 l=p.r
