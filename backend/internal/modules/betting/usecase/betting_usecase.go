@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"math"
 	"strings"
@@ -207,11 +208,11 @@ func (uc *BettingUseCase) GetCashOutQuote(ctx context.Context, userID, betID str
 	if bet.Match == nil || bet.Match.Status != domain.MatchStatusLive {
 		return nil, apperrors.NewBadRequestError("Cash out is available only while the match is live")
 	}
-	markets, err := uc.getMatchMarkets(ctx, bet.MatchID)
-	if err != nil {
-		return nil, err
+	odds, err := uc.oddsRepo.FindByMatchID(ctx, bet.MatchID)
+	if err != nil || odds == nil {
+		return nil, apperrors.NewBadRequestError("Current odds are unavailable for cash out")
 	}
-	selection := findSelection(markets, bet.MarketKey, bet.Selection)
+	selection := findSelection(buildMarkets(odds), bet.MarketKey, bet.Selection)
 	if selection == nil || selection.Odds <= 1 || bet.Odds <= 1 {
 		return nil, apperrors.NewBadRequestError("Current odds are unavailable for cash out")
 	}
@@ -228,6 +229,29 @@ func (uc *BettingUseCase) GetCashOutQuote(ctx context.Context, userID, betID str
 		ExpiresAt:    time.Now().UTC().Add(15 * time.Second),
 		Status:       "available",
 	}, nil
+}
+
+// ExecuteCashOut revalidates and executes a cash-out atomically through the settlement service.
+func (uc *BettingUseCase) ExecuteCashOut(ctx context.Context, userID, betID string) (*domain.CashOutQuote, error) {
+	if uc.settlementService == nil {
+		return nil, fmt.Errorf("settlement service is not configured")
+	}
+
+	quote, err := uc.GetCashOutQuote(ctx, userID, betID)
+	if err != nil {
+		return nil, err
+	}
+	result, err := uc.settlementService.ExecuteCashOut(ctx, userID, betID, quote)
+	if err != nil {
+		if errors.Is(err, domain.ErrCashOutQuoteExpired) {
+			return nil, apperrors.NewBadRequestError("Cash-out quote has expired")
+		}
+		if errors.Is(err, domain.ErrCashOutQuoteChanged) {
+			return nil, apperrors.NewBadRequestError("Odds changed. Please request a new cash-out quote")
+		}
+		return nil, err
+	}
+	return result, nil
 }
 
 // SettleBet applies a single-bet settlement and wallet ledger entry atomically.

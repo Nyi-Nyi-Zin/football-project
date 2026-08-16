@@ -3,9 +3,11 @@ package services
 import (
 	"context"
 	"fmt"
+	"math"
 	"time"
 
 	bettingDomain "betting-app/internal/modules/betting/domain"
+	oddsDomain "betting-app/internal/modules/odds/domain"
 	paymentDomain "betting-app/internal/modules/payment/domain"
 	"betting-app/pkg/logger"
 
@@ -67,6 +69,77 @@ func (s *AtomicSettlementService) SettleBet(ctx context.Context, betID string) (
 		return nil, err
 	}
 	return decision, nil
+}
+
+// ExecuteCashOut revalidates a short-lived quote and atomically credits the
+// quoted amount, writes a cash-out ledger entry, and closes the active bet.
+func (s *AtomicSettlementService) ExecuteCashOut(ctx context.Context, userID, betID string, quote *bettingDomain.CashOutQuote) (*bettingDomain.CashOutQuote, error) {
+	if quote == nil || quote.BetID != betID || quote.QuotedAmount <= 0 {
+		return nil, fmt.Errorf("cash-out: invalid quote")
+	}
+	if quote.ExpiresAt.Before(time.Now().UTC()) {
+		return nil, bettingDomain.ErrCashOutQuoteExpired
+	}
+
+	result := *quote
+	err := s.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var bet bettingDomain.Bet
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", betID).First(&bet).Error; err != nil {
+			return fmt.Errorf("cash-out: find bet: %w", err)
+		}
+		if bet.UserID != userID {
+			return fmt.Errorf("cash-out: user does not own bet")
+		}
+		if bet.BetType != bettingDomain.BetTypeSingle || bet.Status != bettingDomain.BetStatusActive {
+			return fmt.Errorf("cash-out: bet is not active")
+		}
+
+		var match bettingDomain.Match
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("id = ?", bet.MatchID).First(&match).Error; err != nil {
+			return fmt.Errorf("cash-out: find match: %w", err)
+		}
+		if match.Status != bettingDomain.MatchStatusLive {
+			return fmt.Errorf("cash-out: match is not live")
+		}
+
+		var odds oddsDomain.Odds
+		if err := tx.Clauses(clause.Locking{Strength: "UPDATE"}).
+			Where("match_id = ? AND is_active = ?", bet.MatchID, true).
+			Order("updated_at DESC").First(&odds).Error; err != nil {
+			return fmt.Errorf("cash-out: current odds unavailable: %w", err)
+		}
+		currentOdds, ok := cashOutSelectionOdds(&odds, bet.MarketKey, bet.Selection)
+		if !ok || currentOdds <= 1 || bet.Odds <= 1 {
+			return fmt.Errorf("cash-out: current odds unavailable")
+		}
+
+		amount := bet.Stake * (currentOdds / bet.Odds) * 0.95
+		amount = math.Max(0, math.Min(amount, bet.PotentialPayout))
+		amount = roundCashOutAmount(amount)
+		if amount <= 0 || math.Abs(currentOdds-quote.CurrentOdds) > 0.01 ||
+			math.Abs(amount-quote.QuotedAmount) > 0.01 || math.Abs(bet.Odds-quote.OriginalOdds) > 0.01 {
+			return bettingDomain.ErrCashOutQuoteChanged
+		}
+
+		if err := applyWalletCredit(tx, bet.UserID, amount, paymentDomain.TransactionCashOut,
+			fmt.Sprintf("cashout:bet:%s", bet.ID), bet.ID, "Cash-out payout"); err != nil {
+			return err
+		}
+		if err := markBetSettled(tx, bet.ID, bettingDomain.BetStatusSettled); err != nil {
+			return err
+		}
+
+		result.QuotedAmount = amount
+		result.CurrentOdds = currentOdds
+		result.Status = "executed"
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &result, nil
 }
 
 // SettleBetSlip settles an accumulator once a losing leg is known or all legs
@@ -241,6 +314,102 @@ func (s *AtomicSettlementService) runWorkerCycle(ctx context.Context) {
 	if settled > 0 {
 		logger.Info("Settlement worker cycle completed", "settled_count", settled)
 	}
+}
+
+func cashOutSelectionOdds(odds *oddsDomain.Odds, marketKey, selectionKey string) (float64, bool) {
+	if odds == nil || odds.HomeOdds <= 1 || odds.AwayOdds <= 1 {
+		return 0, false
+	}
+
+	homeProb := 1 / odds.HomeOdds
+	awayProb := 1 / odds.AwayOdds
+	drawProb := 0.0
+	if odds.DrawOdds > 1 {
+		drawProb = 1 / odds.DrawOdds
+	}
+	totalProb := homeProb + awayProb + drawProb
+	if totalProb <= 0 {
+		return 0, false
+	}
+	homeProb /= totalProb
+	awayProb /= totalProb
+	drawProb /= totalProb
+
+	bttsYesProb := clampCashOutProbability(0.42 + math.Abs(homeProb-awayProb)*0.12 + drawProb*0.28)
+	bttsNoProb := clampCashOutProbability(1 - bttsYesProb)
+	over25Prob := clampCashOutProbability(0.45 + (1-drawProb)*0.20)
+	under25Prob := clampCashOutProbability(1 - over25Prob)
+
+	var value float64
+	switch marketKey {
+	case "match_result":
+		switch selectionKey {
+		case "w1":
+			value = 1 / homeProb
+		case "x":
+			value = 1 / drawProb
+		case "w2":
+			value = 1 / awayProb
+		default:
+			return 0, false
+		}
+	case "double_chance":
+		switch selectionKey {
+		case "1x":
+			value = 1 / clampCashOutProbability(homeProb+drawProb)
+		case "12":
+			value = 1 / clampCashOutProbability(homeProb+awayProb)
+		case "x2":
+			value = 1 / clampCashOutProbability(drawProb+awayProb)
+		default:
+			return 0, false
+		}
+	case "draw_no_bet":
+		switch selectionKey {
+		case "home_dnb":
+			value = (homeProb + awayProb) / clampCashOutProbability(homeProb)
+		case "away_dnb":
+			value = (homeProb + awayProb) / clampCashOutProbability(awayProb)
+		default:
+			return 0, false
+		}
+	case "btts":
+		switch selectionKey {
+		case "btts_yes":
+			value = 1 / bttsYesProb
+		case "btts_no":
+			value = 1 / bttsNoProb
+		default:
+			return 0, false
+		}
+	case "total_goals_2_5":
+		switch selectionKey {
+		case "over_2_5":
+			value = 1 / over25Prob
+		case "under_2_5":
+			value = 1 / under25Prob
+		default:
+			return 0, false
+		}
+	default:
+		return 0, false
+	}
+	return roundCashOutOdds(value), true
+}
+
+func clampCashOutProbability(value float64) float64 {
+	return math.Max(0.08, math.Min(0.92, value))
+}
+
+func roundCashOutOdds(value float64) float64 {
+	if math.IsNaN(value) || math.IsInf(value, 0) || value < 1.01 {
+		return 1.01
+	}
+	return math.Round(value*100) / 100
+}
+
+func roundCashOutAmount(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func applyWalletCredit(

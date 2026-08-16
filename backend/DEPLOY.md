@@ -7,10 +7,10 @@ After the service is created, confirm that `GET /health` returns `{"status":"hea
 ```bash
 flutter build web --release \
   --base-href /football-project/ \
-  --dart-define=API_BASE_URL=https://YOUR-BACKEND-HOST/api/v1 \
+  --dart-define=API_BASE_URL=https://YOUR-BACKEND-HOST \
   --dart-define=WS_BASE_URL=wss://YOUR-BACKEND-HOST
 ```
 
-The resulting `build/web` directory should be published to the repository's `gh-pages` branch. `API_BASE_URL` must include `/api/v1`; `WS_BASE_URL` must use `wss://` for the HTTPS GitHub Pages site. The backend currently allows cross-origin requests and exposes `/health` for platform health checks.
+The resulting `build/web` directory should be published to the repository's `gh-pages` branch. `API_BASE_URL` must be the backend host without `/api/v1` because the Flutter client appends that path; `WS_BASE_URL` must use `wss://` for the HTTPS GitHub Pages site. The backend currently allows cross-origin requests and exposes `/health` for platform health checks.
 
 Do not commit JWT secrets, database credentials, payment-provider keys, or odds-provider keys. Set them as encrypted environment variables in the hosting provider.

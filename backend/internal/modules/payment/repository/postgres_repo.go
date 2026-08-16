@@ -89,6 +89,49 @@ func (r *postgresTransactionRepo) ListAll(ctx context.Context, filter domain.Tra
 	return txs, total, nil
 }
 
+func (r *postgresTransactionRepo) GetReconciliationTotals(ctx context.Context) (*domain.ReconciliationTotals, error) {
+	var totals domain.ReconciliationTotals
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			COUNT(*) AS total_transactions,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS total_deposits,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS total_withdrawals,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS total_bet_wins,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS total_refunds,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS total_cash_outs,
+			COALESCE(SUM(CASE WHEN status = ? THEN balance_after - balance_before ELSE 0 END), 0) AS total_ledger_change,
+			COUNT(*) FILTER (WHERE type = ? AND status = ?) AS pending_withdrawals
+		FROM payments.transactions
+	`,
+		domain.TransactionDeposit, domain.TransactionCompleted,
+		domain.TransactionWithdraw, domain.TransactionCompleted,
+		domain.TransactionBetWin, domain.TransactionCompleted,
+		domain.TransactionRefund, domain.TransactionCompleted,
+		domain.TransactionCashOut, domain.TransactionCompleted,
+		domain.TransactionCompleted,
+		domain.TransactionWithdraw, domain.TransactionPending,
+	).Scan(&totals).Error
+	if err != nil {
+		return nil, fmt.Errorf("transactionRepo.GetReconciliationTotals: %w", err)
+	}
+	totals.NetCashFlow = totals.TotalDeposits + totals.TotalBetWins + totals.TotalRefunds + totals.TotalCashOuts - totals.TotalWithdrawals
+	return &totals, nil
+}
+
+func (r *postgresTransactionRepo) ListLedgerBalances(ctx context.Context) ([]*domain.UserLedgerBalance, error) {
+	var balances []*domain.UserLedgerBalance
+	if err := r.db.WithContext(ctx).Raw(`
+		SELECT user_id, COALESCE(SUM(balance_after - balance_before), 0) AS ledger_balance
+		FROM payments.transactions
+		WHERE status = ?
+		GROUP BY user_id
+		ORDER BY user_id
+	`, domain.TransactionCompleted).Scan(&balances).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.ListLedgerBalances: %w", err)
+	}
+	return balances, nil
+}
+
 func (r *postgresTransactionRepo) UpdateStatus(ctx context.Context, txID string, status domain.TransactionStatus) error {
 	result := r.db.WithContext(ctx).Model(&domain.Transaction{}).
 		Where("id = ?", txID).
@@ -219,6 +262,14 @@ func (r *postgresWalletRepo) FindByUserID(ctx context.Context, userID string) (*
 		return nil, fmt.Errorf("walletRepo.FindByUserID: %w", err)
 	}
 	return &wallet, nil
+}
+
+func (r *postgresWalletRepo) ListAll(ctx context.Context) ([]*domain.Wallet, error) {
+	var wallets []*domain.Wallet
+	if err := r.db.WithContext(ctx).Order("created_at ASC").Find(&wallets).Error; err != nil {
+		return nil, fmt.Errorf("walletRepo.ListAll: %w", err)
+	}
+	return wallets, nil
 }
 
 func (r *postgresWalletRepo) UpdateBalance(ctx context.Context, userID string, amount float64) error {

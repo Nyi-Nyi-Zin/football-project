@@ -63,6 +63,7 @@ func RegisterRoutes(
 	bets.GET("/my", bettingH.GetMyBets)
 	bets.GET("/slips/my", bettingH.GetMyBetSlips)
 	bets.GET("/:id/cashout-quote", bettingH.GetCashOutQuote)
+	bets.POST("/:id/cashout", bettingH.ExecuteCashOut)
 	bets.GET("/:id", bettingH.GetBet)
 	bets.DELETE("/:id", bettingH.CancelBet)
 
@@ -119,6 +120,7 @@ func RegisterRoutes(
 	admin.POST("/withdrawals/:id/reject", paymentH.AdminRejectWithdrawal)
 	admin.POST("/balance/adjust", paymentH.AdminAdjustBalance)
 	admin.GET("/dashboard/financial-summary", paymentH.AdminDashboardSummary)
+	admin.GET("/wallet/reconciliation", paymentH.AdminWalletReconciliation)
 
 	// Agent routes (isolated from admin routes)
 	agent := protected.Group("/agent")

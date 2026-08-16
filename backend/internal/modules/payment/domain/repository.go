@@ -12,6 +12,8 @@ type TransactionRepository interface {
 	FindByIdempotencyKey(ctx context.Context, key string) (*Transaction, error)
 	FindByUser(ctx context.Context, userID string, page, limit int) ([]*Transaction, int64, error)
 	ListAll(ctx context.Context, filter TransactionFilter, page, limit int) ([]*Transaction, int64, error)
+	GetReconciliationTotals(ctx context.Context) (*ReconciliationTotals, error)
+	ListLedgerBalances(ctx context.Context) ([]*UserLedgerBalance, error)
 	UpdateStatus(ctx context.Context, txID string, status TransactionStatus) error
 	UpdateStatusAndReference(ctx context.Context, txID string, status TransactionStatus, reference string) error
 	FindLeastLoadedActiveAgentID(ctx context.Context) (string, error)
@@ -20,7 +22,7 @@ type TransactionRepository interface {
 	ListAssignedWithdrawals(ctx context.Context, agentID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
 	UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status WithdrawalRequestStatus, verifiedAt *time.Time) error
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
-	
+
 	// New methods for location-based withdrawal flow
 	FindAgentsByLocation(ctx context.Context, location string) ([]*AgentInfo, error)
 	FindWithdrawalRequestByCode(ctx context.Context, code string) (*WithdrawalRequest, error)
@@ -41,6 +43,7 @@ type AgentInfo struct {
 type WalletRepository interface {
 	Create(ctx context.Context, wallet *Wallet) error
 	FindByUserID(ctx context.Context, userID string) (*Wallet, error)
+	ListAll(ctx context.Context) ([]*Wallet, error)
 	UpdateBalance(ctx context.Context, userID string, amount float64) error
 	GetBalance(ctx context.Context, userID string) (float64, error)
 

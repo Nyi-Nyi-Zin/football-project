@@ -10,6 +10,8 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io"
+	"math"
+	"sort"
 	"strings"
 	"time"
 
@@ -356,6 +358,75 @@ func (uc *PaymentUseCase) GetAllTransactions(ctx context.Context, filter domain.
 		return nil, 0, fmt.Errorf("usecase.GetAllTransactions: %w", err)
 	}
 	return txs, total, nil
+}
+
+func (uc *PaymentUseCase) ReconcileWallets(ctx context.Context) (*domain.WalletReconciliationReport, error) {
+	totals, err := uc.txRepo.GetReconciliationTotals(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.ReconcileWallets: totals: %w", err)
+	}
+	wallets, err := uc.walletRepo.ListAll(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.ReconcileWallets: wallets: %w", err)
+	}
+	ledgerBalances, err := uc.txRepo.ListLedgerBalances(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.ReconcileWallets: ledger: %w", err)
+	}
+
+	walletByUser := make(map[string]*domain.Wallet, len(wallets))
+	userIDs := make(map[string]struct{}, len(wallets)+len(ledgerBalances))
+	for _, wallet := range wallets {
+		walletByUser[wallet.UserID] = wallet
+		userIDs[wallet.UserID] = struct{}{}
+	}
+	ledgerByUser := make(map[string]float64, len(ledgerBalances))
+	for _, row := range ledgerBalances {
+		ledgerByUser[row.UserID] = row.LedgerBalance
+		userIDs[row.UserID] = struct{}{}
+	}
+
+	orderedUserIDs := make([]string, 0, len(userIDs))
+	for userID := range userIDs {
+		orderedUserIDs = append(orderedUserIDs, userID)
+	}
+	sort.Strings(orderedUserIDs)
+
+	report := &domain.WalletReconciliationReport{
+		GeneratedAt: time.Now().UTC(),
+		Totals:      totals,
+		Users:       make([]*domain.WalletReconciliationRow, 0, len(orderedUserIDs)),
+	}
+	for _, userID := range orderedUserIDs {
+		wallet := walletByUser[userID]
+		walletBalance := 0.0
+		currency := ""
+		if wallet != nil {
+			walletBalance = wallet.Balance
+			currency = wallet.Currency
+		}
+		ledgerBalance := ledgerByUser[userID]
+		difference := roundMoney(walletBalance - ledgerBalance)
+		row := &domain.WalletReconciliationRow{
+			UserID:        userID,
+			Currency:      currency,
+			WalletBalance: roundMoney(walletBalance),
+			LedgerBalance: roundMoney(ledgerBalance),
+			Difference:    difference,
+			Reconciled:    math.Abs(difference) <= 0.01,
+		}
+		report.Users = append(report.Users, row)
+		if row.Reconciled {
+			report.ReconciledUsers++
+		} else {
+			report.DiscrepancyUsers++
+		}
+	}
+	return report, nil
+}
+
+func roundMoney(value float64) float64 {
+	return math.Round(value*100) / 100
 }
 
 func (uc *PaymentUseCase) AdminAdjustBalance(ctx context.Context, req *domain.AdminBalanceAdjustmentRequest) (*domain.Transaction, error) {

@@ -96,6 +96,11 @@ class BettingRemoteDataSource {
     return Map<String, dynamic>.from(response.data['data'] as Map);
   }
 
+  Future<Map<String, dynamic>> executeCashOut(String id) async {
+    final response = await _client.dio.post('/bets/$id/cashout');
+    return Map<String, dynamic>.from(response.data['data'] as Map);
+  }
+
   Future<void> cancelBet(String id) async {
     await _client.dio.delete('/bets/$id');
   }

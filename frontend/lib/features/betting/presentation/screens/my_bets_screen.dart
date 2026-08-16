@@ -233,11 +233,15 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen> with SingleTickerPr
   Widget _statusBadge(String status) {
     final bool isWon = status == 'won';
     final bool isLost = status == 'lost';
+    final bool isCashedOut = status == 'settled';
     final Color color = isWon
         ? AppTheme.successColor
         : isLost
             ? AppTheme.errorColor
-            : AppTheme.warningColor;
+            : isCashedOut
+                ? AppTheme.primaryColor
+                : AppTheme.warningColor;
+    final label = isCashedOut ? 'CASHED OUT' : status.toUpperCase();
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -246,7 +250,7 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen> with SingleTickerPr
         borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
-        status.toUpperCase(),
+        label,
         style: TextStyle(
           color: color,
           fontSize: 10,

@@ -98,6 +98,7 @@ class Bet extends Equatable {
   bool get isWon => status == 'won';
   bool get isLost => status == 'lost';
   bool get isCancelled => status == 'cancelled';
+  bool get isCashedOut => status == 'settled';
 
   @override
   List<Object?> get props => [id];

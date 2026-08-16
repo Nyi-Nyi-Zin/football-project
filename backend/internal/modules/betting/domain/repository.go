@@ -17,6 +17,7 @@ type BetRepository interface {
 type SettlementService interface {
 	SettleBet(ctx context.Context, betID string) (*SettlementDecision, error)
 	SettleBetSlip(ctx context.Context, slipID string) (*SettlementDecision, error)
+	ExecuteCashOut(ctx context.Context, userID, betID string, quote *CashOutQuote) (*CashOutQuote, error)
 }
 
 // MatchRepository defines the interface for match data access

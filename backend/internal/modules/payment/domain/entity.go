@@ -16,6 +16,7 @@ const (
 	TransactionWithdraw TransactionType = "withdraw"
 	TransactionBetStake TransactionType = "bet_stake"
 	TransactionBetWin   TransactionType = "bet_win"
+	TransactionCashOut  TransactionType = "cash_out"
 	TransactionRefund   TransactionType = "refund"
 )
 
@@ -120,6 +121,40 @@ type TransactionFilter struct {
 	UserID string
 	Type   TransactionType
 	Status TransactionStatus
+}
+
+type ReconciliationTotals struct {
+	TotalTransactions  int64   `json:"total_transactions"`
+	TotalDeposits      float64 `json:"total_deposits"`
+	TotalWithdrawals   float64 `json:"total_withdrawals"`
+	TotalBetWins       float64 `json:"total_bet_wins"`
+	TotalRefunds       float64 `json:"total_refunds"`
+	TotalCashOuts      float64 `json:"total_cash_outs"`
+	NetCashFlow        float64 `json:"net_cash_flow"`
+	TotalLedgerChange  float64 `json:"total_ledger_change"`
+	PendingWithdrawals int64   `json:"pending_withdrawals"`
+}
+
+type UserLedgerBalance struct {
+	UserID        string  `json:"user_id"`
+	LedgerBalance float64 `json:"ledger_balance"`
+}
+
+type WalletReconciliationRow struct {
+	UserID        string  `json:"user_id"`
+	Currency      string  `json:"currency"`
+	WalletBalance float64 `json:"wallet_balance"`
+	LedgerBalance float64 `json:"ledger_balance"`
+	Difference    float64 `json:"difference"`
+	Reconciled    bool    `json:"reconciled"`
+}
+
+type WalletReconciliationReport struct {
+	GeneratedAt      time.Time                  `json:"generated_at"`
+	Totals           *ReconciliationTotals      `json:"totals"`
+	Users            []*WalletReconciliationRow `json:"users"`
+	ReconciledUsers  int                        `json:"reconciled_users"`
+	DiscrepancyUsers int                        `json:"discrepancy_users"`
 }
 
 type AdminBalanceAdjustmentRequest struct {

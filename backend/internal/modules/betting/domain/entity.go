@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"errors"
 	"time"
 )
 
@@ -137,6 +138,11 @@ type CashOutQuote struct {
 	ExpiresAt    time.Time `json:"expires_at"`
 	Status       string    `json:"status"`
 }
+
+var (
+	ErrCashOutQuoteExpired = errors.New("cash-out quote expired")
+	ErrCashOutQuoteChanged = errors.New("cash-out quote changed")
+)
 
 // PlaceBetRequest represents a request to place a bet
 type PlaceBetRequest struct {

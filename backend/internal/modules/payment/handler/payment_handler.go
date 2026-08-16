@@ -325,6 +325,16 @@ func (h *PaymentHandler) AdminDashboardSummary(c echo.Context) error {
 	}, nil))
 }
 
+// AdminWalletReconciliation handles GET /api/v1/admin/wallet/reconciliation.
+func (h *PaymentHandler) AdminWalletReconciliation(c echo.Context) error {
+	report, err := h.useCase.ReconcileWallets(c.Request().Context())
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to reconcile wallets")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(report, nil))
+}
+
 // AgentGetAssignedWithdrawals handles GET /api/v1/agent/withdrawals
 func (h *PaymentHandler) AgentGetAssignedWithdrawals(c echo.Context) error {
 	agentID := c.Get("user_id").(string)

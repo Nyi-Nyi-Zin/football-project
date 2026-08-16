@@ -127,13 +127,13 @@ class BetDetailScreen extends ConsumerWidget {
     String betId,
   ) async {
     try {
-      final quote =
-          await ref.read(bettingDataSourceProvider).getCashOutQuote(betId);
+      final dataSource = ref.read(bettingDataSourceProvider);
+      final quote = await dataSource.getCashOutQuote(betId);
       if (!context.mounted) return;
       final amount = (quote['quoted_amount'] as num?)?.toDouble() ?? 0;
       final currentOdds = (quote['current_odds'] as num?)?.toDouble() ?? 0;
       final expiresAt = DateTime.tryParse(quote['expires_at'] as String? ?? '');
-      await showDialog<void>(
+      final accepted = await showDialog<bool>(
         context: context,
         builder: (_) => AlertDialog(
           title: const Text('Cash-out Quote'),
@@ -155,23 +155,38 @@ class BetDetailScreen extends ConsumerWidget {
                 Text('Valid until: ${expiresAt.toLocal()}'),
               const SizedBox(height: 12),
               const Text(
-                'This quote is informational and expires quickly. Final cash-out execution must revalidate the live odds.',
+                'The quote will be revalidated against live odds before your wallet is credited.',
               ),
             ],
           ),
           actions: [
             TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Close'),
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text('Accept & Cash-out'),
             ),
           ],
+        ),
+      );
+      if (accepted != true || !context.mounted) return;
+
+      await dataSource.executeCashOut(betId);
+      await ref.read(myBetsProvider.notifier).loadBets();
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Cash-out completed: ${amount.toStringAsFixed(2)} MMK credited'),
+          backgroundColor: AppTheme.successColor,
         ),
       );
     } catch (error) {
       if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Cash-out is unavailable: $error'),
+          content: Text('Cash-out failed: $error'),
           backgroundColor: AppTheme.errorColor,
         ),
       );

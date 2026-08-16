@@ -49,6 +49,14 @@ func (f *fakeTxRepo) ListAll(_ context.Context, _ domain.TransactionFilter, _ in
 	return nil, 0, nil
 }
 
+func (f *fakeTxRepo) GetReconciliationTotals(_ context.Context) (*domain.ReconciliationTotals, error) {
+	return &domain.ReconciliationTotals{}, nil
+}
+
+func (f *fakeTxRepo) ListLedgerBalances(_ context.Context) ([]*domain.UserLedgerBalance, error) {
+	return nil, nil
+}
+
 func (f *fakeTxRepo) UpdateStatus(_ context.Context, _ string, _ domain.TransactionStatus) error {
 	return nil
 }
@@ -129,6 +137,13 @@ type fakeWalletRepo struct {
 func (f *fakeWalletRepo) Create(_ context.Context, _ *domain.Wallet) error { return nil }
 func (f *fakeWalletRepo) FindByUserID(_ context.Context, _ string) (*domain.Wallet, error) {
 	return nil, nil
+}
+func (f *fakeWalletRepo) ListAll(_ context.Context) ([]*domain.Wallet, error) {
+	wallets := make([]*domain.Wallet, 0, len(f.balances))
+	for userID, balance := range f.balances {
+		wallets = append(wallets, &domain.Wallet{UserID: userID, Balance: balance, Currency: "USD"})
+	}
+	return wallets, nil
 }
 func (f *fakeWalletRepo) UpdateBalance(_ context.Context, userID string, amount float64) error {
 	f.balances[userID] += amount
