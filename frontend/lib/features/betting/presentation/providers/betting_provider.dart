@@ -50,8 +50,9 @@ final bettingDataSourceProvider = Provider<BettingRemoteDataSource>((ref) {
   return BettingRemoteDataSource(ref.read(dioClientProvider));
 });
 
+// Empty means all leagues currently available from the backend provider.
 final selectedLeaguesProvider =
-    StateProvider<List<String>>((_) => const ['Premier League']);
+    StateProvider<List<String>>((_) => const <String>[]);
 
 /// Null loads all available matches; otherwise the value is sent to the API.
 final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
