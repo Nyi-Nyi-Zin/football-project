@@ -166,6 +166,21 @@ func main() {
 	openLigaSync.StartSync(context.Background())
 	logger.Info("OpenLigaDB football fixture sync enabled", "leagues", cfg.OpenLigaDB.Leagues, "season", cfg.OpenLigaDB.Season, "interval", openLigaInterval.String())
 
+	thesportsdbInterval, parseErr := time.ParseDuration(cfg.TheSportsDB.SyncInterval)
+	if parseErr != nil {
+		logger.Warn("Invalid THESPORTSDB_SYNC_INTERVAL, using default", "value", cfg.TheSportsDB.SyncInterval, "error", parseErr)
+		thesportsdbInterval = 6 * time.Hour
+	}
+	thesportsdbSync := services.NewTheSportsDBSyncService(
+		cfg.TheSportsDB.APIKey,
+		cfg.TheSportsDB.LeagueIDs,
+		cfg.TheSportsDB.Season,
+		thesportsdbInterval,
+		matchRepository,
+	)
+	thesportsdbSync.StartSync(context.Background())
+	logger.Info("TheSportsDB football fixture sync enabled", "leagues", cfg.TheSportsDB.LeagueIDs, "season", cfg.TheSportsDB.Season, "interval", thesportsdbInterval.String())
+
 	if cfg.TheOddsAPI.Key != "" {
 
 		syncInterval, parseErr := time.ParseDuration(cfg.TheOddsAPI.SyncInterval)

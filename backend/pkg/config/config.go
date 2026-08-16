@@ -9,15 +9,16 @@ import (
 
 // Config holds all application configuration
 type Config struct {
-	Server     ServerConfig
-	Database   DatabaseConfig
-	Redis      RedisConfig
-	JWT        JWTConfig
-	App        AppConfig
-	Security   SecurityConfig
-	Sportmonks SportmonksConfig
-	TheOddsAPI TheOddsAPIConfig
-	OpenLigaDB OpenLigaDBConfig
+	Server      ServerConfig
+	Database    DatabaseConfig
+	Redis       RedisConfig
+	JWT         JWTConfig
+	App         AppConfig
+	Security    SecurityConfig
+	Sportmonks  SportmonksConfig
+	TheOddsAPI  TheOddsAPIConfig
+	OpenLigaDB  OpenLigaDBConfig
+	TheSportsDB TheSportsDBConfig
 }
 
 type ServerConfig struct {
@@ -62,6 +63,13 @@ type OpenLigaDBConfig struct {
 	SyncInterval string `mapstructure:"OPENLIGADB_SYNC_INTERVAL"`
 }
 
+type TheSportsDBConfig struct {
+	APIKey       string `mapstructure:"THESPORTSDB_API_KEY"`
+	LeagueIDs    string `mapstructure:"THESPORTSDB_LEAGUE_IDS"`
+	Season       string `mapstructure:"THESPORTSDB_SEASON"`
+	SyncInterval string `mapstructure:"THESPORTSDB_SYNC_INTERVAL"`
+}
+
 // Load reads configuration from .env file and environment variables
 func Load() (*Config, error) {
 	viper.SetConfigFile(".env")
@@ -81,6 +89,10 @@ func Load() (*Config, error) {
 	viper.SetDefault("OPENLIGADB_LEAGUES", "bl1")
 	viper.SetDefault("OPENLIGADB_SEASON", 2026)
 	viper.SetDefault("OPENLIGADB_SYNC_INTERVAL", "6h")
+	viper.SetDefault("THESPORTSDB_API_KEY", "123")
+	viper.SetDefault("THESPORTSDB_LEAGUE_IDS", "4328,4335,4334,4332,4480")
+	viper.SetDefault("THESPORTSDB_SEASON", "2026-2027")
+	viper.SetDefault("THESPORTSDB_SYNC_INTERVAL", "6h")
 
 	envPaths := []string{".env", "../../.env", "../../../.env"}
 	var readErr error
@@ -131,6 +143,12 @@ func Load() (*Config, error) {
 			Leagues:      viper.GetString("OPENLIGADB_LEAGUES"),
 			Season:       viper.GetInt("OPENLIGADB_SEASON"),
 			SyncInterval: viper.GetString("OPENLIGADB_SYNC_INTERVAL"),
+		},
+		TheSportsDB: TheSportsDBConfig{
+			APIKey:       viper.GetString("THESPORTSDB_API_KEY"),
+			LeagueIDs:    viper.GetString("THESPORTSDB_LEAGUE_IDS"),
+			Season:       viper.GetString("THESPORTSDB_SEASON"),
+			SyncInterval: viper.GetString("THESPORTSDB_SYNC_INTERVAL"),
 		},
 	}
 
