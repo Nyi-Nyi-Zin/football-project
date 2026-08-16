@@ -94,8 +94,9 @@ func RegisterRoutes(
 	odds.GET("/:matchId", oddsH.GetOdds)
 	odds.GET("/:matchId/history", oddsH.GetOddsHistory)
 
-	// Odds admin routes (protected)
+	// Odds admin routes (admin only)
 	oddsAdmin := protected.Group("/odds")
+	oddsAdmin.Use(middleware.RequireRole("admin"))
 	oddsAdmin.PUT("", oddsH.UpdateOdds)
 
 	// Notification routes
