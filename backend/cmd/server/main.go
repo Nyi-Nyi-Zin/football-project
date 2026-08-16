@@ -140,7 +140,15 @@ func main() {
 
 	betRepository := bettingRepo.NewPostgresBetRepo(db)
 	matchRepository := bettingRepo.NewPostgresMatchRepo(db)
-	bettingUC := bettingUsecase.NewBettingUseCase(betRepository, matchRepository, oddsRepository, userProviderAdapter, eventBus)
+	settlementService := services.NewAtomicSettlementService(db)
+	bettingUC := bettingUsecase.NewBettingUseCase(
+		betRepository,
+		matchRepository,
+		oddsRepository,
+		userProviderAdapter,
+		eventBus,
+		settlementService,
+	)
 	bettingH := bettingHandler.NewBettingHandler(bettingUC)
 
 	if cfg.TheOddsAPI.Key != "" {

@@ -13,6 +13,11 @@ type BetRepository interface {
 	CancelBet(ctx context.Context, betID string) error
 }
 
+// SettlementService applies a single-bet settlement and its wallet ledger entry.
+type SettlementService interface {
+	SettleBet(ctx context.Context, betID string) (*SettlementDecision, error)
+}
+
 // MatchRepository defines the interface for match data access
 type MatchRepository interface {
 	CreateMatch(ctx context.Context, match *Match) error

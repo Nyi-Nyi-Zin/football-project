@@ -230,10 +230,10 @@ func (r *postgresWalletRepo) UpdateBalance(ctx context.Context, userID string, a
 		return fmt.Errorf("walletRepo.UpdateBalance: %w", result.Error)
 	}
 	if result.RowsAffected == 0 {
-		// Auto-create wallet with $1000 starter bonus if missing
+		// Missing wallets start at zero; only the explicit delta is credited.
 		newWallet := domain.Wallet{
 			UserID:   userID,
-			Balance:  1000.0 + amount,
+			Balance:  amount,
 			Currency: "USD",
 			Status:   "active",
 		}
@@ -246,15 +246,17 @@ func (r *postgresWalletRepo) GetBalance(ctx context.Context, userID string) (flo
 	var wallet domain.Wallet
 	if err := r.db.WithContext(ctx).Select("balance").Where("user_id = ?", userID).First(&wallet).Error; err != nil {
 		if err == gorm.ErrRecordNotFound {
-			// Auto-create wallet with $1000 starter bonus
+			// Missing wallets are initialized with zero balance.
 			newWallet := domain.Wallet{
 				UserID:   userID,
-				Balance:  1000.0,
+				Balance:  0,
 				Currency: "USD",
 				Status:   "active",
 			}
-			r.db.WithContext(ctx).Create(&newWallet)
-			return 1000.0, nil
+			if createErr := r.db.WithContext(ctx).Create(&newWallet).Error; createErr != nil {
+				return 0, fmt.Errorf("walletRepo.GetBalance: create wallet: %w", createErr)
+			}
+			return 0, nil
 		}
 		return 0, fmt.Errorf("walletRepo.GetBalance: %w", err)
 	}
@@ -343,4 +345,3 @@ func (r *postgresTransactionRepo) CancelWithdrawalRequest(ctx context.Context, r
 	}
 	return nil
 }
-

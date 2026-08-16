@@ -13,11 +13,12 @@ import (
 
 // BettingUseCase handles betting business logic
 type BettingUseCase struct {
-	betRepo      domain.BetRepository
-	matchRepo    domain.MatchRepository
-	oddsRepo     oddsDomain.OddsRepository
-	userProvider domain.UserProvider
-	eventBus     *event.Bus
+	betRepo           domain.BetRepository
+	matchRepo         domain.MatchRepository
+	oddsRepo          oddsDomain.OddsRepository
+	userProvider      domain.UserProvider
+	eventBus          *event.Bus
+	settlementService domain.SettlementService
 }
 
 // NewBettingUseCase creates a new betting use case
@@ -27,13 +28,19 @@ func NewBettingUseCase(
 	oddsRepo oddsDomain.OddsRepository,
 	userProvider domain.UserProvider,
 	eventBus *event.Bus,
+	settlementServices ...domain.SettlementService,
 ) *BettingUseCase {
+	var settlementService domain.SettlementService
+	if len(settlementServices) > 0 {
+		settlementService = settlementServices[0]
+	}
 	return &BettingUseCase{
-		betRepo:      betRepo,
-		matchRepo:    matchRepo,
-		oddsRepo:     oddsRepo,
-		userProvider: userProvider,
-		eventBus:     eventBus,
+		betRepo:           betRepo,
+		matchRepo:         matchRepo,
+		oddsRepo:          oddsRepo,
+		userProvider:      userProvider,
+		eventBus:          eventBus,
+		settlementService: settlementService,
 	}
 }
 
@@ -176,6 +183,14 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 	}
 
 	return slip, nil
+}
+
+// SettleBet applies a single-bet settlement and wallet ledger entry atomically.
+func (uc *BettingUseCase) SettleBet(ctx context.Context, betID string) (*domain.SettlementDecision, error) {
+	if uc.settlementService == nil {
+		return nil, fmt.Errorf("settlement service is not configured")
+	}
+	return uc.settlementService.SettleBet(ctx, betID)
 }
 
 // PreviewBetSettlement evaluates the outcome of a bet without mutating any
