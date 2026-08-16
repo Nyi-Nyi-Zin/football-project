@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"betting-app/internal/modules/betting/domain"
 
@@ -134,6 +135,29 @@ func (r *postgresMatchRepo) FindMatchByExternalID(ctx context.Context, externalI
 	return &match, nil
 }
 
+func leagueFilterPattern(value string) string {
+	normalized := strings.ToLower(strings.TrimSpace(value))
+	switch normalized {
+	case "premier league":
+		return "%premier league%"
+	case "laliga", "la liga":
+		return "%la liga%"
+	case "ligue 1":
+		return "%ligue 1%"
+	case "champions league":
+		return "%champions league%"
+	case "bundesliga":
+		return "%bundesliga%"
+	case "serie a":
+		return "%serie a%"
+	default:
+		if normalized == "" {
+			return ""
+		}
+		return "%" + normalized + "%"
+	}
+}
+
 func (r *postgresMatchRepo) ListMatches(ctx context.Context, sport string, leagues []string, status domain.MatchStatus, page, limit int) ([]*domain.Match, int64, error) {
 	var matches []*domain.Match
 	var total int64
@@ -145,7 +169,19 @@ func (r *postgresMatchRepo) ListMatches(ctx context.Context, sport string, leagu
 		query = query.Where("sport = ?", sport)
 	}
 	if len(leagues) > 0 {
-		query = query.Where("league IN ?", leagues)
+		conditions := make([]string, 0, len(leagues))
+		args := make([]interface{}, 0, len(leagues))
+		for _, league := range leagues {
+			pattern := leagueFilterPattern(league)
+			if pattern == "" {
+				continue
+			}
+			conditions = append(conditions, "LOWER(league) LIKE ?")
+			args = append(args, pattern)
+		}
+		if len(conditions) > 0 {
+			query = query.Where(strings.Join(conditions, " OR "), args...)
+		}
 	}
 	if status != "" {
 		query = query.Where("status = ?", status)
