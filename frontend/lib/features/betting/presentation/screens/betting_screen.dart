@@ -107,6 +107,8 @@ class BettingScreen extends ConsumerWidget {
               onPressed: () => _openBetSlip(context),
               backgroundColor: AppTheme.primaryColor,
               foregroundColor: Colors.white,
+              elevation: 8,
+              shape: const StadiumBorder(),
               icon: const Icon(Icons.receipt_long),
               label: Text(
                 cartItems.length >= 2
@@ -150,11 +152,18 @@ class _HeaderSummary extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 16, 16, 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.primaryColor.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(16),
+        gradient: AppTheme.primaryGradient,
+        borderRadius: BorderRadius.circular(28),
         border: Border.all(
-          color: AppTheme.primaryColor.withValues(alpha: 0.25),
+          color: Colors.white.withValues(alpha: 0.72),
         ),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x146446A0),
+            blurRadius: 24,
+            offset: Offset(0, 8),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -162,8 +171,9 @@ class _HeaderSummary extends StatelessWidget {
           const Text(
             '1xBet-style Markets',
             style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 18,
+              color: Colors.white,
+              fontWeight: FontWeight.w700,
+              fontSize: 19,
             ),
           ),
           const SizedBox(height: 6),
@@ -171,7 +181,9 @@ class _HeaderSummary extends StatelessWidget {
             selectedLeagues.isEmpty
                 ? 'Showing all tracked leagues with generic market options.'
                 : 'Filtering ${selectedLeagues.length} league(s) with market-based selections.',
-            style: const TextStyle(color: AppTheme.textSecondary),
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.86),
+            ),
           ),
           const SizedBox(height: 12),
           Row(
@@ -233,8 +245,9 @@ class _SummaryPill extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).cardColor,
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.72)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,

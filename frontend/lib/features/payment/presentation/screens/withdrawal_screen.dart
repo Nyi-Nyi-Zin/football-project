@@ -68,11 +68,11 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     setState(() => _isLoading = true);
 
     final result = await ref.read(withdrawalProvider.notifier).createWithdrawal(
-      amount: amount,
-      location: location,
-      agentId: _selectedAgentId!,
-      accountDetails: accountDetails,
-    );
+          amount: amount,
+          location: location,
+          agentId: _selectedAgentId!,
+          accountDetails: accountDetails,
+        );
 
     setState(() => _isLoading = false);
 
@@ -80,7 +80,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       result.fold(
         (error) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(error.message), backgroundColor: AppTheme.errorColor),
+            SnackBar(
+                content: Text(error.message),
+                backgroundColor: AppTheme.errorColor),
           );
         },
         (withdrawal) {
@@ -104,8 +106,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppTheme.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
+                color: AppTheme.primaryColor.withValues(alpha: 0.10),
+                borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: AppTheme.primaryColor),
               ),
               child: Center(
@@ -123,7 +125,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             const SizedBox(height: 8),
             Text('Agent: $_selectedAgentName'),
             const SizedBox(height: 16),
-            const Text('The agent will enter this code to approve your withdrawal.'),
+            const Text(
+                'The agent will enter this code to approve your withdrawal.'),
           ],
         ),
         actions: [
@@ -217,7 +220,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                             : agentsState.agents.isEmpty
                                 ? const Text(
                                     'No agents available for this location',
-                                    style: TextStyle(color: AppTheme.textSecondary),
+                                    style: TextStyle(
+                                        color: AppTheme.textSecondary),
                                   )
                                 : DropdownButtonFormField<String>(
                                     value: _selectedAgentId,
@@ -226,10 +230,14 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                                       border: OutlineInputBorder(),
                                     ),
                                     items: agentsState.agents.map((agent) {
-                                      final displayCode = agent.customCode.isEmpty ? 'Auto-generated' : agent.customCode;
+                                      final displayCode =
+                                          agent.customCode.isEmpty
+                                              ? 'Auto-generated'
+                                              : agent.customCode;
                                       return DropdownMenuItem(
                                         value: agent.id,
-                                        child: Text('$displayCode (${agent.fullName})'),
+                                        child: Text(
+                                            '$displayCode (${agent.fullName})'),
                                       );
                                     }).toList(),
                                     onChanged: (value) {
@@ -262,7 +270,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     const SizedBox(height: 8),
                     TextField(
                       controller: _amountController,
-                      keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: const InputDecoration(
                         hintText: 'Enter amount',
                         prefixIcon: Icon(Icons.payments),
@@ -319,7 +328,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                     )
                   : const Text(
                       'Submit Withdrawal Request',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
             ),
           ],

@@ -204,7 +204,7 @@ class WalletScreen extends ConsumerWidget {
         builder: (ctx) {
           return StatefulBuilder(builder: (ctx, setState) {
             return AlertDialog(
-              backgroundColor: AppTheme.darkCard,
+              backgroundColor: Theme.of(ctx).cardColor,
               title: Text(
                   '${context.l10n.tr('withdraw')} ${context.l10n.tr("funds")}'),
               content: Column(
@@ -217,7 +217,7 @@ class WalletScreen extends ConsumerWidget {
                     decoration: InputDecoration(
                       labelText: context.l10n.tr('amountMmk'),
                       filled: true,
-                      fillColor: AppTheme.darkBg,
+                      fillColor: Theme.of(ctx).scaffoldBackgroundColor,
                     ),
                   ),
                   const SizedBox(height: 10),
