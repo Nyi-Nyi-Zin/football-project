@@ -57,6 +57,20 @@ func (r *postgresUserRepo) Update(ctx context.Context, user *domain.User) error 
 	return nil
 }
 
+func (r *postgresUserRepo) UpdateStatus(ctx context.Context, userID, status string) error {
+	result := r.db.WithContext(ctx).
+		Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("status", status)
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateStatus: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *postgresUserRepo) UpdateBalance(ctx context.Context, userID string, amount float64) error {
 	result := r.db.WithContext(ctx).
 		Model(&domain.User{}).

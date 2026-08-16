@@ -9,6 +9,7 @@ type UserRepository interface {
 	FindByEmail(ctx context.Context, email string) (*User, error)
 	FindByUsername(ctx context.Context, username string) (*User, error)
 	Update(ctx context.Context, user *User) error
+	UpdateStatus(ctx context.Context, userID, status string) error
 	UpdateBalance(ctx context.Context, userID string, amount float64) error
 	List(ctx context.Context, page, limit int) ([]*User, int64, error)
 	ListFiltered(ctx context.Context, query, status string, page, limit int) ([]*User, int64, error)

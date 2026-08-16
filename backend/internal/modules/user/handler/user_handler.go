@@ -226,6 +226,30 @@ func (h *UserHandler) GetUserByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
 }
 
+// AdminUpdateStatus handles PATCH /api/v1/admin/users/:id/status
+func (h *UserHandler) AdminUpdateStatus(c echo.Context) error {
+	userID := c.Param("id")
+	var req domain.AdminUpdateStatusRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	profile, err := h.useCase.AdminUpdateStatus(c.Request().Context(), userID, &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to update user status")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
+}
+
 // ─── KYC & Verification Endpoints ──────────────────────────────────────────
 
 // VerifyEmail handles POST /api/v1/users/me/verify-email

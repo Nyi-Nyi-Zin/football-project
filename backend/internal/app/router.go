@@ -111,6 +111,7 @@ func RegisterRoutes(
 	admin.Use(middleware.RequireRole("admin"))
 	admin.GET("/users", userH.ListUsers)
 	admin.GET("/users/:id", userH.GetUserByID)
+	admin.PATCH("/users/:id/status", userH.AdminUpdateStatus)
 	admin.GET("/transactions", paymentH.AdminGetTransactions)
 	admin.GET("/bets/:id/settlement-preview", bettingH.PreviewSettlement)
 	admin.POST("/bets/:id/settle", bettingH.SettleBet)

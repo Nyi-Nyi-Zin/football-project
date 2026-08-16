@@ -138,7 +138,7 @@ type UpdateProfileRequest struct {
 	NRCType       string `json:"nrc_type" validate:"omitempty"`
 	NRCNumber     string `json:"nrc_number" validate:"omitempty"`
 	NRCRegionID   *int   `json:"nrc_region_id,omitempty" validate:"omitempty"`
-	NRCTownshipID *int  `json:"nrc_township_id,omitempty" validate:"omitempty"`
+	NRCTownshipID *int   `json:"nrc_township_id,omitempty" validate:"omitempty"`
 	NRCTypeID     *int   `json:"nrc_type_id,omitempty" validate:"omitempty"`
 	Gmail         string `json:"gmail" validate:"omitempty,email"`
 	Location      string `json:"location" validate:"omitempty"`
@@ -149,6 +149,11 @@ type UpdateProfileRequest struct {
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
 	NewPassword     string `json:"new_password" validate:"required,min=8"`
+}
+
+// AdminUpdateStatusRequest controls whether an account can authenticate and bet.
+type AdminUpdateStatusRequest struct {
+	Status string `json:"status" validate:"required,oneof=active suspended blocked"`
 }
 
 // VerifyEmailRequest represents an email verification request (OTP/code)

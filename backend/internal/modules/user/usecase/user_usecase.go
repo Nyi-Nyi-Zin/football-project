@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -11,6 +12,7 @@ import (
 	jwtpkg "betting-app/pkg/jwt"
 
 	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 // UserUseCase handles user business logic
@@ -305,6 +307,25 @@ func (uc *UserUseCase) ListUsersAdmin(ctx context.Context, query, status string,
 		ActiveUsers:    activeUsers,
 		SuspendedUsers: suspendedUsers,
 	}, nil
+}
+
+// AdminUpdateStatus changes a non-admin account between active, suspended, and blocked.
+func (uc *UserUseCase) AdminUpdateStatus(ctx context.Context, userID string, req *domain.AdminUpdateStatusRequest) (*domain.UserProfile, error) {
+	user, err := uc.repo.FindByID(ctx, userID)
+	if err != nil || user == nil {
+		return nil, apperrors.NewNotFoundError("User not found")
+	}
+	if user.Role == "admin" {
+		return nil, apperrors.NewForbiddenError("Admin accounts cannot be changed here")
+	}
+	if err := uc.repo.UpdateStatus(ctx, userID, req.Status); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, apperrors.NewNotFoundError("User not found")
+		}
+		return nil, fmt.Errorf("usecase.AdminUpdateStatus: %w", err)
+	}
+	user.Status = req.Status
+	return user.ToProfile(), nil
 }
 
 func (uc *UserUseCase) GetProfileByID(ctx context.Context, userID string) (*domain.UserProfile, error) {
