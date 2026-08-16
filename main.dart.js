@@ -50119,7 +50119,7 @@ A.aRO.prototype={
 $1(a){return A.b_n()},
 $S:168}
 A.pt.prototype={
-ac4(){var s=this,r="http://localhost:8080/api/v1",q="application/json",p=t.N,o=t.z,n=A.b_p(A.aZv(r,B.h7,A.aG(["Content-Type",q,"Accept",q],p,o),B.h7))
+ac4(){var s=this,r="https://football-project-k5y7.onrender.com/api/v1",q="application/json",p=t.N,o=t.z,n=A.b_p(A.aZv(r,B.h7,A.aG(["Content-Type",q,"Accept",q],p,o),B.h7))
 s.a!==$&&A.aX()
 s.a=n
 o=A.b_p(A.aZv(r,B.h7,A.aG(["Content-Type",q,"Accept",q],p,o),B.h7))
@@ -50329,7 +50329,7 @@ $1(a){return new A.rb()},
 $S:346}
 A.rb.prototype={
 Tf(){var s,r,q,p=this
-try{r=A.bdy(A.dr("ws://localhost:8080/ws/odds"),null)
+try{r=A.bdy(A.dr("wss://football-project-k5y7.onrender.com/ws/odds"),null)
 p.a=r
 p.c=!0
 r=r.r.b
