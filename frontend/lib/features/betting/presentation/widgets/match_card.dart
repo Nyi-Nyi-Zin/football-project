@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../odds/presentation/providers/odds_provider.dart';
 import '../../domain/entities/betting_entity.dart';
+import '../providers/betting_provider.dart';
 
-class MatchCard extends StatelessWidget {
+class MatchCard extends ConsumerWidget {
   final Match match;
   final BetCartItem? selectedItem;
   final void Function(Match match, Market market, MarketSelection selection)
@@ -16,7 +19,9 @@ class MatchCard extends StatelessWidget {
   });
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final liveUpdate = ref.watch(matchOddsStateProvider)[match.id];
+
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
       child: Padding(
@@ -113,17 +118,21 @@ class MatchCard extends StatelessWidget {
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
-                  children: market.selections
-                      .map(
-                        (selection) => _oddButton(
-                          market: market,
-                          selection: selection,
-                          isSelected: selectedItem?.market.key == market.key &&
-                              selectedItem?.selection.key == selection.key,
-                          onTap: () => onSelectionTap(match, market, selection),
-                        ),
-                      )
-                      .toList(),
+                  children: market.selections.map((selection) {
+                    final liveSelection = mergeLiveSelection(
+                      market,
+                      selection,
+                      liveUpdate,
+                    );
+                    return _oddButton(
+                      market: market,
+                      selection: liveSelection,
+                      priceUpdated: liveSelection.odds != selection.odds,
+                      isSelected: selectedItem?.market.key == market.key &&
+                          selectedItem?.selection.key == selection.key,
+                      onTap: () => onSelectionTap(match, market, liveSelection),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 14),
               ],
@@ -170,6 +179,7 @@ class MatchCard extends StatelessWidget {
   Widget _oddButton({
     required Market market,
     required MarketSelection selection,
+    required bool priceUpdated,
     required bool isSelected,
     required VoidCallback onTap,
   }) {
@@ -184,7 +194,9 @@ class MatchCard extends StatelessWidget {
         child: Container(
           padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primaryColor.withValues(alpha: 0.12) : AppTheme.darkBg,
+            color: isSelected
+                ? AppTheme.primaryColor.withValues(alpha: 0.12)
+                : AppTheme.darkBg,
             borderRadius: BorderRadius.circular(8),
             border: Border.all(color: borderColor),
           ),
@@ -204,14 +216,27 @@ class MatchCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 2),
-              Text(
-                selection.odds.toStringAsFixed(2),
-                style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 15,
-                  color: AppTheme.primaryColor,
-                ),
-                maxLines: 1,
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    selection.odds.toStringAsFixed(2),
+                    style: const TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 15,
+                      color: AppTheme.primaryColor,
+                    ),
+                    maxLines: 1,
+                  ),
+                  if (priceUpdated) ...[
+                    const SizedBox(width: 3),
+                    const Icon(
+                      Icons.sync,
+                      size: 12,
+                      color: AppTheme.warningColor,
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 2),
               Text(

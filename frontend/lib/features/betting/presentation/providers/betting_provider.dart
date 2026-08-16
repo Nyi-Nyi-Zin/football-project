@@ -3,6 +3,37 @@ import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/betting_remote_datasource.dart';
 import 'package:dio/dio.dart';
 import '../../domain/entities/betting_entity.dart';
+import '../../../odds/domain/entities/odds_entity.dart';
+
+/// Replaces only the 1X2 selection price supplied by the live odds stream.
+/// Other markets remain unchanged because the stream currently carries only
+/// home/draw/away odds.
+MarketSelection mergeLiveSelection(
+  Market market,
+  MarketSelection selection,
+  OddsUpdateEvent? update,
+) {
+  if (update == null || market.key != 'match_result') {
+    return selection;
+  }
+
+  final liveOdds = switch (selection.key) {
+    'w1' => update.homeOdds,
+    'x' => update.drawOdds,
+    'w2' => update.awayOdds,
+    _ => null,
+  };
+
+  if (liveOdds == null || liveOdds <= 1) {
+    return selection;
+  }
+
+  return MarketSelection(
+    key: selection.key,
+    label: selection.label,
+    odds: liveOdds,
+  );
+}
 
 const availableLeagueFilters = <String>[
   'Premier League',
@@ -150,6 +181,25 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
 
   void clear() {
     state = const [];
+  }
+
+  /// Accepts the latest live 1X2 prices for selections already in the slip.
+  void acceptLiveOdds(Map<String, OddsUpdateEvent> updates) {
+    state = state.map((item) {
+      final refreshed = mergeLiveSelection(
+        item.market,
+        item.selection,
+        updates[item.match.id],
+      );
+      if (refreshed == item.selection) {
+        return item;
+      }
+      return BetCartItem(
+        match: item.match,
+        market: item.market,
+        selection: refreshed,
+      );
+    }).toList();
   }
 
   double get combinedOdds {

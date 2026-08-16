@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../odds/domain/entities/odds_entity.dart';
+import '../../../odds/presentation/providers/odds_provider.dart';
+import '../../domain/entities/betting_entity.dart';
 import '../providers/betting_provider.dart';
 
 class BetSlip extends ConsumerStatefulWidget {
@@ -22,12 +25,30 @@ class _BetSlipState extends ConsumerState<BetSlip> {
 
   Future<void> _placeBet() async {
     final stake = double.tryParse(_stakeController.text);
-    final items = ref.read(betCartProvider);
+    var items = ref.read(betCartProvider);
     if (stake == null || stake <= 0 || items.isEmpty) return;
+
+    final liveUpdates = ref.read(matchOddsStateProvider);
+    final changedItems = items.where((item) {
+      final latest = mergeLiveSelection(
+        item.market,
+        item.selection,
+        liveUpdates[item.match.id],
+      );
+      return latest.odds != item.selection.odds;
+    }).toList();
+
+    if (changedItems.isNotEmpty) {
+      final accepted = await _confirmOddsChanges(changedItems, liveUpdates);
+      if (!accepted || !mounted) return;
+      ref.read(betCartProvider.notifier).acceptLiveOdds(liveUpdates);
+      items = ref.read(betCartProvider);
+    }
 
     setState(() => _isPlacing = true);
 
-    final success = await ref.read(betCartProvider.notifier).placeSelections(stake);
+    final success =
+        await ref.read(betCartProvider.notifier).placeSelections(stake);
 
     setState(() => _isPlacing = false);
 
@@ -49,6 +70,53 @@ class _BetSlipState extends ConsumerState<BetSlip> {
         ),
       );
     }
+  }
+
+  Future<bool> _confirmOddsChanges(
+    List<BetCartItem> changedItems,
+    Map<String, OddsUpdateEvent> liveUpdates,
+  ) async {
+    final accepted = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Odds changed'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: changedItems.map((item) {
+            final latest = mergeLiveSelection(
+              item.market,
+              item.selection,
+              liveUpdates[item.match.id],
+            );
+            return ListTile(
+              dense: true,
+              contentPadding: EdgeInsets.zero,
+              title: Text(
+                '${item.match.homeTeam} vs ${item.match.awayTeam}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              subtitle: Text(
+                '${item.selection.label}: '
+                '${item.selection.odds.toStringAsFixed(2)} → '
+                '${latest.odds.toStringAsFixed(2)}',
+              ),
+            );
+          }).toList(),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Keep old price'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Accept new odds'),
+          ),
+        ],
+      ),
+    );
+    return accepted ?? false;
   }
 
   @override
@@ -244,9 +312,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
                         ),
                       )
                     : Text(
-                        items.length == 1
-                            ? 'Place Bet'
-                            : 'Place Accumulator',
+                        items.length == 1 ? 'Place Bet' : 'Place Accumulator',
                       ),
               ),
             ),
