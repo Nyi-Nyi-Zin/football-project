@@ -141,6 +141,7 @@ func main() {
 	betRepository := bettingRepo.NewPostgresBetRepo(db)
 	matchRepository := bettingRepo.NewPostgresMatchRepo(db)
 	settlementService := services.NewAtomicSettlementService(db)
+	settlementService.Start(context.Background(), 30*time.Second)
 	bettingUC := bettingUsecase.NewBettingUseCase(
 		betRepository,
 		matchRepository,

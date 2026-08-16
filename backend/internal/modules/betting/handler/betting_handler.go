@@ -96,6 +96,20 @@ func (h *BettingHandler) SettleBet(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(decision, nil))
 }
 
+// SettleBetSlip handles POST /api/v1/admin/bets/slips/:id/settle
+func (h *BettingHandler) SettleBetSlip(c echo.Context) error {
+	slipID := c.Param("id")
+	decision, err := h.useCase.SettleBetSlip(c.Request().Context(), slipID)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to settle bet slip")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(decision, nil))
+}
+
 // PreviewSettlement handles GET /api/v1/admin/bets/:id/settlement-preview
 func (h *BettingHandler) PreviewSettlement(c echo.Context) error {
 	betID := c.Param("id")

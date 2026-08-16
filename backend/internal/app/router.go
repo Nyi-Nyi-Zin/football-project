@@ -112,6 +112,7 @@ func RegisterRoutes(
 	admin.GET("/transactions", paymentH.AdminGetTransactions)
 	admin.GET("/bets/:id/settlement-preview", bettingH.PreviewSettlement)
 	admin.POST("/bets/:id/settle", bettingH.SettleBet)
+	admin.POST("/bets/slips/:id/settle", bettingH.SettleBetSlip)
 	admin.GET("/withdrawals", paymentH.AdminGetWithdrawals)
 	admin.POST("/withdrawals/:id/approve", paymentH.AdminApproveWithdrawal)
 	admin.POST("/withdrawals/:id/reject", paymentH.AdminRejectWithdrawal)

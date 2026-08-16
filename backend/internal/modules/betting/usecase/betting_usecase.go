@@ -193,6 +193,14 @@ func (uc *BettingUseCase) SettleBet(ctx context.Context, betID string) (*domain.
 	return uc.settlementService.SettleBet(ctx, betID)
 }
 
+// SettleBetSlip applies an accumulator settlement and wallet ledger entry atomically.
+func (uc *BettingUseCase) SettleBetSlip(ctx context.Context, slipID string) (*domain.SettlementDecision, error) {
+	if uc.settlementService == nil {
+		return nil, fmt.Errorf("settlement service is not configured")
+	}
+	return uc.settlementService.SettleBetSlip(ctx, slipID)
+}
+
 // PreviewBetSettlement evaluates the outcome of a bet without mutating any
 // wallet or bet state. An admin settlement worker can later apply the same
 // decision inside a database transaction.
