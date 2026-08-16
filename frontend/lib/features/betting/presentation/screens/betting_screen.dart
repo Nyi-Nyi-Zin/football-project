@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/betting_entity.dart';
 import '../providers/betting_provider.dart';
@@ -13,6 +14,7 @@ class BettingScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final matchesState = ref.watch(matchesProvider);
     final selectedLeagues = ref.watch(selectedLeaguesProvider);
+    final selectedStatus = ref.watch(selectedMatchStatusProvider);
     final cartItems = ref.watch(betCartProvider);
 
     return Scaffold(
@@ -30,6 +32,11 @@ class BettingScreen extends ConsumerWidget {
             icon: const Icon(Icons.refresh),
           ),
           IconButton(
+            tooltip: 'Live odds',
+            onPressed: () => context.push('/live-odds'),
+            icon: const Icon(Icons.flash_on),
+          ),
+          IconButton(
             onPressed: () => _openBetSlip(context),
             icon: Badge.count(
               count: cartItems.length,
@@ -43,7 +50,12 @@ class BettingScreen extends ConsumerWidget {
         data: (matches) => _MatchesList(
           matches: matches,
           cartItems: cartItems,
+          selectedStatus: selectedStatus,
           selectedLeagues: selectedLeagues,
+          onStatusChanged: (status) {
+            ref.read(selectedMatchStatusProvider.notifier).state = status;
+            ref.read(matchesRefreshKeyProvider.notifier).state++;
+          },
           onClearFilters: selectedLeagues.isEmpty
               ? null
               : () =>
@@ -73,8 +85,7 @@ class BettingScreen extends ConsumerWidget {
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, _) => _ErrorState(
           message: error.toString(),
-          onRetry: () =>
-              ref.read(matchesRefreshKeyProvider.notifier).state++,
+          onRetry: () => ref.read(matchesRefreshKeyProvider.notifier).state++,
         ),
       ),
       floatingActionButton: cartItems.isEmpty
@@ -239,7 +250,9 @@ class _SummaryPill extends StatelessWidget {
 class _MatchesList extends StatelessWidget {
   final List<Match> matches;
   final List<BetCartItem> cartItems;
+  final String? selectedStatus;
   final List<String> selectedLeagues;
+  final void Function(String? status) onStatusChanged;
   final VoidCallback? onClearFilters;
   final void Function(String league, bool isSelected) onLeagueTap;
   final RefreshCallback onRefresh;
@@ -249,7 +262,9 @@ class _MatchesList extends StatelessWidget {
   const _MatchesList({
     required this.matches,
     required this.cartItems,
+    required this.selectedStatus,
     required this.selectedLeagues,
+    required this.onStatusChanged,
     required this.onClearFilters,
     required this.onLeagueTap,
     required this.onRefresh,
@@ -257,7 +272,7 @@ class _MatchesList extends StatelessWidget {
   });
 
   // Number of extra header items before the match cards
-  static const int _headerCount = 2; // header summary + league chips row
+  static const int _headerCount = 3; // summary + status chips + league chips
 
   @override
   Widget build(BuildContext context) {
@@ -278,6 +293,10 @@ class _MatchesList extends StatelessWidget {
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
+            ),
+            _MatchStatusRow(
+              selectedStatus: selectedStatus,
+              onStatusChanged: onStatusChanged,
             ),
             _LeagueFilterRow(
               selectedLeagues: selectedLeagues,
@@ -316,6 +335,12 @@ class _MatchesList extends StatelessWidget {
             );
           }
           if (index == 1) {
+            return _MatchStatusRow(
+              selectedStatus: selectedStatus,
+              onStatusChanged: onStatusChanged,
+            );
+          }
+          if (index == 2) {
             return _LeagueFilterRow(
               selectedLeagues: selectedLeagues,
               onLeagueTap: onLeagueTap,
@@ -328,6 +353,44 @@ class _MatchesList extends StatelessWidget {
             match: match,
             selectedItem: selectedItem,
             onSelectionTap: onSelectionTap,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _MatchStatusRow extends StatelessWidget {
+  final String? selectedStatus;
+  final void Function(String? status) onStatusChanged;
+
+  const _MatchStatusRow({
+    required this.selectedStatus,
+    required this.onStatusChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    const filters = <(String?, String)>[
+      (null, 'All'),
+      ('upcoming', 'Upcoming'),
+      ('live', 'Live'),
+    ];
+    return SizedBox(
+      height: 52,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: filters.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 8),
+        itemBuilder: (context, index) {
+          final (status, label) = filters[index];
+          return ChoiceChip(
+            label: Text(label),
+            selected: selectedStatus == status,
+            avatar: status == 'live'
+                ? const Icon(Icons.circle, size: 10, color: AppTheme.errorColor)
+                : null,
+            onSelected: (_) => onStatusChanged(status),
           );
         },
       ),

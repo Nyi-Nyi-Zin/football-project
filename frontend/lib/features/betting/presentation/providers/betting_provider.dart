@@ -19,21 +19,26 @@ final bettingDataSourceProvider = Provider<BettingRemoteDataSource>((ref) {
 
 final selectedLeaguesProvider =
     StateProvider<List<String>>((_) => const ['Premier League']);
+
+/// Null loads all available matches; otherwise the value is sent to the API.
+final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
 final matchesRefreshKeyProvider = StateProvider<int>((_) => 0);
 
 final matchesProvider = FutureProvider<List<Match>>((ref) async {
   ref.watch(matchesRefreshKeyProvider);
   final leagues = ref.watch(selectedLeaguesProvider);
+  final status = ref.watch(selectedMatchStatusProvider);
   final dataSource = ref.watch(bettingDataSourceProvider);
   final models = await dataSource.getMatches(
-    status: 'upcoming',
+    status: status,
     leagues: leagues,
     limit: 50,
   );
   return models.map((m) => m.toEntity()).toList();
 });
 
-final myBetSlipsProvider = FutureProvider.autoDispose<List<BetSlip>>((ref) async {
+final myBetSlipsProvider =
+    FutureProvider.autoDispose<List<BetSlip>>((ref) async {
   final ds = ref.read(bettingDataSourceProvider);
   final slips = await ds.getMyBetSlips();
   return slips.map((s) => s.toEntity()).toList();
@@ -100,7 +105,8 @@ class MyBetsNotifier extends StateNotifier<AsyncValue<List<Bet>>> {
   }
 }
 
-final betCartProvider = StateNotifierProvider<BetCartNotifier, List<BetCartItem>>(
+final betCartProvider =
+    StateNotifierProvider<BetCartNotifier, List<BetCartItem>>(
   (ref) => BetCartNotifier(ref),
 );
 
@@ -182,13 +188,9 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
 
       state = const [];
       return true;
-    } catch (e, st) {
-      print('=== BET PLACEMENT ERROR ===');
-      if (e is DioException) {
-        print('HTTP Code: ${e.response?.statusCode}');
-        print('Response Data: ${e.response?.data}');
-      }
-      print(e);
+    } on DioException {
+      return false;
+    } catch (_) {
       return false;
     }
   }

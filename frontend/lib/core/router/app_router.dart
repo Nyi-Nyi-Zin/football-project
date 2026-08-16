@@ -9,6 +9,7 @@ import '../../features/betting/presentation/screens/betting_screen.dart';
 import '../../features/betting/presentation/screens/bet_detail_screen.dart';
 import '../../features/betting/presentation/screens/my_bets_screen.dart';
 import '../../features/payment/presentation/screens/wallet_screen.dart';
+import '../../features/odds/presentation/screens/odds_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -59,6 +60,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             builder: (context, state) => const MyBetsScreen(),
           ),
           GoRoute(
+            path: '/live-odds',
+            name: 'liveOdds',
+            builder: (context, state) => const OddsScreen(),
+          ),
+          GoRoute(
             path: '/wallet',
             name: 'wallet',
             builder: (context, state) => const WalletScreen(),
@@ -93,7 +99,7 @@ class MainShell extends StatefulWidget {
 }
 
 class _MainShellState extends State<MainShell> {
-  final _tabs = ['/home', '/my-bets', '/wallet', '/profile'];
+  final _tabs = ['/home', '/my-bets', '/live-odds', '/wallet', '/profile'];
 
   @override
   Widget build(BuildContext context) {
@@ -115,6 +121,10 @@ class _MainShellState extends State<MainShell> {
           BottomNavigationBarItem(
             icon: const Icon(Icons.receipt_long),
             label: context.l10n.tr('myBets'),
+          ),
+          const BottomNavigationBarItem(
+            icon: Icon(Icons.flash_on),
+            label: 'Live',
           ),
           BottomNavigationBarItem(
             icon: const Icon(Icons.account_balance_wallet),
