@@ -1,6 +1,7 @@
 -- Revert city/street split back to a single location column.
 -- This migration must also be safe on fresh databases where migration 000005
 -- already created `location` and no `street` column ever existed.
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF EXISTS (
@@ -47,8 +48,10 @@ BEGIN
     END IF;
 END
 $$;
+-- +goose StatementEnd
 
 -- +goose Down
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF EXISTS (
@@ -85,3 +88,4 @@ BEGIN
     END IF;
 END
 $$;
+-- +goose StatementEnd
