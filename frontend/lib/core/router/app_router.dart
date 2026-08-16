@@ -10,6 +10,7 @@ import '../../features/betting/presentation/screens/bet_detail_screen.dart';
 import '../../features/betting/presentation/screens/my_bets_screen.dart';
 import '../../features/payment/presentation/screens/wallet_screen.dart';
 import '../../features/odds/presentation/screens/odds_screen.dart';
+import '../../features/notification/presentation/screens/notification_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -63,6 +64,11 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/live-odds',
             name: 'liveOdds',
             builder: (context, state) => const OddsScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            name: 'notifications',
+            builder: (context, state) => const NotificationScreen(),
           ),
           GoRoute(
             path: '/wallet',

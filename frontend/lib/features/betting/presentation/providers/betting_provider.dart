@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/betting_remote_datasource.dart';
@@ -54,6 +56,14 @@ final selectedLeaguesProvider =
 /// Null loads all available matches; otherwise the value is sent to the API.
 final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
 final matchesRefreshKeyProvider = StateProvider<int>((_) => 0);
+
+/// Refreshes match status and score data while the sportsbook screen is open.
+final matchAutoRefreshProvider = Provider.autoDispose<void>((ref) {
+  final timer = Timer.periodic(const Duration(seconds: 30), (_) {
+    ref.invalidate(matchesProvider);
+  });
+  ref.onDispose(timer.cancel);
+});
 
 final matchesProvider = FutureProvider<List<Match>>((ref) async {
   ref.watch(matchesRefreshKeyProvider);

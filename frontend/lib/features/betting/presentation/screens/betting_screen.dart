@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/betting_entity.dart';
+import '../../../notification/presentation/providers/notification_provider.dart';
 import '../providers/betting_provider.dart';
 import '../widgets/bet_slip.dart' as slip_widget;
 import '../widgets/match_card.dart';
@@ -12,9 +13,12 @@ class BettingScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(matchAutoRefreshProvider);
     final matchesState = ref.watch(matchesProvider);
     final selectedLeagues = ref.watch(selectedLeaguesProvider);
     final selectedStatus = ref.watch(selectedMatchStatusProvider);
+    final unreadNotifications =
+        ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
     final cartItems = ref.watch(betCartProvider);
 
     return Scaffold(
@@ -24,6 +28,15 @@ class BettingScreen extends ConsumerWidget {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         actions: [
+          IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => context.push('/notifications'),
+            icon: Badge.count(
+              count: unreadNotifications,
+              isLabelVisible: unreadNotifications > 0,
+              child: const Icon(Icons.notifications_none),
+            ),
+          ),
           IconButton(
             onPressed: () {
               ref.read(matchesRefreshKeyProvider.notifier).state++;
