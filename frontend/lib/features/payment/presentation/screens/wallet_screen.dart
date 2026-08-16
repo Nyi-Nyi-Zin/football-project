@@ -67,10 +67,35 @@ class WalletScreen extends ConsumerWidget {
                         ),
                       ),
                       loading: () => const CircularProgressIndicator(),
-                      error: (_, __) => const Text(
-                        'Error',
-                        style:
-                            TextStyle(fontSize: 32, color: AppTheme.errorColor),
+                      error: (error, __) => Column(
+                        children: [
+                          const Text(
+                            'Unable to load balance',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 22,
+                              fontWeight: FontWeight.w700,
+                              color: AppTheme.errorColor,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            _walletErrorMessage(error),
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 13,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          TextButton.icon(
+                            onPressed: () => ref
+                                .read(walletProvider.notifier)
+                                .fetchBalance(),
+                            icon: const Icon(Icons.refresh),
+                            label: const Text('Retry'),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 32),
@@ -192,6 +217,14 @@ class WalletScreen extends ConsumerWidget {
         ),
       ),
     );
+  }
+
+  String _walletErrorMessage(Object error) {
+    final message = error.toString().toLowerCase();
+    if (message.contains('401') || message.contains('unauthorized')) {
+      return 'Your session may have expired. Please log in again and retry.';
+    }
+    return 'Please retry in a moment.';
   }
 
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref) {
