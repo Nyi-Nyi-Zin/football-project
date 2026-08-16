@@ -319,11 +319,20 @@ func (uc *PaymentUseCase) GetBalance(ctx context.Context, userID string) (float6
 	return balance, nil
 }
 
-// GetWallet returns the user's full wallet
+// GetWallet returns the user's full wallet and bootstraps a zero-balance wallet when needed.
 func (uc *PaymentUseCase) GetWallet(ctx context.Context, userID string) (*domain.Wallet, error) {
 	wallet, err := uc.walletRepo.FindByUserID(ctx, userID)
+	if err == nil && wallet != nil {
+		return wallet, nil
+	}
+
+	if ensureErr := uc.EnsureWallet(ctx, userID); ensureErr != nil {
+		return nil, fmt.Errorf("usecase.GetWallet: ensure wallet: %w", ensureErr)
+	}
+
+	wallet, err = uc.walletRepo.FindByUserID(ctx, userID)
 	if err != nil {
-		return nil, apperrors.NewNotFoundError("Wallet not found")
+		return nil, fmt.Errorf("usecase.GetWallet: load ensured wallet: %w", err)
 	}
 	return wallet, nil
 }
@@ -339,8 +348,11 @@ func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, pa
 
 // EnsureWallet creates a wallet for a user if one doesn't exist
 func (uc *PaymentUseCase) EnsureWallet(ctx context.Context, userID string) error {
-	_, err := uc.walletRepo.FindByUserID(ctx, userID)
-	if err != nil {
+	wallet, err := uc.walletRepo.FindByUserID(ctx, userID)
+	if err == nil && wallet != nil {
+		return nil
+	}
+	if err != nil || wallet == nil {
 		wallet := &domain.Wallet{
 			UserID:   userID,
 			Balance:  0,
