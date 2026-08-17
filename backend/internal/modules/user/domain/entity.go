@@ -53,31 +53,32 @@ func (User) TableName() string {
 
 // UserProfile is a safe representation without sensitive fields
 type UserProfile struct {
-	ID              string    `json:"id"`
-	Email           string    `json:"email"`
-	Username        string    `json:"username"`
-	FullName        string    `json:"full_name"`
-	Phone           string    `json:"phone"`
-	Role            string    `json:"role"`
-	Status          string    `json:"status"`
-	Balance         float64   `json:"balance"`
-	IsEmailVerified bool      `json:"is_email_verified"`
-	IsPhoneVerified bool      `json:"is_phone_verified"`
-	KYCStatus       KYCStatus `json:"kyc_status"`
-	NRC             string    `json:"nrc,omitempty"`
-	NRCRegion       string    `json:"nrc_region,omitempty"`
-	NRCTownship     string    `json:"nrc_township,omitempty"`
-	NRCType         string    `json:"nrc_type,omitempty"`
-	NRCNumber       string    `json:"nrc_number,omitempty"`
-	NRCRegionID     *int      `json:"nrc_region_id,omitempty"`
-	NRCTownshipID   *int      `json:"nrc_township_id,omitempty"`
-	NRCTypeID       *int      `json:"nrc_type_id,omitempty"`
-	Gmail           string    `json:"gmail,omitempty"`
-	Location        string    `json:"location,omitempty"`
-	Region          string    `json:"region,omitempty"`
-	Township        string    `json:"township,omitempty"`
-	CustomCode      string    `json:"custom_code,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
+	ID                     string    `json:"id"`
+	Email                  string    `json:"email"`
+	Username               string    `json:"username"`
+	FullName               string    `json:"full_name"`
+	Phone                  string    `json:"phone"`
+	Role                   string    `json:"role"`
+	Status                 string    `json:"status"`
+	Balance                float64   `json:"balance"`
+	IsEmailVerified        bool      `json:"is_email_verified"`
+	IsPhoneVerified        bool      `json:"is_phone_verified"`
+	KYCStatus              KYCStatus `json:"kyc_status"`
+	NRC                    string    `json:"nrc,omitempty"`
+	NRCRegion              string    `json:"nrc_region,omitempty"`
+	NRCTownship            string    `json:"nrc_township,omitempty"`
+	NRCType                string    `json:"nrc_type,omitempty"`
+	NRCNumber              string    `json:"nrc_number,omitempty"`
+	NRCRegionID            *int      `json:"nrc_region_id,omitempty"`
+	NRCTownshipID          *int      `json:"nrc_township_id,omitempty"`
+	NRCTypeID              *int      `json:"nrc_type_id,omitempty"`
+	Gmail                  string    `json:"gmail,omitempty"`
+	Location               string    `json:"location,omitempty"`
+	Region                 string    `json:"region,omitempty"`
+	Township               string    `json:"township,omitempty"`
+	CustomCode             string    `json:"custom_code,omitempty"`
+	PendingWithdrawalCount int       `json:"pending_withdrawal_count,omitempty"`
+	CreatedAt              time.Time `json:"created_at"`
 }
 
 // ToProfile converts a User to a safe UserProfile

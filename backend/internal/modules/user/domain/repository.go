@@ -14,6 +14,7 @@ type UserRepository interface {
 	List(ctx context.Context, page, limit int) ([]*User, int64, error)
 	ListFiltered(ctx context.Context, query, status string, page, limit int) ([]*User, int64, error)
 	CountByStatus(ctx context.Context, status string) (int64, error)
+	CountPendingWithdrawalsByAgent(ctx context.Context, agentID string) (int, error)
 
 	// KYC / Verification
 	SetEmailVerified(ctx context.Context, userID string, verified bool) error

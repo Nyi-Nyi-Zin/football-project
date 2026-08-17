@@ -43,6 +43,14 @@ class AdminUserDetailScreen extends ConsumerWidget {
                         Text('Status: ${user.status}'),
                         Text(
                             'Current Balance: ${user.balance.toStringAsFixed(2)}'),
+                        if (user.role == 'agent') ...[
+                          Text(
+                            'Location: ${user.region.isEmpty ? '—' : user.region} / ${user.township.isEmpty ? '—' : user.township}',
+                          ),
+                          Text(
+                            'Pending payouts: ${user.pendingWithdrawalCount}',
+                          ),
+                        ],
                         Text('Registered: ${dateFmt.format(user.createdAt)}'),
                       ],
                     ),

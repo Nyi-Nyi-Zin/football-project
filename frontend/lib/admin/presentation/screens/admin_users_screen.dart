@@ -65,7 +65,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   items: const [
                     DropdownMenuItem(value: '', child: Text('All Status')),
                     DropdownMenuItem(value: 'active', child: Text('Active')),
-                    DropdownMenuItem(value: 'suspended', child: Text('Suspended')),
+                    DropdownMenuItem(
+                        value: 'suspended', child: Text('Suspended')),
                   ],
                   onChanged: (v) => setState(() {
                     _status = v ?? '';
@@ -102,6 +103,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                               DataColumn(label: Text('Role')),
                               DataColumn(label: Text('Status')),
                               DataColumn(label: Text('Balance')),
+                              DataColumn(label: Text('Agent Location')),
+                              DataColumn(label: Text('Pending Payouts')),
                               DataColumn(label: Text('Registered')),
                               DataColumn(label: Text('Actions')),
                             ],
@@ -118,11 +121,19 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                                     DataCell(Text(u.email)),
                                     DataCell(Text(u.role)),
                                     DataCell(Text(u.status)),
-                                    DataCell(Text(u.balance.toStringAsFixed(2))),
+                                    DataCell(
+                                        Text(u.balance.toStringAsFixed(2))),
+                                    DataCell(Text(u.role == 'agent'
+                                        ? '${u.region.isEmpty ? '—' : u.region} / ${u.township.isEmpty ? '—' : u.township}'
+                                        : '—')),
+                                    DataCell(Text(u.role == 'agent'
+                                        ? '${u.pendingWithdrawalCount}'
+                                        : '—')),
                                     DataCell(Text(dateFmt.format(u.createdAt))),
                                     DataCell(
                                       TextButton(
-                                        onPressed: () => context.go('/users/${u.id}'),
+                                        onPressed: () =>
+                                            context.go('/users/${u.id}'),
                                         child: const Text('Details'),
                                       ),
                                     ),
@@ -137,12 +148,16 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            onPressed: _page > 1 ? () => setState(() => _page--) : null,
+                            onPressed: _page > 1
+                                ? () => setState(() => _page--)
+                                : null,
                             icon: const Icon(Icons.chevron_left),
                           ),
                           Text('Page $_page / ${res.lastPage}'),
                           IconButton(
-                            onPressed: _page < res.lastPage ? () => setState(() => _page++) : null,
+                            onPressed: _page < res.lastPage
+                                ? () => setState(() => _page++)
+                                : null,
                             icon: const Icon(Icons.chevron_right),
                           ),
                         ],
@@ -150,7 +165,8 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                     ],
                   );
                 },
-                error: (e, _) => Center(child: Text('Failed to load users: $e')),
+                error: (e, _) =>
+                    Center(child: Text('Failed to load users: $e')),
                 loading: () => const Center(child: CircularProgressIndicator()),
               ),
             ),

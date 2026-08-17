@@ -26,6 +26,9 @@ class AdminUser {
   final String role;
   final String status;
   final double balance;
+  final String region;
+  final String township;
+  final int pendingWithdrawalCount;
   final DateTime createdAt;
 
   const AdminUser({
@@ -36,6 +39,9 @@ class AdminUser {
     required this.role,
     required this.status,
     required this.balance,
+    this.region = '',
+    this.township = '',
+    this.pendingWithdrawalCount = 0,
     required this.createdAt,
   });
 
@@ -48,6 +54,10 @@ class AdminUser {
       role: json['role'] as String? ?? 'user',
       status: json['status'] as String? ?? 'active',
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      region: json['region'] as String? ?? '',
+      township: json['township'] as String? ?? '',
+      pendingWithdrawalCount:
+          (json['pending_withdrawal_count'] as num?)?.toInt() ?? 0,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
           DateTime.fromMillisecondsSinceEpoch(0),
     );

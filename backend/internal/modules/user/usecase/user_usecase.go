@@ -296,7 +296,10 @@ func (uc *UserUseCase) ListUsersAdmin(ctx context.Context, query, status string,
 
 	profiles := make([]*domain.UserProfile, len(users))
 	for i, u := range users {
-		profiles[i] = u.ToProfile()
+		profiles[i], err = uc.profileWithAgentWorkload(ctx, u)
+		if err != nil {
+			return nil, 0, nil, fmt.Errorf("usecase.ListUsersAdmin: workload: %w", err)
+		}
 	}
 
 	totalUsers, err := uc.repo.CountByStatus(ctx, "")
@@ -343,7 +346,24 @@ func (uc *UserUseCase) GetProfileByID(ctx context.Context, userID string) (*doma
 	if err != nil {
 		return nil, apperrors.NewNotFoundError("User not found")
 	}
-	return user.ToProfile(), nil
+	profile, err := uc.profileWithAgentWorkload(ctx, user)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetProfileByID: workload: %w", err)
+	}
+	return profile, nil
+}
+
+func (uc *UserUseCase) profileWithAgentWorkload(ctx context.Context, user *domain.User) (*domain.UserProfile, error) {
+	profile := user.ToProfile()
+	if user.Role != "agent" {
+		return profile, nil
+	}
+	count, err := uc.repo.CountPendingWithdrawalsByAgent(ctx, user.ID)
+	if err != nil {
+		return nil, err
+	}
+	profile.PendingWithdrawalCount = count
+	return profile, nil
 }
 
 // ─── KYC & Verification ─────────────────────────────────────────────────────

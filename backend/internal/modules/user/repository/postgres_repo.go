@@ -142,6 +142,17 @@ func (r *postgresUserRepo) CountByStatus(ctx context.Context, status string) (in
 	return total, nil
 }
 
+func (r *postgresUserRepo) CountPendingWithdrawalsByAgent(ctx context.Context, agentID string) (int, error) {
+	var total int64
+	if err := r.db.WithContext(ctx).
+		Table("payments.withdrawal_requests").
+		Where("agent_id = ? AND status = ?", agentID, "pending").
+		Count(&total).Error; err != nil {
+		return 0, fmt.Errorf("userRepo.CountPendingWithdrawalsByAgent: %w", err)
+	}
+	return int(total), nil
+}
+
 // ─── KYC / Verification ─────────────────────────────────────────────────────
 
 func (r *postgresUserRepo) SetEmailVerified(ctx context.Context, userID string, verified bool) error {
