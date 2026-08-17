@@ -102,191 +102,195 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     });
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              decoration: AppTheme.glassDecoration,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 12),
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        color: AppTheme.lavender,
-                        borderRadius: BorderRadius.circular(22),
-                      ),
-                      child: const Icon(
-                        Icons.person_add_alt_1,
-                        color: AppTheme.primaryColor,
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      context.l10n.tr('createAccount'),
-                      style:
-                          Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.tr('joinAction'),
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 32),
-                    TextFormField(
-                      controller: _fullNameController,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('fullName'),
-                        prefixIcon: const Icon(Icons.person_outlined),
-                      ),
-                      validator: (v) => v == null || v.isEmpty
-                          ? context.l10n.tr('fullNameRequired')
-                          : null,
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _usernameController,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('username'),
-                        prefixIcon: const Icon(Icons.alternate_email),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return context.l10n.tr('usernameRequired');
-                        }
-                        if (v.length < 3) return context.l10n.tr('min3Chars');
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('email'),
-                        prefixIcon: const Icon(Icons.email_outlined),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return context.l10n.tr('emailRequired');
-                        }
-                        if (!v.contains('@')) {
-                          return context.l10n.tr('emailValid');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _phoneController,
-                      keyboardType: TextInputType.phone,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('phoneOptional'),
-                        prefixIcon: const Icon(Icons.phone_outlined),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('password'),
-                        prefixIcon: const Icon(Icons.lock_outlined),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
-                        ),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) {
-                          return context.l10n.tr('passwordRequired');
-                        }
-                        if (v.length < 8) {
-                          return context.l10n.tr('passwordMinLength');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: authState.isLoading || _isSubmitting
-                            ? null
-                            : _handleRegister,
-                        child: authState.isLoading || _isSubmitting
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text('Creating account...'),
-                                ],
-                              )
-                            : Text(context.l10n.tr('createAccountBtn')),
-                      ),
-                    ),
-                    if (_statusMessage != null) ...[
+      backgroundColor: AppTheme.pageBackground,
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                decoration: AppTheme.glassDecoration,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       const SizedBox(height: 12),
-                      Text(
-                        _statusMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: _statusMessage!.startsWith('Account created')
-                              ? AppTheme.successColor
-                              : AppTheme.textSecondary,
-                          fontSize: 13,
+                      Container(
+                        width: 64,
+                        height: 64,
+                        decoration: BoxDecoration(
+                          color: AppTheme.lavender,
+                          borderRadius: BorderRadius.circular(22),
+                        ),
+                        child: const Icon(
+                          Icons.person_add_alt_1,
+                          color: AppTheme.primaryColor,
+                          size: 32,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 24),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          context.l10n.tr('alreadyHaveAccount'),
-                          style: const TextStyle(color: AppTheme.textSecondary),
-                        ),
-                        GestureDetector(
-                          onTap: () => context.go('/login'),
-                          child: Text(
-                            context.l10n.tr('signIn'),
-                            style: const TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w600,
+                      const SizedBox(height: 18),
+                      Text(
+                        context.l10n.tr('createAccount'),
+                        style:
+                            Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.tr('joinAction'),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppTheme.textSecondary,
                             ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 32),
+                      TextFormField(
+                        controller: _fullNameController,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('fullName'),
+                          prefixIcon: const Icon(Icons.person_outlined),
+                        ),
+                        validator: (v) => v == null || v.isEmpty
+                            ? context.l10n.tr('fullNameRequired')
+                            : null,
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('username'),
+                          prefixIcon: const Icon(Icons.alternate_email),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return context.l10n.tr('usernameRequired');
+                          }
+                          if (v.length < 3) return context.l10n.tr('min3Chars');
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('email'),
+                          prefixIcon: const Icon(Icons.email_outlined),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return context.l10n.tr('emailRequired');
+                          }
+                          if (!v.contains('@')) {
+                            return context.l10n.tr('emailValid');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _phoneController,
+                        keyboardType: TextInputType.phone,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('phoneOptional'),
+                          prefixIcon: const Icon(Icons.phone_outlined),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('password'),
+                          prefixIcon: const Icon(Icons.lock_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) {
+                            return context.l10n.tr('passwordRequired');
+                          }
+                          if (v.length < 8) {
+                            return context.l10n.tr('passwordMinLength');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 32),
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: authState.isLoading || _isSubmitting
+                              ? null
+                              : _handleRegister,
+                          child: authState.isLoading || _isSubmitting
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text('Creating account...'),
+                                  ],
+                                )
+                              : Text(context.l10n.tr('createAccountBtn')),
+                        ),
+                      ),
+                      if (_statusMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _statusMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _statusMessage!.startsWith('Account created')
+                                ? AppTheme.successColor
+                                : AppTheme.textSecondary,
+                            fontSize: 13,
                           ),
                         ),
                       ],
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            context.l10n.tr('alreadyHaveAccount'),
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.go('/login'),
+                            child: Text(
+                              context.l10n.tr('signIn'),
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),

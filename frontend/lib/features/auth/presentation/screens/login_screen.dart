@@ -42,25 +42,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
     if (user == null || !mounted) return;
 
-    setState(
-        () => _statusMessage = 'Login successful. Preparing your account...');
-    await showDialog<void>(
-      context: context,
-      barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        title: const Text('Login successful'),
-        content: Text('Welcome back, ${user.fullName}. You are now signed in.'),
-        actions: [
-          FilledButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Continue'),
-          ),
-        ],
+    if (!mounted) return;
+    setState(() {
+      _isSubmitting = false;
+      _statusMessage = 'Login successful. Redirecting...';
+    });
+    ref.read(authNotifierProvider.notifier).setAuthenticated(user);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text('Welcome back, ${user.fullName}!'),
+        backgroundColor: AppTheme.successColor,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
       ),
     );
-    if (!mounted) return;
-    ref.read(authNotifierProvider.notifier).setAuthenticated(user);
-    setState(() => _statusMessage = 'Redirecting to your account...');
     // Explicit navigation avoids relying only on the router-provider rebuild
     // after the deferred authentication state is committed.
     await Future<void>.delayed(Duration.zero);
@@ -92,170 +87,174 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     });
 
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
-        child: SafeArea(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.all(20),
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
-              decoration: AppTheme.glassDecoration,
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    const SizedBox(height: 12),
-
-                    // Logo / App name
-                    Container(
-                      width: 76,
-                      height: 76,
-                      decoration: BoxDecoration(
-                        color: AppTheme.lavender,
-                        borderRadius: BorderRadius.circular(26),
-                      ),
-                      child: const Icon(
-                        Icons.sports_soccer,
-                        size: 42,
-                        color: AppTheme.primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    Text(
-                      context.l10n.tr('welcomeBack'),
-                      style:
-                          Theme.of(context).textTheme.headlineLarge?.copyWith(
-                                fontWeight: FontWeight.bold,
-                                color: AppTheme.textPrimary,
-                              ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      context.l10n.tr('signInContinue'),
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                            color: AppTheme.textSecondary,
-                          ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Email
-                    TextFormField(
-                      controller: _emailController,
-                      keyboardType: TextInputType.emailAddress,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('email'),
-                        prefixIcon: const Icon(Icons.email_outlined),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return context.l10n.tr('emailRequired');
-                        }
-                        if (!value.contains('@')) {
-                          return context.l10n.tr('emailValid');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Password
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: context.l10n.tr('password'),
-                        prefixIcon: const Icon(Icons.lock_outlined),
-                        suffixIcon: IconButton(
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_off
-                                : Icons.visibility,
-                          ),
-                          onPressed: () {
-                            setState(
-                                () => _obscurePassword = !_obscurePassword);
-                          },
-                        ),
-                      ),
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return context.l10n.tr('passwordRequired');
-                        }
-                        if (value.length < 8) {
-                          return context.l10n.tr('passwordMinLength');
-                        }
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Login button
-                    SizedBox(
-                      height: 52,
-                      child: ElevatedButton(
-                        onPressed: authState.isLoading || _isSubmitting
-                            ? null
-                            : _handleLogin,
-                        child: authState.isLoading || _isSubmitting
-                            ? const Row(
-                                mainAxisAlignment: MainAxisAlignment.center,
-                                children: [
-                                  SizedBox(
-                                    height: 20,
-                                    width: 20,
-                                    child: CircularProgressIndicator(
-                                      strokeWidth: 2,
-                                      color: Colors.white,
-                                    ),
-                                  ),
-                                  SizedBox(width: 10),
-                                  Text('Signing in...'),
-                                ],
-                              )
-                            : Text(context.l10n.tr('signIn')),
-                      ),
-                    ),
-                    if (_statusMessage != null) ...[
+      backgroundColor: AppTheme.pageBackground,
+      body: SizedBox.expand(
+        child: Container(
+          decoration: const BoxDecoration(gradient: AppTheme.primaryGradient),
+          child: SafeArea(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(20),
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                decoration: AppTheme.glassDecoration,
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
                       const SizedBox(height: 12),
-                      Text(
-                        _statusMessage!,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color:
-                              _statusMessage!.startsWith('Login successful') ||
-                                      _statusMessage!.startsWith('Redirecting')
-                                  ? AppTheme.successColor
-                                  : AppTheme.textSecondary,
-                          fontSize: 13,
+
+                      // Logo / App name
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: AppTheme.lavender,
+                          borderRadius: BorderRadius.circular(26),
+                        ),
+                        child: const Icon(
+                          Icons.sports_soccer,
+                          size: 42,
+                          color: AppTheme.primaryColor,
                         ),
                       ),
-                    ],
-                    const SizedBox(height: 24),
-
-                    // Register link
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          context.l10n.tr('dontHaveAccount'),
-                          style: const TextStyle(color: AppTheme.textSecondary),
-                        ),
-                        GestureDetector(
-                          onTap: () => context.go('/register'),
-                          child: Text(
-                            context.l10n.tr('signUp'),
-                            style: const TextStyle(
-                              color: AppTheme.primaryColor,
-                              fontWeight: FontWeight.w600,
+                      const SizedBox(height: 16),
+                      Text(
+                        context.l10n.tr('welcomeBack'),
+                        style:
+                            Theme.of(context).textTheme.headlineLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.textPrimary,
+                                ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.l10n.tr('signInContinue'),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                              color: AppTheme.textSecondary,
                             ),
+                        textAlign: TextAlign.center,
+                      ),
+                      const SizedBox(height: 48),
+
+                      // Email
+                      TextFormField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('email'),
+                          prefixIcon: const Icon(Icons.email_outlined),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return context.l10n.tr('emailRequired');
+                          }
+                          if (!value.contains('@')) {
+                            return context.l10n.tr('emailValid');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Password
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: context.l10n.tr('password'),
+                          prefixIcon: const Icon(Icons.lock_outlined),
+                          suffixIcon: IconButton(
+                            icon: Icon(
+                              _obscurePassword
+                                  ? Icons.visibility_off
+                                  : Icons.visibility,
+                            ),
+                            onPressed: () {
+                              setState(
+                                  () => _obscurePassword = !_obscurePassword);
+                            },
+                          ),
+                        ),
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return context.l10n.tr('passwordRequired');
+                          }
+                          if (value.length < 8) {
+                            return context.l10n.tr('passwordMinLength');
+                          }
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 32),
+
+                      // Login button
+                      SizedBox(
+                        height: 52,
+                        child: ElevatedButton(
+                          onPressed: authState.isLoading || _isSubmitting
+                              ? null
+                              : _handleLogin,
+                          child: authState.isLoading || _isSubmitting
+                              ? const Row(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    SizedBox(
+                                      height: 20,
+                                      width: 20,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        color: Colors.white,
+                                      ),
+                                    ),
+                                    SizedBox(width: 10),
+                                    Text('Signing in...'),
+                                  ],
+                                )
+                              : Text(context.l10n.tr('signIn')),
+                        ),
+                      ),
+                      if (_statusMessage != null) ...[
+                        const SizedBox(height: 12),
+                        Text(
+                          _statusMessage!,
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            color: _statusMessage!
+                                        .startsWith('Login successful') ||
+                                    _statusMessage!.startsWith('Redirecting')
+                                ? AppTheme.successColor
+                                : AppTheme.textSecondary,
+                            fontSize: 13,
                           ),
                         ),
                       ],
-                    ),
-                  ],
+                      const SizedBox(height: 24),
+
+                      // Register link
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Text(
+                            context.l10n.tr('dontHaveAccount'),
+                            style:
+                                const TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          GestureDetector(
+                            onTap: () => context.go('/register'),
+                            child: Text(
+                              context.l10n.tr('signUp'),
+                              style: const TextStyle(
+                                color: AppTheme.primaryColor,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
