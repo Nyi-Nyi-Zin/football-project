@@ -179,7 +179,7 @@ class AdminRemoteDataSource {
     required double amount,
     required String action,
     required String reason,
-    String currency = 'USD',
+    String currency = 'MMK',
   }) async {
     final response = await _client.dio.post('/admin/balance/adjust', data: {
       'user_id': userId,

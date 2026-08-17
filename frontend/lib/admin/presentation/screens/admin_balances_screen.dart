@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../data/admin_remote_datasource.dart';
+import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../providers/admin_provider.dart';
 
 class AdminBalancesScreen extends ConsumerStatefulWidget {
@@ -163,11 +165,35 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
       );
     } catch (e) {
       if (!mounted) return;
+      if (e is DioException &&
+          (e.response?.statusCode == 401 || e.response?.statusCode == 403)) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text(
+                'Admin permission required. Please sign in again with an admin account.'),
+          ),
+        );
+        await ref.read(authNotifierProvider.notifier).logout();
+        return;
+      }
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Adjustment failed: $e')),
+        SnackBar(content: Text('Adjustment failed: ${_errorMessage(e)}')),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
     }
+  }
+
+  String _errorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map<String, dynamic>) {
+        final body = data['error'];
+        if (body is Map<String, dynamic> && body['message'] is String) {
+          return body['message'] as String;
+        }
+      }
+    }
+    return error.toString();
   }
 }
