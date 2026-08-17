@@ -190,6 +190,8 @@ type WithdrawalRequest struct {
 	Region                  string                  `json:"region" gorm:"type:varchar(100)"`
 	Township                string                  `json:"township" gorm:"type:varchar(100)"`
 	Code                    string                  `json:"code" gorm:"type:varchar(10)"`
+	AgentName               string                  `json:"agent_name,omitempty" gorm:"-"`
+	CustomerName            string                  `json:"customer_name,omitempty" gorm:"-"`
 	ApprovedAt              *time.Time              `json:"approved_at"`
 	CancelledAt             *time.Time              `json:"cancelled_at"`
 }

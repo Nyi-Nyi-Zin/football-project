@@ -549,6 +549,21 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     );
   }
 
+  String _expiryLabel(DateTime? expiresAt) {
+    if (expiresAt == null) return 'No expiry set';
+    final remaining = expiresAt.difference(DateTime.now());
+    if (remaining.isNegative || remaining.inSeconds == 0) {
+      return 'Request expired';
+    }
+
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    final seconds = remaining.inSeconds.remainder(60);
+    return hours > 0
+        ? 'Expires in ${hours}h ${minutes}m'
+        : 'Expires in ${minutes}m ${seconds}s';
+  }
+
   Widget _requestTile(CustomerWithdrawalItem request) {
     final isPending = request.requestStatus == 'pending' &&
         request.transactionStatus == 'pending';
@@ -588,15 +603,13 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          '${request.region.isEmpty ? request.location : request.region} • ${request.township.isEmpty ? request.location : request.township} • Agent selected • ${request.createdAt.toLocal().toString().substring(0, 16)}',
+          '${request.region.isEmpty ? request.location : request.region} • ${request.township.isEmpty ? request.location : request.township} • ${request.agentName.isEmpty ? 'Agent selected' : request.agentName} • ${request.createdAt.toLocal().toString().substring(0, 16)}',
           style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
         ),
         if (isPending) ...[
           const SizedBox(height: 6),
           Text(
-            request.code.isEmpty
-                ? 'Amount held pending agent confirmation.'
-                : 'Code: ${request.code} • Amount held pending agent confirmation.',
+            '${request.code.isEmpty ? 'Amount held pending agent confirmation.' : 'Code: ${request.code} • Amount held pending agent confirmation.'} • ${_expiryLabel(request.expiresAt)}',
             style: const TextStyle(
               color: AppTheme.warningColor,
               fontSize: 12,

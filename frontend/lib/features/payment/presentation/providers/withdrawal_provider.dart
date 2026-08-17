@@ -42,12 +42,14 @@ class CustomerWithdrawalItem {
   final String requestId;
   final String transactionId;
   final String agentId;
+  final String agentName;
   final String requestStatus;
   final String transactionStatus;
   final String region;
   final String township;
   final String location;
   final String code;
+  final DateTime? expiresAt;
   final double amount;
   final String currency;
   final DateTime createdAt;
@@ -56,12 +58,14 @@ class CustomerWithdrawalItem {
     required this.requestId,
     required this.transactionId,
     required this.agentId,
+    this.agentName = '',
     required this.requestStatus,
     required this.transactionStatus,
     this.region = '',
     this.township = '',
     required this.location,
     required this.code,
+    this.expiresAt,
     required this.amount,
     required this.currency,
     required this.createdAt,
@@ -75,12 +79,14 @@ class CustomerWithdrawalItem {
       requestId: request['id'] as String? ?? '',
       transactionId: transaction['id'] as String? ?? '',
       agentId: request['agent_id'] as String? ?? '',
+      agentName: request['agent_name'] as String? ?? '',
       requestStatus: request['status'] as String? ?? 'pending',
       transactionStatus: transaction['status'] as String? ?? 'pending',
       region: request['region'] as String? ?? '',
       township: request['township'] as String? ?? '',
       location: request['location'] as String? ?? '',
       code: request['code'] as String? ?? '',
+      expiresAt: DateTime.tryParse(request['expires_at'] as String? ?? ''),
       amount: (transaction['amount'] as num?)?.toDouble() ?? 0,
       currency: transaction['currency'] as String? ?? 'MMK',
       createdAt: DateTime.tryParse(

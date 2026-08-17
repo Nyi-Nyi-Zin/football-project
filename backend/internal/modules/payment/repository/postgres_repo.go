@@ -216,17 +216,19 @@ func (r *postgresTransactionRepo) ListAssignedWithdrawals(ctx context.Context, a
 	var total int64
 
 	query := r.db.WithContext(ctx).
-		Model(&domain.WithdrawalRequest{}).
-		Where("agent_id = ?", agentID)
+		Table("payments.withdrawal_requests AS withdrawal_requests").
+		Joins("LEFT JOIN users.accounts AS customer ON customer.id = withdrawal_requests.customer_id").
+		Where("withdrawal_requests.agent_id = ?", agentID)
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("withdrawal_requests.status = ?", status)
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("transactionRepo.ListAssignedWithdrawals: count: %w", err)
 	}
 
 	offset := (page - 1) * limit
-	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&reqs).Error; err != nil {
+	if err := query.Select("withdrawal_requests.*, customer.full_name AS customer_name").
+		Offset(offset).Limit(limit).Order("withdrawal_requests.created_at DESC").Find(&reqs).Error; err != nil {
 		return nil, 0, fmt.Errorf("transactionRepo.ListAssignedWithdrawals: find: %w", err)
 	}
 	return reqs, total, nil
@@ -235,16 +237,19 @@ func (r *postgresTransactionRepo) ListAssignedWithdrawals(ctx context.Context, a
 func (r *postgresTransactionRepo) ListCustomerWithdrawals(ctx context.Context, customerID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequest, int64, error) {
 	var reqs []*domain.WithdrawalRequest
 	var total int64
-	query := r.db.WithContext(ctx).Model(&domain.WithdrawalRequest{}).
-		Where("customer_id = ?", customerID)
+	query := r.db.WithContext(ctx).
+		Table("payments.withdrawal_requests AS withdrawal_requests").
+		Joins("LEFT JOIN users.accounts AS agent ON agent.id = withdrawal_requests.agent_id").
+		Where("withdrawal_requests.customer_id = ?", customerID)
 	if status != "" {
-		query = query.Where("status = ?", status)
+		query = query.Where("withdrawal_requests.status = ?", status)
 	}
 	if err := query.Count(&total).Error; err != nil {
 		return nil, 0, fmt.Errorf("transactionRepo.ListCustomerWithdrawals: count: %w", err)
 	}
 	offset := (page - 1) * limit
-	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&reqs).Error; err != nil {
+	if err := query.Select("withdrawal_requests.*, agent.full_name AS agent_name").
+		Offset(offset).Limit(limit).Order("withdrawal_requests.created_at DESC").Find(&reqs).Error; err != nil {
 		return nil, 0, fmt.Errorf("transactionRepo.ListCustomerWithdrawals: find: %w", err)
 	}
 	return reqs, total, nil

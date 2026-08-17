@@ -265,10 +265,10 @@ class _AgentWithdrawalsScreenState
                       final row = rows[index];
                       return ListTile(
                         title: SelectableText(
-                          'Customer: ${row.customerId} | ${row.amount.toStringAsFixed(2)} ${row.currency}',
+                          'Customer: ${row.customerName.isEmpty ? row.customerId : row.customerName} | ${row.amount.toStringAsFixed(2)} ${row.currency}',
                         ),
                         subtitle: Text(
-                          'Request: ${row.requestStatus} | Tx: ${row.transactionStatus}\n${dateFmt.format(row.createdAt)}',
+                          'Request: ${row.requestStatus} | Tx: ${row.transactionStatus}\n${dateFmt.format(row.createdAt)}${row.requestStatus == 'pending' ? '\n${_expiryLabel(row.expiresAt)}' : ''}',
                         ),
                         trailing: TextButton(
                           onPressed: () async {
@@ -295,6 +295,20 @@ class _AgentWithdrawalsScreenState
         ),
       ),
     );
+  }
+
+  String _expiryLabel(DateTime? expiresAt) {
+    if (expiresAt == null) return 'No expiry set';
+    final remaining = expiresAt.difference(DateTime.now());
+    if (remaining.isNegative || remaining.inSeconds == 0) {
+      return 'Request expired';
+    }
+
+    final hours = remaining.inHours;
+    final minutes = remaining.inMinutes.remainder(60);
+    return hours > 0
+        ? 'Expires in ${hours}h ${minutes}m'
+        : 'Expires in ${minutes}m ${remaining.inSeconds.remainder(60)}s';
   }
 
   Future<void> _verifyCode() async {
