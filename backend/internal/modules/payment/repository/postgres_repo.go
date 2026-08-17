@@ -494,10 +494,49 @@ func (r *postgresTransactionRepo) FindAgentsByLocation(ctx context.Context, loca
 	var agents []*domain.AgentInfo
 	if err := r.db.WithContext(ctx).
 		Table("users.accounts").
-		Select("id, username, full_name, location, custom_code").
+		Select("id, username, full_name, region, township, location, custom_code").
 		Where("role = ? AND location = ? AND status = ?", "agent", location, "active").
 		Find(&agents).Error; err != nil {
 		return nil, fmt.Errorf("transactionRepo.FindAgentsByLocation: %w", err)
+	}
+	return agents, nil
+}
+
+func (r *postgresTransactionRepo) FindAgentRegions(ctx context.Context) ([]string, error) {
+	var regions []string
+	if err := r.db.WithContext(ctx).
+		Table("users.accounts").
+		Where("role = ? AND status = ? AND region IS NOT NULL AND TRIM(region) <> ''", "agent", "active").
+		Distinct("region").
+		Order("region ASC").
+		Pluck("region", &regions).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindAgentRegions: %w", err)
+	}
+	return regions, nil
+}
+
+func (r *postgresTransactionRepo) FindAgentTownships(ctx context.Context, region string) ([]string, error) {
+	var townships []string
+	if err := r.db.WithContext(ctx).
+		Table("users.accounts").
+		Where("role = ? AND status = ? AND region = ? AND township IS NOT NULL AND TRIM(township) <> ''", "agent", "active", region).
+		Distinct("township").
+		Order("township ASC").
+		Pluck("township", &townships).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindAgentTownships: %w", err)
+	}
+	return townships, nil
+}
+
+func (r *postgresTransactionRepo) FindAgentsByRegionTownship(ctx context.Context, region, township string) ([]*domain.AgentInfo, error) {
+	var agents []*domain.AgentInfo
+	if err := r.db.WithContext(ctx).
+		Table("users.accounts").
+		Select("id, username, full_name, region, township, location, custom_code").
+		Where("role = ? AND status = ? AND region = ? AND township = ?", "agent", "active", region, township).
+		Order("full_name ASC").
+		Find(&agents).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindAgentsByRegionTownship: %w", err)
 	}
 	return agents, nil
 }

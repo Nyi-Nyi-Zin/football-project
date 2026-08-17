@@ -25,9 +25,15 @@ type TransactionRepository interface {
 	UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status WithdrawalRequestStatus, verifiedAt *time.Time) error
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
 
-	// New methods for location-based withdrawal flow
+	// Location-based withdrawal flow. The legacy location methods remain
+	// available for older clients while the hierarchy-aware methods power the
+	// current customer withdrawal form.
 	FindAgentLocations(ctx context.Context) ([]string, error)
 	FindAgentsByLocation(ctx context.Context, location string) ([]*AgentInfo, error)
+	FindAgentRegions(ctx context.Context) ([]string, error)
+	FindAgentTownships(ctx context.Context, region string) ([]string, error)
+	FindAgentsByRegionTownship(ctx context.Context, region, township string) ([]*AgentInfo, error)
+
 	FindWithdrawalRequestByCode(ctx context.Context, code string) (*WithdrawalRequest, error)
 	FindWithdrawalRequestByID(ctx context.Context, requestID string) (*WithdrawalRequest, error)
 	ApproveWithdrawalRequest(ctx context.Context, requestID string, approvedAt time.Time) error
@@ -39,6 +45,8 @@ type AgentInfo struct {
 	ID         string `json:"id"`
 	Username   string `json:"username"`
 	FullName   string `json:"full_name"`
+	Region     string `json:"region"`
+	Township   string `json:"township"`
 	Location   string `json:"location"`
 	CustomCode string `json:"custom_code"`
 }

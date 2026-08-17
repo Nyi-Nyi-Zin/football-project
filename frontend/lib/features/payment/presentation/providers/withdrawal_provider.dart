@@ -8,6 +8,8 @@ class AgentInfo {
   final String id;
   final String username;
   final String fullName;
+  final String region;
+  final String township;
   final String location;
   final String customCode;
 
@@ -15,6 +17,8 @@ class AgentInfo {
     required this.id,
     required this.username,
     required this.fullName,
+    this.region = '',
+    this.township = '',
     required this.location,
     this.customCode = '',
   });
@@ -25,7 +29,9 @@ class AgentInfo {
       username: json['username'] as String,
       fullName:
           json['full_name'] as String? ?? json['fullName'] as String? ?? '',
-      location: json['location'] as String,
+      region: json['region'] as String? ?? '',
+      township: json['township'] as String? ?? '',
+      location: json['location'] as String? ?? '',
       customCode: json['custom_code'] as String? ?? '',
     );
   }
@@ -38,6 +44,8 @@ class CustomerWithdrawalItem {
   final String agentId;
   final String requestStatus;
   final String transactionStatus;
+  final String region;
+  final String township;
   final String location;
   final String code;
   final double amount;
@@ -50,6 +58,8 @@ class CustomerWithdrawalItem {
     required this.agentId,
     required this.requestStatus,
     required this.transactionStatus,
+    this.region = '',
+    this.township = '',
     required this.location,
     required this.code,
     required this.amount,
@@ -67,6 +77,8 @@ class CustomerWithdrawalItem {
       agentId: request['agent_id'] as String? ?? '',
       requestStatus: request['status'] as String? ?? 'pending',
       transactionStatus: transaction['status'] as String? ?? 'pending',
+      region: request['region'] as String? ?? '',
+      township: request['township'] as String? ?? '',
       location: request['location'] as String? ?? '',
       code: request['code'] as String? ?? '',
       amount: (transaction['amount'] as num?)?.toDouble() ?? 0,
@@ -201,6 +213,24 @@ class AgentsNotifier extends StateNotifier<AgentsState> {
       );
     }
   }
+
+  Future<void> fetchAgentsForTownship(String region, String township) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final response = await _dioClient.dio.get('/withdrawals/agents',
+          queryParameters: {'region': region, 'township': township});
+      final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
+      final agents = data
+          .map((json) => AgentInfo.fromJson(json as Map<String, dynamic>))
+          .toList();
+      state = state.copyWith(agents: agents, isLoading: false);
+    } catch (e) {
+      state = state.copyWith(
+        isLoading: false,
+        error: ServerFailure(message: e.toString()),
+      );
+    }
+  }
 }
 
 class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
@@ -210,6 +240,8 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
 
   Future<Either<Failure, WithdrawalRequest>> createWithdrawal({
     required double amount,
+    required String region,
+    required String township,
     required String location,
     required String agentId,
     required String accountDetails,
@@ -218,6 +250,8 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
     try {
       final response = await _dioClient.dio.post('/withdrawals', data: {
         'amount': amount,
+        'region': region,
+        'township': township,
         'location': location,
         'agent_id': agentId,
         'account_details': accountDetails,
@@ -288,6 +322,23 @@ final agentLocationsProvider =
   final response = await client.dio.get('/withdrawals/locations');
   final data = response.data['data'] as List<dynamic>? ?? const [];
   return data.map((location) => location.toString()).toList();
+});
+
+final agentRegionsProvider =
+    FutureProvider.autoDispose<List<String>>((ref) async {
+  final client = ref.read(dioClientProvider);
+  final response = await client.dio.get('/withdrawals/regions');
+  final data = response.data['data'] as List<dynamic>? ?? const [];
+  return data.map((region) => region.toString()).toList();
+});
+
+final agentTownshipsProvider = FutureProvider.autoDispose
+    .family<List<String>, String>((ref, region) async {
+  final client = ref.read(dioClientProvider);
+  final response = await client.dio
+      .get('/withdrawals/townships', queryParameters: {'region': region});
+  final data = response.data['data'] as List<dynamic>? ?? const [];
+  return data.map((township) => township.toString()).toList();
 });
 
 final customerWithdrawalsProvider =

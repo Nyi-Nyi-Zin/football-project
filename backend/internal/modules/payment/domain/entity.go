@@ -187,6 +187,8 @@ type WithdrawalRequest struct {
 	CreatedAt               time.Time               `json:"created_at"`
 	UpdatedAt               time.Time               `json:"updated_at"`
 	Location                string                  `json:"location" gorm:"type:varchar(100)"`
+	Region                  string                  `json:"region" gorm:"type:varchar(100)"`
+	Township                string                  `json:"township" gorm:"type:varchar(100)"`
 	Code                    string                  `json:"code" gorm:"type:varchar(10)"`
 	ApprovedAt              *time.Time              `json:"approved_at"`
 	CancelledAt             *time.Time              `json:"cancelled_at"`
@@ -199,7 +201,9 @@ func (WithdrawalRequest) TableName() string {
 // CreateWithdrawalRequest represents a request to create a withdrawal
 type CreateWithdrawalRequest struct {
 	Amount         float64 `json:"amount" validate:"required,gt=0"`
-	Location       string  `json:"location" validate:"required"`
+	Region         string  `json:"region" validate:"required,max=100"`
+	Township       string  `json:"township" validate:"required,max=100"`
+	Location       string  `json:"location" validate:"required,max=100"`
 	AccountDetails string  `json:"account_details" validate:"required"`
 }
 

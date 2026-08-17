@@ -791,12 +791,28 @@ func (uc *PaymentUseCase) GetAgentLocations(ctx context.Context) ([]string, erro
 	return uc.txRepo.FindAgentLocations(ctx)
 }
 
-// GetAgentsByLocation returns active agents for a given location
+// GetAgentsByLocation returns active agents for a legacy location value.
 func (uc *PaymentUseCase) GetAgentsByLocation(ctx context.Context, location string) ([]*domain.AgentInfo, error) {
 	return uc.txRepo.FindAgentsByLocation(ctx, location)
 }
 
-// CreateLocationBasedWithdrawal creates a withdrawal request with location and agent selection
+// GetAgentRegions returns Myanmar regions/states with active agents.
+func (uc *PaymentUseCase) GetAgentRegions(ctx context.Context) ([]string, error) {
+	return uc.txRepo.FindAgentRegions(ctx)
+}
+
+// GetAgentTownships returns townships within a selected region/state.
+func (uc *PaymentUseCase) GetAgentTownships(ctx context.Context, region string) ([]string, error) {
+	return uc.txRepo.FindAgentTownships(ctx, region)
+}
+
+// GetAgentsByRegionTownship returns active agents registered in one township.
+func (uc *PaymentUseCase) GetAgentsByRegionTownship(ctx context.Context, region, township string) ([]*domain.AgentInfo, error) {
+	return uc.txRepo.FindAgentsByRegionTownship(ctx, region, township)
+}
+
+// CreateLocationBasedWithdrawal creates a withdrawal request with region,
+// township, and agent selection.
 func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, userID string, req *domain.CreateWithdrawalRequest, agentID string) (*domain.WithdrawalRequest, error) {
 	if req.Amount <= 0 || math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) {
 		return nil, apperrors.NewBadRequestError("Withdrawal amount must be a valid positive number")
@@ -805,7 +821,11 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		return nil, err
 	}
 
-	agents, err := uc.txRepo.FindAgentsByLocation(ctx, req.Location)
+	if strings.TrimSpace(req.Region) == "" || strings.TrimSpace(req.Township) == "" {
+		return nil, apperrors.NewBadRequestError("Region and township are required")
+	}
+
+	agents, err := uc.txRepo.FindAgentsByRegionTownship(ctx, req.Region, req.Township)
 	if err != nil {
 		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: find agents: %w", err)
 	}
@@ -817,7 +837,7 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		}
 	}
 	if !selectedAgent {
-		return nil, apperrors.NewBadRequestError("The selected agent is not active in this city")
+		return nil, apperrors.NewBadRequestError("The selected agent is not active in this township")
 	}
 
 	currentBalance, err := uc.walletRepo.GetBalance(ctx, userID)
@@ -882,8 +902,11 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		AccountDetailsEncrypted: encryptedDetails,
 		Status:                  domain.WithdrawalRequestPending,
 		Location:                req.Location,
+		Region:                  req.Region,
+		Township:                req.Township,
 		Code:                    code,
-		ExpiresAt:               timePtr(time.Now().Add(24 * time.Hour)),
+
+		ExpiresAt: timePtr(time.Now().Add(24 * time.Hour)),
 	}
 
 	if err := uc.txRepo.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {

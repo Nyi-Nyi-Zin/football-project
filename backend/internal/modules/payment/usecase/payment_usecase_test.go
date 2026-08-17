@@ -131,7 +131,27 @@ func (f *fakeTxRepo) FindAgentsByLocation(_ context.Context, _ string) ([]*domai
 	return []*domain.AgentInfo{{
 		ID:       "agent-1",
 		FullName: "Yangon Agent",
-		Location: "Yangon",
+		Region:   "Yangon Region",
+		Township: "Tamwe",
+		Location: "Tamwe",
+	}}, nil
+}
+
+func (f *fakeTxRepo) FindAgentRegions(_ context.Context) ([]string, error) {
+	return []string{"Yangon Region"}, nil
+}
+
+func (f *fakeTxRepo) FindAgentTownships(_ context.Context, _ string) ([]string, error) {
+	return []string{"Tamwe"}, nil
+}
+
+func (f *fakeTxRepo) FindAgentsByRegionTownship(_ context.Context, _, _ string) ([]*domain.AgentInfo, error) {
+	return []*domain.AgentInfo{{
+		ID:       "agent-1",
+		FullName: "Yangon Agent",
+		Region:   "Yangon Region",
+		Township: "Tamwe",
+		Location: "Tamwe",
 	}}, nil
 }
 
@@ -272,9 +292,12 @@ func TestLocationWithdrawalHoldsThenSettlesToAgent(t *testing.T) {
 
 	request, err := uc.CreateLocationBasedWithdrawal(context.Background(), "user-1", &domain.CreateWithdrawalRequest{
 		Amount:         30,
-		Location:       "Yangon",
+		Region:         "Yangon Region",
+		Township:       "Tamwe",
+		Location:       "Tamwe",
 		AccountDetails: "09-123456789",
 	}, "agent-1")
+
 	if err != nil {
 		t.Fatalf("create location withdrawal failed: %v", err)
 	}

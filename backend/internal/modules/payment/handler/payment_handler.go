@@ -4,6 +4,7 @@ import (
 	"math"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"betting-app/internal/modules/payment/domain"
 	"betting-app/internal/modules/payment/usecase"
@@ -428,6 +429,47 @@ func (h *PaymentHandler) GetAgentLocations(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(locations, nil))
 }
 
+// GetAgentRegions handles GET /api/v1/withdrawals/regions
+func (h *PaymentHandler) GetAgentRegions(c echo.Context) error {
+	regions, err := h.useCase.GetAgentRegions(c.Request().Context())
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent regions")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(regions, nil))
+}
+
+// GetAgentTownships handles GET /api/v1/withdrawals/townships?region=...
+func (h *PaymentHandler) GetAgentTownships(c echo.Context) error {
+	region := strings.TrimSpace(c.QueryParam("region"))
+	if region == "" {
+		appErr := apperrors.NewBadRequestError("Region is required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	townships, err := h.useCase.GetAgentTownships(c.Request().Context(), region)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent townships")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(townships, nil))
+}
+
+// GetAgentsByRegionTownship handles GET /api/v1/withdrawals/agents?region=...&township=...
+func (h *PaymentHandler) GetAgentsByRegionTownship(c echo.Context) error {
+	region := strings.TrimSpace(c.QueryParam("region"))
+	township := strings.TrimSpace(c.QueryParam("township"))
+	if region == "" || township == "" {
+		appErr := apperrors.NewBadRequestError("Region and township are required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	agents, err := h.useCase.GetAgentsByRegionTownship(c.Request().Context(), region, township)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agents")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(agents, nil))
+}
+
 // GetAgentsByLocation handles GET /api/v1/withdrawals/agents/:location
 func (h *PaymentHandler) GetAgentsByLocation(c echo.Context) error {
 	location := c.Param("location")
@@ -451,10 +493,13 @@ func (h *PaymentHandler) CreateLocationBasedWithdrawal(c echo.Context) error {
 
 	var req struct {
 		Amount         float64 `json:"amount" validate:"required,gt=0"`
-		Location       string  `json:"location" validate:"required"`
+		Region         string  `json:"region" validate:"required,max=100"`
+		Township       string  `json:"township" validate:"required,max=100"`
+		Location       string  `json:"location" validate:"omitempty,max=100"`
 		AgentID        string  `json:"agent_id" validate:"required"`
 		AccountDetails string  `json:"account_details" validate:"required"`
 	}
+
 	if err := c.Bind(&req); err != nil {
 		appErr := apperrors.NewBadRequestError("Invalid request body")
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
@@ -464,9 +509,15 @@ func (h *PaymentHandler) CreateLocationBasedWithdrawal(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 
+	location := strings.TrimSpace(req.Location)
+	if location == "" {
+		location = req.Township
+	}
 	createReq := &domain.CreateWithdrawalRequest{
 		Amount:         req.Amount,
-		Location:       req.Location,
+		Region:         req.Region,
+		Township:       req.Township,
+		Location:       location,
 		AccountDetails: req.AccountDetails,
 	}
 

@@ -39,6 +39,8 @@ type User struct {
 	NRCTypeID       *int      `json:"nrc_type_id,omitempty" gorm:"column:nrc_type_id"`
 	Gmail           string    `json:"gmail,omitempty" gorm:"size:255"`
 	Location        string    `json:"location,omitempty" gorm:"type:text"`
+	Region          string    `json:"region,omitempty" gorm:"size:100"`
+	Township        string    `json:"township,omitempty" gorm:"size:100"`
 	CustomCode      *string   `json:"custom_code,omitempty" gorm:"size:10;uniqueIndex"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
@@ -72,6 +74,8 @@ type UserProfile struct {
 	NRCTypeID       *int      `json:"nrc_type_id,omitempty"`
 	Gmail           string    `json:"gmail,omitempty"`
 	Location        string    `json:"location,omitempty"`
+	Region          string    `json:"region,omitempty"`
+	Township        string    `json:"township,omitempty"`
 	CustomCode      string    `json:"custom_code,omitempty"`
 	CreatedAt       time.Time `json:"created_at"`
 }
@@ -104,6 +108,8 @@ func (u *User) ToProfile() *UserProfile {
 		NRCTypeID:       u.NRCTypeID,
 		Gmail:           u.Gmail,
 		Location:        u.Location,
+		Region:          u.Region,
+		Township:        u.Township,
 		CustomCode:      customCode,
 		CreatedAt:       u.CreatedAt,
 	}
@@ -142,6 +148,8 @@ type UpdateProfileRequest struct {
 	NRCTypeID     *int   `json:"nrc_type_id,omitempty" validate:"omitempty"`
 	Gmail         string `json:"gmail" validate:"omitempty,email"`
 	Location      string `json:"location" validate:"omitempty"`
+	Region        string `json:"region" validate:"omitempty,max=100"`
+	Township      string `json:"township" validate:"omitempty,max=100"`
 	CustomCode    string `json:"custom_code" validate:"omitempty,min=3,max=10"`
 }
 

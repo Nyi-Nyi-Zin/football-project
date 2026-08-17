@@ -15,7 +15,8 @@ class WithdrawalScreen extends ConsumerStatefulWidget {
 class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   final _amountController = TextEditingController();
   final _accountDetailsController = TextEditingController();
-  String? _selectedLocation;
+  String? _selectedRegion;
+  String? _selectedTownship;
   String? _selectedAgentId;
   String? _selectedAgentName;
   bool _isLoading = false;
@@ -29,7 +30,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
 
   Future<void> _submitWithdrawal() async {
     final amount = double.tryParse(_amountController.text);
-    final location = _selectedLocation?.trim() ?? '';
+    final region = _selectedRegion?.trim() ?? '';
+    final township = _selectedTownship?.trim() ?? '';
     final accountDetails = _accountDetailsController.text.trim();
 
     if (amount == null || amount <= 0) {
@@ -39,9 +41,16 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
-    if (location.isEmpty) {
+    if (region.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Please enter a location')),
+        const SnackBar(content: Text('Please select a region or state')),
+      );
+      return;
+    }
+
+    if (township.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please select a township')),
       );
       return;
     }
@@ -64,7 +73,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
 
     final result = await ref.read(withdrawalProvider.notifier).createWithdrawal(
           amount: amount,
-          location: location,
+          region: region,
+          township: township,
+          location: township,
           agentId: _selectedAgentId!,
           accountDetails: accountDetails,
         );
@@ -86,14 +97,16 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           _showCodeDialog(
             withdrawal.code,
             amount,
-            location,
+            region,
+            township,
           );
         },
       );
     }
   }
 
-  void _showCodeDialog(String code, double amount, String location) {
+  void _showCodeDialog(
+      String code, double amount, String region, String township) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -127,7 +140,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
             ),
             const SizedBox(height: 8),
             Text('Amount: ${amount.toStringAsFixed(2)} MMK'),
-            Text('City: $location'),
+            Text('Region/State: $region'),
+            Text('Township: $township'),
             Text('Agent: $_selectedAgentName'),
             const SizedBox(height: 16),
             const Text(
@@ -158,7 +172,10 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   @override
   Widget build(BuildContext context) {
     final agentsState = ref.watch(agentsProvider);
-    final locationsState = ref.watch(agentLocationsProvider);
+    final regionsState = ref.watch(agentRegionsProvider);
+    final townshipsState = _selectedRegion == null
+        ? const AsyncValue<List<String>>.data(<String>[])
+        : ref.watch(agentTownshipsProvider(_selectedRegion!));
     final walletState = ref.watch(walletProvider);
     final customerWithdrawalsState = ref.watch(customerWithdrawalsProvider);
 
@@ -178,55 +195,125 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'City',
+                      'Region / State',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    locationsState.when(
+                    regionsState.when(
                       loading: () => const LinearProgressIndicator(),
                       error: (error, _) => const Text(
-                        'Unable to load cities. Please refresh and try again.',
+                        'Unable to load Myanmar regions. Please retry.',
                         style: TextStyle(color: AppTheme.errorColor),
                       ),
-                      data: (locations) {
-                        if (locations.isEmpty) {
+                      data: (regions) {
+                        if (regions.isEmpty) {
                           return const Text(
-                            'No active agent cities are available right now.',
+                            'No active agent regions are available right now.',
                             style: TextStyle(color: AppTheme.textSecondary),
                           );
                         }
                         return DropdownButtonFormField<String>(
-                          initialValue: _selectedLocation,
+                          initialValue: _selectedRegion,
                           decoration: const InputDecoration(
-                            hintText: 'Select a city',
-                            prefixIcon: Icon(Icons.location_on_outlined),
+                            hintText: 'Select a region or state',
+                            prefixIcon: Icon(Icons.map_outlined),
                             border: OutlineInputBorder(),
                           ),
-                          items: locations
+                          items: regions
                               .map(
-                                (location) => DropdownMenuItem<String>(
-                                  value: location,
-                                  child: Text(location),
+                                (region) => DropdownMenuItem<String>(
+                                  value: region,
+                                  child: Text(region),
                                 ),
                               )
                               .toList(),
                           onChanged: (value) {
                             if (value == null) return;
                             setState(() {
-                              _selectedLocation = value;
+                              _selectedRegion = value;
+                              _selectedTownship = null;
                               _selectedAgentId = null;
                               _selectedAgentName = null;
                             });
-                            ref
-                                .read(agentsProvider.notifier)
-                                .fetchAgents(value);
+                            ref.read(agentsProvider.notifier).clear();
                           },
                         );
                       },
                     ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Township',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    _selectedRegion == null
+                        ? const Text(
+                            'Select a region or state first.',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          )
+                        : townshipsState.when(
+                            loading: () => const LinearProgressIndicator(),
+                            error: (error, _) => const Text(
+                              'Unable to load townships. Please retry.',
+                              style: TextStyle(color: AppTheme.errorColor),
+                            ),
+                            data: (townships) {
+                              if (townships.isEmpty) {
+                                return const Text(
+                                  'No active agent townships are available in this region.',
+                                  style:
+                                      TextStyle(color: AppTheme.textSecondary),
+                                );
+                              }
+                              return DropdownButtonFormField<String>(
+                                initialValue: _selectedTownship,
+                                decoration: const InputDecoration(
+                                  hintText: 'Select a township',
+                                  prefixIcon:
+                                      Icon(Icons.location_city_outlined),
+                                  border: OutlineInputBorder(),
+                                ),
+                                items: townships
+                                    .map(
+                                      (township) => DropdownMenuItem<String>(
+                                        value: township,
+                                        child: Text(township),
+                                      ),
+                                    )
+                                    .toList(),
+                                onChanged: (value) {
+                                  if (value == null) return;
+                                  setState(() {
+                                    _selectedTownship = value;
+                                    _selectedAgentId = null;
+                                    _selectedAgentName = null;
+                                  });
+                                  ref
+                                      .read(agentsProvider.notifier)
+                                      .fetchAgentsForTownship(
+                                        _selectedRegion!,
+                                        value,
+                                      );
+                                },
+                              );
+                            },
+                          ),
                   ],
                 ),
               ),
@@ -246,9 +333,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _selectedLocation == null
+                    _selectedTownship == null
                         ? const Text(
-                            'Select a city first to see available agents.',
+                            'Select a township first to see available agents.',
                             style: TextStyle(color: AppTheme.textSecondary),
                           )
                         : agentsState.isLoading
@@ -261,7 +348,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                                   )
                                 : agentsState.agents.isEmpty
                                     ? const Text(
-                                        'No agents available for this location',
+                                        'No active agents are registered in this township.',
                                         style: TextStyle(
                                             color: AppTheme.textSecondary),
                                       )
@@ -501,7 +588,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         ),
         const SizedBox(height: 5),
         Text(
-          '${request.location} • Agent selected • ${request.createdAt.toLocal().toString().substring(0, 16)}',
+          '${request.region.isEmpty ? request.location : request.region} • ${request.township.isEmpty ? request.location : request.township} • Agent selected • ${request.createdAt.toLocal().toString().substring(0, 16)}',
           style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
         ),
         if (isPending) ...[
