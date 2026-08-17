@@ -21,6 +21,9 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
   final _reasonCtrl = TextEditingController();
   String _action = 'credit';
   bool _submitting = false;
+  final _uuidV4Pattern = RegExp(
+    r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+  );
 
   @override
   void dispose() {
@@ -56,7 +59,12 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
                       width: 280,
                       child: TextField(
                         controller: _userIdCtrl,
-                        decoration: const InputDecoration(labelText: 'User ID'),
+                        maxLength: 36,
+                        decoration: const InputDecoration(
+                          labelText: 'User ID',
+                          helperText: 'Paste the complete UUID (36 characters)',
+                          counterText: '',
+                        ),
                       ),
                     ),
                     SizedBox(
@@ -137,11 +145,18 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
   }
 
   Future<void> _submitAdjustment() async {
+    final userId = _userIdCtrl.text.trim();
     final amount = double.tryParse(_amountCtrl.text.trim());
-    if (_userIdCtrl.text.trim().isEmpty ||
-        amount == null ||
-        amount <= 0 ||
-        _reasonCtrl.text.trim().isEmpty) {
+    if (!_uuidV4Pattern.hasMatch(userId)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+              'Enter the complete User ID UUID, for example 8-4-4-4-12 characters.'),
+        ),
+      );
+      return;
+    }
+    if (amount == null || amount <= 0 || _reasonCtrl.text.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text('Please fill user id, amount and reason.')),
@@ -152,7 +167,7 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
     setState(() => _submitting = true);
     try {
       await ref.read(adminDatasourceProvider).adjustBalance(
-            userId: _userIdCtrl.text.trim(),
+            userId: userId,
             amount: amount,
             action: _action,
             reason: _reasonCtrl.text.trim(),
