@@ -1,4 +1,5 @@
 import 'package:dartz/dartz.dart';
+import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/errors/failures.dart';
 import '../../../../core/network/dio_client.dart';
@@ -267,7 +268,7 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
       state = state.copyWith(withdrawal: withdrawal, isLoading: false);
       return Right(withdrawal);
     } catch (e) {
-      final failure = ServerFailure(message: e.toString());
+      final failure = ServerFailure(message: _withdrawalErrorMessage(e));
       state = state.copyWith(isLoading: false, error: failure);
       return Left(failure);
     }
@@ -314,6 +315,33 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
       state = state.copyWith(isLoading: false, error: failure);
       return Left(failure);
     }
+  }
+
+  String _withdrawalErrorMessage(Object error) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final apiError = data['error'];
+        if (apiError is Map && apiError['message'] is String) {
+          return apiError['message'] as String;
+        }
+        if (data['message'] is String) {
+          return data['message'] as String;
+        }
+      }
+      if (error.error is ServerException) {
+        return (error.error as ServerException).message;
+      }
+      if (error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout ||
+          error.type == DioExceptionType.sendTimeout) {
+        return 'Connection timed out. Please try again.';
+      }
+      if (error.type == DioExceptionType.connectionError) {
+        return 'Unable to connect to the server. Please check your internet connection.';
+      }
+    }
+    return 'Unable to submit withdrawal request. Please try again.';
   }
 }
 

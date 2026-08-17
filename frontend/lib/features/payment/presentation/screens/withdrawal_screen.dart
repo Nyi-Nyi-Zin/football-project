@@ -41,6 +41,26 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
 
+    final wallet = ref.read(walletProvider).valueOrNull;
+    if (wallet == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Balance is still loading. Please retry.')),
+      );
+      return;
+    }
+    final availableBalance = wallet.availableBalance;
+    if (amount > availableBalance + 0.000001) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Insufficient available balance. Available: ${availableBalance.toStringAsFixed(2)} MMK',
+          ),
+        ),
+      );
+      return;
+    }
+
     if (region.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please select a region or state')),
