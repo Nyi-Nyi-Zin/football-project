@@ -4,6 +4,7 @@ ALTER TABLE payments.wallets
     ADD COLUMN IF NOT EXISTS reserved_balance DECIMAL(18,2) NOT NULL DEFAULT 0;
 
 -- Prevent corrupted negative holds from being persisted.
+-- +goose StatementBegin
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -16,6 +17,7 @@ BEGIN
             CHECK (reserved_balance >= 0);
     END IF;
 END $$;
+-- +goose StatementEnd
 
 -- +goose Down
 ALTER TABLE payments.wallets
