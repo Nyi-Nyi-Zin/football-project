@@ -8,6 +8,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"math"
@@ -223,14 +224,17 @@ func (uc *PaymentUseCase) Withdraw(ctx context.Context, userID string, req *doma
 		}, nil
 	}
 
-	// Get current balance
+	// Reserve the amount immediately so concurrent bets and withdrawal requests
+	// cannot spend funds that are already promised to an agent.
 	currentBalance, err := uc.walletRepo.GetBalance(ctx, userID)
 	if err != nil {
 		return nil, apperrors.NewNotFoundError("Wallet not found")
 	}
-
-	if currentBalance < req.Amount {
-		return nil, apperrors.NewBadRequestError("Insufficient balance")
+	if err := uc.walletRepo.ReserveBalance(ctx, userID, req.Amount); err != nil {
+		if errors.Is(err, domain.ErrInsufficientAvailableBalance) {
+			return nil, apperrors.NewBadRequestError("Insufficient available balance")
+		}
+		return nil, fmt.Errorf("usecase.Withdraw: reserve balance: %w", err)
 	}
 	if strings.TrimSpace(req.Currency) == "" {
 		req.Currency = "USD"
@@ -254,24 +258,28 @@ func (uc *PaymentUseCase) Withdraw(ctx context.Context, userID string, req *doma
 		IdempotencyKey: req.IdempotencyKey,
 		Description:    fmt.Sprintf("Withdrawal to %s", req.PaymentMethod),
 		BalanceBefore:  currentBalance,
-		BalanceAfter:   currentBalance - req.Amount,
+		BalanceAfter:   currentBalance,
 	}
 
 	if err := uc.txRepo.Create(ctx, tx); err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
 		return nil, fmt.Errorf("usecase.Withdraw: create transaction: %w", err)
 	}
 
 	code, err := uc.generateVerificationCode()
 	if err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
 		return nil, fmt.Errorf("usecase.Withdraw: generate code: %w", err)
 	}
 	codeHash, err := hashCode(code)
 	if err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
 		return nil, fmt.Errorf("usecase.Withdraw: hash code: %w", err)
 	}
 
 	encryptedAccountDetails, err := uc.encryptSensitive(req.AccountDetails)
 	if err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
 		return nil, fmt.Errorf("usecase.Withdraw: encrypt account details: %w", err)
 	}
 
@@ -283,8 +291,12 @@ func (uc *PaymentUseCase) Withdraw(ctx context.Context, userID string, req *doma
 		CodeLookupHash:          uc.lookupHash(code),
 		AccountDetailsEncrypted: encryptedAccountDetails,
 		Status:                  domain.WithdrawalRequestPending,
+		Code:                    code,
+		ExpiresAt:               timePtr(time.Now().Add(24 * time.Hour)),
 	}
 	if err := uc.txRepo.CreateWithdrawalRequest(ctx, reqRecord); err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		_ = uc.txRepo.UpdateStatus(ctx, tx.ID, domain.TransactionCancelled)
 		return nil, fmt.Errorf("usecase.Withdraw: create withdrawal request: %w", err)
 	}
 	_ = uc.txRepo.CreateWithdrawalAuditLog(ctx, &domain.WithdrawalAuditLog{
@@ -492,24 +504,34 @@ func (uc *PaymentUseCase) ApproveWithdrawal(ctx context.Context, txID, adminID s
 		return nil, apperrors.NewBadRequestError("Only pending withdrawals can be approved")
 	}
 
-	currentBalance, err := uc.walletRepo.GetBalance(ctx, tx.UserID)
+	withdrawalReq, err := uc.txRepo.FindWithdrawalRequestByID(ctx, tx.ID)
 	if err != nil {
-		return nil, apperrors.NewNotFoundError("Wallet not found")
+		return nil, apperrors.NewNotFoundError("Withdrawal request details not found")
 	}
-	if currentBalance < tx.Amount {
-		return nil, apperrors.NewBadRequestError("Insufficient user balance")
+	if err := uc.walletRepo.SettleReservedTransfer(ctx, tx.UserID, withdrawalReq.AgentID, tx.Amount); err != nil {
+		if errors.Is(err, domain.ErrInsufficientAvailableBalance) {
+			return nil, apperrors.NewBadRequestError("The held withdrawal amount is no longer available")
+		}
+		return nil, fmt.Errorf("usecase.ApproveWithdrawal: settle agent transfer: %w", err)
 	}
-
-	if err := uc.walletRepo.UpdateBalance(ctx, tx.UserID, -tx.Amount); err != nil {
-		return nil, fmt.Errorf("usecase.ApproveWithdrawal: update balance: %w", err)
-	}
-	ref := fmt.Sprintf("approved-by:%s", adminID)
+	ref := fmt.Sprintf("approved-by-admin:%s", adminID)
 	if err := uc.txRepo.UpdateStatusAndReference(ctx, tx.ID, domain.TransactionCompleted, ref); err != nil {
 		return nil, fmt.Errorf("usecase.ApproveWithdrawal: update status: %w", err)
 	}
+	now := time.Now().UTC()
+	_ = uc.txRepo.Create(ctx, &domain.Transaction{
+		UserID:      withdrawalReq.AgentID,
+		Type:        domain.TransactionAgentPayout,
+		Amount:      tx.Amount,
+		Currency:    tx.Currency,
+		Status:      domain.TransactionCompleted,
+		Reference:   ref,
+		Description: "Agent payout received for customer withdrawal",
+	})
+	_ = uc.txRepo.UpdateWithdrawalRequestStatus(ctx, withdrawalReq.ID, domain.WithdrawalRequestApproved, &now)
+
 	tx.Status = domain.TransactionCompleted
 	tx.Reference = ref
-	now := time.Now().UTC()
 	_ = uc.txRepo.UpdateWithdrawalRequestStatus(ctx, tx.ID, domain.WithdrawalRequestApproved, &now)
 	_ = uc.txRepo.CreateWithdrawalAuditLog(ctx, &domain.WithdrawalAuditLog{
 		TransactionID: tx.ID,
@@ -544,6 +566,13 @@ func (uc *PaymentUseCase) RejectWithdrawal(ctx context.Context, txID, adminID, r
 	if tx.Status != domain.TransactionPending {
 		return nil, apperrors.NewBadRequestError("Only pending withdrawals can be rejected")
 	}
+	withdrawalReq, err := uc.txRepo.FindWithdrawalRequestByID(ctx, tx.ID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Withdrawal request details not found")
+	}
+	if err := uc.walletRepo.ReleaseReservedBalance(ctx, tx.UserID, tx.Amount); err != nil {
+		return nil, fmt.Errorf("usecase.RejectWithdrawal: release reserved balance: %w", err)
+	}
 
 	reason = strings.TrimSpace(reason)
 	ref := fmt.Sprintf("rejected-by:%s", adminID)
@@ -555,7 +584,7 @@ func (uc *PaymentUseCase) RejectWithdrawal(ctx context.Context, txID, adminID, r
 	}
 	tx.Status = domain.TransactionCancelled
 	tx.Reference = ref
-	_ = uc.txRepo.UpdateWithdrawalRequestStatus(ctx, tx.ID, domain.WithdrawalRequestRejected, nil)
+	_ = uc.txRepo.UpdateWithdrawalRequestStatus(ctx, withdrawalReq.ID, domain.WithdrawalRequestRejected, nil)
 	_ = uc.txRepo.CreateWithdrawalAuditLog(ctx, &domain.WithdrawalAuditLog{
 		TransactionID: tx.ID,
 		ActorUserID:   &adminID,
@@ -609,19 +638,20 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 		return nil, apperrors.NewBadRequestError("Only pending withdrawals can be processed")
 	}
 
-	currentBalance, err := uc.walletRepo.GetBalance(ctx, tx.UserID)
+	agentBalanceBefore, err := uc.walletRepo.GetBalance(ctx, req.AgentID)
 	if err != nil {
-		return nil, apperrors.NewNotFoundError("Wallet not found")
+		return nil, apperrors.NewNotFoundError("Agent wallet not found")
 	}
-	if currentBalance < tx.Amount {
-		return nil, apperrors.NewBadRequestError("Insufficient user balance")
-	}
-	if err := uc.walletRepo.UpdateBalance(ctx, tx.UserID, -tx.Amount); err != nil {
-		return nil, fmt.Errorf("usecase.VerifyWithdrawalCode: update balance: %w", err)
+	if err := uc.walletRepo.SettleReservedTransfer(ctx, tx.UserID, req.AgentID, tx.Amount); err != nil {
+		if errors.Is(err, domain.ErrInsufficientAvailableBalance) {
+			return nil, apperrors.NewBadRequestError("The held withdrawal amount is no longer available")
+		}
+		return nil, fmt.Errorf("usecase.VerifyWithdrawalCode: settle agent transfer: %w", err)
 	}
 
-	ref := fmt.Sprintf("approved-by-agent:%s", agentID)
-	if err := uc.txRepo.UpdateStatusAndReference(ctx, tx.ID, domain.TransactionCompleted, ref); err != nil {
+	ref := fmt.Sprintf("paid-by-agent:%s", agentID)
+	customerBalanceAfter := tx.BalanceBefore - tx.Amount
+	if err := uc.txRepo.UpdateSettlement(ctx, tx.ID, domain.TransactionCompleted, ref, tx.BalanceBefore, customerBalanceAfter); err != nil {
 		return nil, fmt.Errorf("usecase.VerifyWithdrawalCode: update transaction: %w", err)
 	}
 	now := time.Now().UTC()
@@ -638,6 +668,19 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 			"verified_at": now,
 			"status":      string(domain.WithdrawalRequestApproved),
 		},
+	})
+
+	// Keep an agent-side ledger entry for reconciliation and agent reporting.
+	_ = uc.txRepo.Create(ctx, &domain.Transaction{
+		UserID:        req.AgentID,
+		Type:          domain.TransactionAgentPayout,
+		Amount:        tx.Amount,
+		Currency:      tx.Currency,
+		Status:        domain.TransactionCompleted,
+		Reference:     ref,
+		Description:   "Agent payout received for customer withdrawal",
+		BalanceBefore: agentBalanceBefore,
+		BalanceAfter:  agentBalanceBefore + tx.Amount,
 	})
 
 	tx.Status = domain.TransactionCompleted
@@ -704,6 +747,11 @@ func (uc *PaymentUseCase) encryptSensitive(value string) (string, error) {
 
 // ─── Location-based Withdrawal Flow ─────────────────────────────────
 
+// GetAgentLocations returns cities with at least one active registered agent.
+func (uc *PaymentUseCase) GetAgentLocations(ctx context.Context) ([]string, error) {
+	return uc.txRepo.FindAgentLocations(ctx)
+}
+
 // GetAgentsByLocation returns active agents for a given location
 func (uc *PaymentUseCase) GetAgentsByLocation(ctx context.Context, location string) ([]*domain.AgentInfo, error) {
 	return uc.txRepo.FindAgentsByLocation(ctx, location)
@@ -711,53 +759,78 @@ func (uc *PaymentUseCase) GetAgentsByLocation(ctx context.Context, location stri
 
 // CreateLocationBasedWithdrawal creates a withdrawal request with location and agent selection
 func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, userID string, req *domain.CreateWithdrawalRequest, agentID string) (*domain.WithdrawalRequest, error) {
-	// Get agent info to check for custom code
-	agents, err := uc.txRepo.FindAgentsByLocation(ctx, req.Location)
-	if err != nil {
-		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	if req.Amount <= 0 || math.IsNaN(req.Amount) || math.IsInf(req.Amount, 0) {
+		return nil, apperrors.NewBadRequestError("Withdrawal amount must be a valid positive number")
+	}
+	if err := uc.checkWithdrawalEligibility(ctx, userID); err != nil {
+		return nil, err
 	}
 
-	var agentCustomCode string
+	agents, err := uc.txRepo.FindAgentsByLocation(ctx, req.Location)
+	if err != nil {
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: find agents: %w", err)
+	}
+	selectedAgent := false
 	for _, agent := range agents {
 		if agent.ID == agentID {
-			agentCustomCode = agent.CustomCode
+			selectedAgent = true
 			break
 		}
 	}
+	if !selectedAgent {
+		return nil, apperrors.NewBadRequestError("The selected agent is not active in this city")
+	}
 
-	// Use custom code if set, otherwise generate random code
-	var code string
-	if agentCustomCode != "" {
-		code = agentCustomCode
-	} else {
-		code, err = uc.generateVerificationCode()
-		if err != nil {
-			return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+	currentBalance, err := uc.walletRepo.GetBalance(ctx, userID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Wallet not found")
+	}
+
+	// Reserve the requested amount immediately. The customer's total balance
+	// remains unchanged until the assigned agent confirms payout, but the held
+	// amount is no longer available for another withdrawal or bet.
+	if err := uc.walletRepo.ReserveBalance(ctx, userID, req.Amount); err != nil {
+		if errors.Is(err, domain.ErrInsufficientAvailableBalance) {
+			return nil, apperrors.NewBadRequestError("Insufficient available balance")
 		}
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: reserve balance: %w", err)
+	}
+
+	code, err := uc.generateVerificationCode()
+	if err != nil {
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: generate code: %w", err)
 	}
 
 	// Hash the code
 	codeHash, err := hashCode(code)
 	if err != nil {
-		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: hash code: %w", err)
 	}
 
 	// Encrypt account details
 	encryptedDetails, err := uc.encryptSensitive(req.AccountDetails)
 	if err != nil {
-		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: encrypt account details: %w", err)
 	}
 
 	// Create transaction record first
 	tx := &domain.Transaction{
-		UserID:      userID,
-		Type:        "withdrawal",
-		Amount:      req.Amount,
-		Status:      "pending",
-		Description: "Withdrawal request",
+		UserID:        userID,
+		Type:          domain.TransactionWithdraw,
+		Amount:        req.Amount,
+		Currency:      "MMK",
+		Status:        domain.TransactionPending,
+		Description:   "Withdrawal request; amount held pending agent payout",
+		BalanceBefore: currentBalance,
+		BalanceAfter:  currentBalance,
 	}
+
 	if err := uc.txRepo.Create(ctx, tx); err != nil {
-		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: create transaction: %w", err)
 	}
 
 	// Create withdrawal request
@@ -775,7 +848,9 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 	}
 
 	if err := uc.txRepo.CreateWithdrawalRequest(ctx, withdrawalReq); err != nil {
-		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: %w", err)
+		_ = uc.walletRepo.ReleaseReservedBalance(ctx, userID, req.Amount)
+		_ = uc.txRepo.UpdateStatus(ctx, tx.ID, domain.TransactionCancelled)
+		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: create request: %w", err)
 	}
 
 	return withdrawalReq, nil
@@ -829,16 +904,26 @@ func (uc *PaymentUseCase) ApproveWithdrawalByCode(ctx context.Context, code stri
 }
 
 // CancelWithdrawalRequest cancels a pending withdrawal request
-func (uc *PaymentUseCase) CancelWithdrawalRequest(ctx context.Context, requestID string) error {
-	// Find the request
-	req, err := uc.txRepo.FindWithdrawalRequestByCode(ctx, requestID)
+func (uc *PaymentUseCase) CancelWithdrawalRequest(ctx context.Context, requestID, customerID string) error {
+	// Find the request by its ID (or its linked transaction ID).
+	req, err := uc.txRepo.FindWithdrawalRequestByID(ctx, requestID)
 	if err != nil {
 		return apperrors.NewNotFoundError("Withdrawal request not found")
+	}
+
+	if req.CustomerID != customerID {
+		return apperrors.NewForbiddenError("You can only cancel your own withdrawal requests")
 	}
 
 	// Check status
 	if req.Status != domain.WithdrawalRequestPending {
 		return apperrors.NewBadRequestError("Only pending withdrawals can be cancelled")
+	}
+
+	if tx, txErr := uc.txRepo.FindByID(ctx, req.TransactionID); txErr == nil {
+		if err := uc.walletRepo.ReleaseReservedBalance(ctx, req.CustomerID, tx.Amount); err != nil {
+			return fmt.Errorf("paymentUseCase.CancelWithdrawalRequest: release reserved balance: %w", err)
+		}
 	}
 
 	// Cancel the request

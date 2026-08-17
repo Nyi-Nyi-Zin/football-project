@@ -4,6 +4,7 @@ class Wallet extends Equatable {
   final String id;
   final String userId;
   final double balance;
+  final double reservedBalance;
   final String currency;
   final String status;
 
@@ -11,12 +12,15 @@ class Wallet extends Equatable {
     required this.id,
     required this.userId,
     required this.balance,
+    required this.reservedBalance,
     required this.currency,
     required this.status,
   });
 
+  double get availableBalance => balance - reservedBalance;
+
   @override
-  List<Object?> get props => [id, balance];
+  List<Object?> get props => [id, balance, reservedBalance];
 }
 
 class Transaction extends Equatable {

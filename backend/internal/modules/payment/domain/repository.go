@@ -16,6 +16,7 @@ type TransactionRepository interface {
 	ListLedgerBalances(ctx context.Context) ([]*UserLedgerBalance, error)
 	UpdateStatus(ctx context.Context, txID string, status TransactionStatus) error
 	UpdateStatusAndReference(ctx context.Context, txID string, status TransactionStatus, reference string) error
+	UpdateSettlement(ctx context.Context, txID string, status TransactionStatus, reference string, balanceBefore, balanceAfter float64) error
 	FindLeastLoadedActiveAgentID(ctx context.Context) (string, error)
 	CreateWithdrawalRequest(ctx context.Context, req *WithdrawalRequest) error
 	FindPendingWithdrawalByAgentAndLookup(ctx context.Context, agentID, lookupHash string) (*WithdrawalRequest, error)
@@ -24,8 +25,10 @@ type TransactionRepository interface {
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
 
 	// New methods for location-based withdrawal flow
+	FindAgentLocations(ctx context.Context) ([]string, error)
 	FindAgentsByLocation(ctx context.Context, location string) ([]*AgentInfo, error)
 	FindWithdrawalRequestByCode(ctx context.Context, code string) (*WithdrawalRequest, error)
+	FindWithdrawalRequestByID(ctx context.Context, requestID string) (*WithdrawalRequest, error)
 	ApproveWithdrawalRequest(ctx context.Context, requestID string, approvedAt time.Time) error
 	CancelWithdrawalRequest(ctx context.Context, requestID string, cancelledAt time.Time) error
 }
@@ -46,6 +49,9 @@ type WalletRepository interface {
 	ListAll(ctx context.Context) ([]*Wallet, error)
 	UpdateBalance(ctx context.Context, userID string, amount float64) error
 	GetBalance(ctx context.Context, userID string) (float64, error)
+	ReserveBalance(ctx context.Context, userID string, amount float64) error
+	ReleaseReservedBalance(ctx context.Context, userID string, amount float64) error
+	SettleReservedTransfer(ctx context.Context, fromUserID, toUserID string, amount float64) error
 
 	// AML / Turnover tracking
 	IncrementRequiredTurnover(ctx context.Context, userID string, amount float64) error

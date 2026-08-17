@@ -386,6 +386,16 @@ func (h *PaymentHandler) AgentVerifyWithdrawalByCode(c echo.Context) error {
 
 // ─── Location-based Withdrawal Flow ─────────────────────────────────
 
+// GetAgentLocations handles GET /api/v1/withdrawals/locations
+func (h *PaymentHandler) GetAgentLocations(c echo.Context) error {
+	locations, err := h.useCase.GetAgentLocations(c.Request().Context())
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent locations")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(locations, nil))
+}
+
 // GetAgentsByLocation handles GET /api/v1/withdrawals/agents/:location
 func (h *PaymentHandler) GetAgentsByLocation(c echo.Context) error {
 	location := c.Param("location")
@@ -472,7 +482,8 @@ func (h *PaymentHandler) CancelWithdrawalRequest(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 
-	if err := h.useCase.CancelWithdrawalRequest(c.Request().Context(), requestID); err != nil {
+	userID := c.Get("user_id").(string)
+	if err := h.useCase.CancelWithdrawalRequest(c.Request().Context(), requestID, userID); err != nil {
 		if appErr, ok := err.(*apperrors.AppError); ok {
 			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 		}

@@ -58,13 +58,43 @@ class WalletScreen extends ConsumerWidget {
                     ),
                     const SizedBox(height: 12),
                     walletState.when(
-                      data: (w) => Text(
-                        '${w.balance.toStringAsFixed(2)} MMK',
-                        style: const TextStyle(
-                          fontSize: 48,
-                          fontWeight: FontWeight.bold,
-                          color: AppTheme.primaryColor,
-                        ),
+                      data: (w) => Column(
+                        children: [
+                          Text(
+                            '${w.availableBalance.toStringAsFixed(2)} MMK',
+                            style: const TextStyle(
+                              fontSize: 48,
+                              fontWeight: FontWeight.bold,
+                              color: AppTheme.primaryColor,
+                            ),
+                          ),
+                          const Text(
+                            'Available balance',
+                            style: TextStyle(
+                              color: AppTheme.textSecondary,
+                              fontSize: 12,
+                            ),
+                          ),
+                          if (w.reservedBalance > 0) ...[
+                            const SizedBox(height: 8),
+                            Text(
+                              'Held pending withdrawals: ${w.reservedBalance.toStringAsFixed(2)} MMK',
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(
+                                color: AppTheme.warningColor,
+                                fontSize: 12,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            Text(
+                              'Total balance: ${w.balance.toStringAsFixed(2)} MMK',
+                              style: const TextStyle(
+                                color: AppTheme.textMuted,
+                                fontSize: 11,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                       loading: () => const CircularProgressIndicator(),
                       error: (error, __) => Column(
@@ -327,6 +357,8 @@ class WalletScreen extends ConsumerWidget {
     );
   }
 
+  // Legacy helper retained for compatibility with older wallet navigation.
+  // ignore: unused_element
   void _showWithdrawalDialog(BuildContext context, WidgetRef ref) {
     final amountCtrl = TextEditingController();
     final accountCtrl = TextEditingController();

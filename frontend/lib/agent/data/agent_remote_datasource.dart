@@ -27,7 +27,7 @@ class AgentRemoteDataSource {
 
   Future<void> verifyWithdrawalCode(String code) async {
     await _client.dio.post(
-      '/withdrawals/approve',
+      '/agent/withdrawals/verify',
       data: {'code': code.trim().toUpperCase()},
     );
   }

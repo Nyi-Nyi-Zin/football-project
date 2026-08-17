@@ -4,6 +4,7 @@ class WalletModel {
   final String id;
   final String userId;
   final double balance;
+  final double reservedBalance;
   final String currency;
   final String status;
 
@@ -11,6 +12,7 @@ class WalletModel {
     required this.id,
     required this.userId,
     required this.balance,
+    required this.reservedBalance,
     required this.currency,
     required this.status,
   });
@@ -19,7 +21,8 @@ class WalletModel {
     return WalletModel(
       id: json['id'] as String,
       userId: json['user_id'] as String,
-      balance: (json['balance'] as num).toDouble(),
+      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      reservedBalance: (json['reserved_balance'] as num?)?.toDouble() ?? 0,
       currency: json['currency'] as String? ?? 'MMK',
       status: json['status'] as String? ?? 'active',
     );
@@ -30,6 +33,7 @@ class WalletModel {
       id: id,
       userId: userId,
       balance: balance,
+      reservedBalance: reservedBalance,
       currency: currency,
       status: status,
     );
@@ -38,7 +42,7 @@ class WalletModel {
 
 class TransactionModel {
   final String id;
-  final String type; 
+  final String type;
   final double amount;
   final String currency;
   final String status;

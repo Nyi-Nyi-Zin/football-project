@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -11,13 +12,16 @@ import (
 // TransactionType represents the type of financial transaction
 type TransactionType string
 
+var ErrInsufficientAvailableBalance = errors.New("insufficient available balance")
+
 const (
-	TransactionDeposit  TransactionType = "deposit"
-	TransactionWithdraw TransactionType = "withdraw"
-	TransactionBetStake TransactionType = "bet_stake"
-	TransactionBetWin   TransactionType = "bet_win"
-	TransactionCashOut  TransactionType = "cash_out"
-	TransactionRefund   TransactionType = "refund"
+	TransactionDeposit     TransactionType = "deposit"
+	TransactionWithdraw    TransactionType = "withdraw"
+	TransactionBetStake    TransactionType = "bet_stake"
+	TransactionBetWin      TransactionType = "bet_win"
+	TransactionCashOut     TransactionType = "cash_out"
+	TransactionRefund      TransactionType = "refund"
+	TransactionAgentPayout TransactionType = "agent_payout"
 )
 
 // TransactionStatus represents the status of a transaction
@@ -65,6 +69,7 @@ type Wallet struct {
 	ID               string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	UserID           string    `json:"user_id" gorm:"type:uuid;uniqueIndex;not null"`
 	Balance          float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
+	ReservedBalance  float64   `json:"reserved_balance" gorm:"type:decimal(18,2);default:0"`
 	Currency         string    `json:"currency" gorm:"default:'USD'"`
 	Status           string    `json:"status" gorm:"default:'active'"`
 	RequiredTurnover float64   `json:"required_turnover" gorm:"type:decimal(18,2);default:0"`

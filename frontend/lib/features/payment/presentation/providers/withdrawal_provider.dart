@@ -23,7 +23,8 @@ class AgentInfo {
     return AgentInfo(
       id: json['id'] as String,
       username: json['username'] as String,
-      fullName: json['full_name'] as String? ?? json['fullName'] as String? ?? '',
+      fullName:
+          json['full_name'] as String? ?? json['fullName'] as String? ?? '',
       location: json['location'] as String,
       customCode: json['custom_code'] as String? ?? '',
     );
@@ -131,12 +132,20 @@ class AgentsNotifier extends StateNotifier<AgentsState> {
 
   AgentsNotifier(this._dioClient) : super(AgentsState());
 
+  void clear() {
+    state = AgentsState();
+  }
+
   Future<void> fetchAgents(String location) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _dioClient.dio.get('/withdrawals/agents/$location');
+      final encodedLocation = Uri.encodeComponent(location.trim());
+      final response =
+          await _dioClient.dio.get('/withdrawals/agents/$encodedLocation');
       final List<dynamic> data = response.data['data'] as List<dynamic>;
-      final agents = data.map((json) => AgentInfo.fromJson(json as Map<String, dynamic>)).toList();
+      final agents = data
+          .map((json) => AgentInfo.fromJson(json as Map<String, dynamic>))
+          .toList();
       state = state.copyWith(agents: agents, isLoading: false);
     } catch (e) {
       state = state.copyWith(
@@ -166,7 +175,8 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
         'agent_id': agentId,
         'account_details': accountDetails,
       });
-      final withdrawal = WithdrawalRequest.fromJson(response.data['data'] as Map<String, dynamic>);
+      final withdrawal = WithdrawalRequest.fromJson(
+          response.data['data'] as Map<String, dynamic>);
       state = state.copyWith(withdrawal: withdrawal, isLoading: false);
       return Right(withdrawal);
     } catch (e) {
@@ -176,11 +186,14 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
     }
   }
 
-  Future<Either<Failure, WithdrawalRequest>> approveWithdrawal(String code) async {
+  Future<Either<Failure, WithdrawalRequest>> approveWithdrawal(
+      String code) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
-      final response = await _dioClient.dio.post('/withdrawals/approve', data: {'code': code});
-      final withdrawal = WithdrawalRequest.fromJson(response.data['data'] as Map<String, dynamic>);
+      final response = await _dioClient.dio
+          .post('/withdrawals/approve', data: {'code': code});
+      final withdrawal = WithdrawalRequest.fromJson(
+          response.data['data'] as Map<String, dynamic>);
       state = state.copyWith(withdrawal: withdrawal, isLoading: false);
       return Right(withdrawal);
     } catch (e) {
@@ -209,10 +222,20 @@ final dioClientProvider = Provider<DioClient>((ref) {
   return DioClient();
 });
 
-final agentsProvider = StateNotifierProvider<AgentsNotifier, AgentsState>((ref) {
+final agentLocationsProvider =
+    FutureProvider.autoDispose<List<String>>((ref) async {
+  final client = ref.read(dioClientProvider);
+  final response = await client.dio.get('/withdrawals/locations');
+  final data = response.data['data'] as List<dynamic>? ?? const [];
+  return data.map((location) => location.toString()).toList();
+});
+
+final agentsProvider =
+    StateNotifierProvider<AgentsNotifier, AgentsState>((ref) {
   return AgentsNotifier(ref.watch(dioClientProvider));
 });
 
-final withdrawalProvider = StateNotifierProvider<WithdrawalNotifier, WithdrawalState>((ref) {
+final withdrawalProvider =
+    StateNotifierProvider<WithdrawalNotifier, WithdrawalState>((ref) {
   return WithdrawalNotifier(ref.watch(dioClientProvider));
 });

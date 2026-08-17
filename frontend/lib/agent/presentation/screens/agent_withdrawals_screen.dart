@@ -72,7 +72,8 @@ class _AgentWithdrawalsScreenState
                             decoration: const InputDecoration(
                               labelText: 'Custom code (3-10 chars)',
                               counterText: '',
-                              helperText: 'Leave empty to use auto-generated codes',
+                              helperText:
+                                  'Leave empty to use auto-generated codes',
                             ),
                           ),
                         ),
@@ -83,7 +84,8 @@ class _AgentWithdrawalsScreenState
                               ? const SizedBox(
                                   width: 16,
                                   height: 16,
-                                  child: CircularProgressIndicator(strokeWidth: 2),
+                                  child:
+                                      CircularProgressIndicator(strokeWidth: 2),
                                 )
                               : const Text('Save'),
                         ),
@@ -91,7 +93,7 @@ class _AgentWithdrawalsScreenState
                     ),
                     const Divider(height: 24),
                     const Text(
-                      'Verify Withdrawal Code',
+                      'Confirm Payout Code',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
@@ -117,7 +119,7 @@ class _AgentWithdrawalsScreenState
                         ElevatedButton.icon(
                           onPressed: _submitting ? null : _verifyCode,
                           icon: const Icon(Icons.verified),
-                          label: const Text('Verify & Approve'),
+                          label: const Text('Confirm Payout'),
                         ),
                         OutlinedButton(
                           onPressed: () =>
@@ -216,7 +218,11 @@ class _AgentWithdrawalsScreenState
       ref.invalidate(agentWithdrawalsProvider);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Withdrawal approved and funds deducted')),
+        const SnackBar(
+          content: Text(
+            'Payout confirmed. Customer balance settled and agent wallet credited.',
+          ),
+        ),
       );
     } catch (e) {
       if (!mounted) return;
@@ -230,7 +236,8 @@ class _AgentWithdrawalsScreenState
 
   Future<void> _saveCustomCode() async {
     final customCode = _customCodeCtrl.text.trim().toUpperCase();
-    if (customCode.isNotEmpty && (customCode.length < 3 || customCode.length > 10)) {
+    if (customCode.isNotEmpty &&
+        (customCode.length < 3 || customCode.length > 10)) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Custom code must be 3-10 characters')),
       );
@@ -239,8 +246,8 @@ class _AgentWithdrawalsScreenState
     setState(() => _savingCustomCode = true);
     try {
       await ref.read(authNotifierProvider.notifier).updateProfile(
-        customCode: customCode.isEmpty ? null : customCode,
-      );
+            customCode: customCode.isEmpty ? null : customCode,
+          );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Custom code saved successfully')),

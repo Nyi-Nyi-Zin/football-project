@@ -142,6 +142,21 @@ func (r *postgresTransactionRepo) UpdateStatus(ctx context.Context, txID string,
 	return nil
 }
 
+func (r *postgresTransactionRepo) UpdateSettlement(ctx context.Context, txID string, status domain.TransactionStatus, reference string, balanceBefore, balanceAfter float64) error {
+	result := r.db.WithContext(ctx).Model(&domain.Transaction{}).
+		Where("id = ?", txID).
+		Updates(map[string]interface{}{
+			"status":         status,
+			"reference":      reference,
+			"balance_before": balanceBefore,
+			"balance_after":  balanceAfter,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("transactionRepo.UpdateSettlement: %w", result.Error)
+	}
+	return nil
+}
+
 func (r *postgresTransactionRepo) UpdateStatusAndReference(ctx context.Context, txID string, status domain.TransactionStatus, reference string) error {
 	result := r.db.WithContext(ctx).Model(&domain.Transaction{}).
 		Where("id = ?", txID).
@@ -293,6 +308,101 @@ func (r *postgresWalletRepo) UpdateBalance(ctx context.Context, userID string, a
 	return nil
 }
 
+func (r *postgresWalletRepo) ReserveBalance(ctx context.Context, userID string, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("walletRepo.ReserveBalance: amount must be positive")
+	}
+	result := r.db.WithContext(ctx).
+		Model(&domain.Wallet{}).
+		Where("user_id = ? AND balance - reserved_balance >= ?", userID, amount).
+		UpdateColumn("reserved_balance", gorm.Expr("reserved_balance + ?", amount))
+	if result.Error != nil {
+		return fmt.Errorf("walletRepo.ReserveBalance: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return domain.ErrInsufficientAvailableBalance
+	}
+	return nil
+}
+
+func (r *postgresWalletRepo) ReleaseReservedBalance(ctx context.Context, userID string, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("walletRepo.ReleaseReservedBalance: amount must be positive")
+	}
+	result := r.db.WithContext(ctx).
+		Model(&domain.Wallet{}).
+		Where("user_id = ? AND reserved_balance >= ?", userID, amount).
+		UpdateColumn("reserved_balance", gorm.Expr("reserved_balance - ?", amount))
+	if result.Error != nil {
+		return fmt.Errorf("walletRepo.ReleaseReservedBalance: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return fmt.Errorf("walletRepo.ReleaseReservedBalance: reserved balance not found")
+	}
+	return nil
+}
+
+func (r *postgresWalletRepo) SettleReservedTransfer(ctx context.Context, fromUserID, toUserID string, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("walletRepo.SettleReservedTransfer: amount must be positive")
+	}
+	if fromUserID == toUserID {
+		return fmt.Errorf("walletRepo.SettleReservedTransfer: source and destination must differ")
+	}
+
+	db := r.db.WithContext(ctx)
+	if err := db.Where("user_id = ?", toUserID).FirstOrCreate(&domain.Wallet{
+		UserID:   toUserID,
+		Currency: "MMK",
+		Status:   "active",
+	}).Error; err != nil {
+		return fmt.Errorf("walletRepo.SettleReservedTransfer: ensure destination wallet: %w", err)
+	}
+
+	tx := db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("walletRepo.SettleReservedTransfer: begin: %w", tx.Error)
+	}
+	rollback := func(err error) error {
+		_ = tx.Rollback()
+		return err
+	}
+
+	var wallets []domain.Wallet
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Where("user_id IN ?", []string{fromUserID, toUserID}).
+		Order("user_id ASC").Find(&wallets).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.SettleReservedTransfer: lock wallets: %w", err))
+	}
+	var source, destination *domain.Wallet
+	for i := range wallets {
+		wallet := &wallets[i]
+		if wallet.UserID == fromUserID {
+			source = wallet
+		} else if wallet.UserID == toUserID {
+			destination = wallet
+		}
+	}
+	if source == nil || destination == nil || source.ReservedBalance < amount {
+		return rollback(domain.ErrInsufficientAvailableBalance)
+	}
+
+	if err := tx.Model(&domain.Wallet{}).Where("id = ?", source.ID).Updates(map[string]interface{}{
+		"balance":          gorm.Expr("balance - ?", amount),
+		"reserved_balance": gorm.Expr("reserved_balance - ?", amount),
+	}).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.SettleReservedTransfer: debit source: %w", err))
+	}
+	if err := tx.Model(&domain.Wallet{}).Where("id = ?", destination.ID).
+		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.SettleReservedTransfer: credit destination: %w", err))
+	}
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("walletRepo.SettleReservedTransfer: commit: %w", err)
+	}
+	return nil
+}
+
 func (r *postgresWalletRepo) GetBalance(ctx context.Context, userID string) (float64, error) {
 	var wallet domain.Wallet
 	if err := r.db.WithContext(ctx).Select("balance").Where("user_id = ?", userID).First(&wallet).Error; err != nil {
@@ -349,6 +459,19 @@ func (r *postgresWalletRepo) GetTurnover(ctx context.Context, userID string) (fl
 
 // ─── Location-based Withdrawal Flow ─────────────────────────────────
 
+func (r *postgresTransactionRepo) FindAgentLocations(ctx context.Context) ([]string, error) {
+	var locations []string
+	if err := r.db.WithContext(ctx).
+		Table("users.accounts").
+		Where("role = ? AND status = ? AND location IS NOT NULL AND TRIM(location) <> ''", "agent", "active").
+		Distinct("location").
+		Order("location ASC").
+		Pluck("location", &locations).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindAgentLocations: %w", err)
+	}
+	return locations, nil
+}
+
 func (r *postgresTransactionRepo) FindAgentsByLocation(ctx context.Context, location string) ([]*domain.AgentInfo, error) {
 	var agents []*domain.AgentInfo
 	if err := r.db.WithContext(ctx).
@@ -367,6 +490,16 @@ func (r *postgresTransactionRepo) FindWithdrawalRequestByCode(ctx context.Contex
 		Where("code = ?", code).
 		First(&req).Error; err != nil {
 		return nil, fmt.Errorf("transactionRepo.FindWithdrawalRequestByCode: %w", err)
+	}
+	return &req, nil
+}
+
+func (r *postgresTransactionRepo) FindWithdrawalRequestByID(ctx context.Context, requestID string) (*domain.WithdrawalRequest, error) {
+	var req domain.WithdrawalRequest
+	if err := r.db.WithContext(ctx).
+		Where("id = ? OR transaction_id = ?", requestID, requestID).
+		First(&req).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.FindWithdrawalRequestByID: %w", err)
 	}
 	return &req, nil
 }

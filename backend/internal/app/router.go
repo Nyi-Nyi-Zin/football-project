@@ -76,17 +76,16 @@ func RegisterRoutes(
 
 	// Payment routes
 	payments := protected.Group("/payments")
-	payments.POST("/withdraw", paymentH.Withdraw)
 	payments.GET("/balance", paymentH.GetBalance)
 	payments.GET("/transactions", paymentH.GetTransactions)
 
 	// Location-based withdrawal routes (public for agent listing, protected for actions)
 	withdrawals := v1.Group("/withdrawals")
+	withdrawals.GET("/locations", paymentH.GetAgentLocations)
 	withdrawals.GET("/agents/:location", paymentH.GetAgentsByLocation)
 
 	withdrawalsProtected := protected.Group("/withdrawals")
 	withdrawalsProtected.POST("", paymentH.CreateLocationBasedWithdrawal)
-	withdrawalsProtected.POST("/approve", paymentH.ApproveWithdrawalByCode)
 	withdrawalsProtected.DELETE("/:id", paymentH.CancelWithdrawalRequest)
 
 	// Odds routes

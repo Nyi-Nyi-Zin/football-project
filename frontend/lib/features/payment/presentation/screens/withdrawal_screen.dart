@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../providers/payment_provider.dart';
 import '../providers/withdrawal_provider.dart';
 
 class WithdrawalScreen extends ConsumerStatefulWidget {
@@ -14,7 +15,7 @@ class WithdrawalScreen extends ConsumerStatefulWidget {
 class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   final _amountController = TextEditingController();
   final _accountDetailsController = TextEditingController();
-  final _locationController = TextEditingController();
+  String? _selectedLocation;
   String? _selectedAgentId;
   String? _selectedAgentName;
   bool _isLoading = false;
@@ -23,18 +24,12 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   void dispose() {
     _amountController.dispose();
     _accountDetailsController.dispose();
-    _locationController.dispose();
     super.dispose();
-  }
-
-  Future<void> _fetchAgents(String location) async {
-    if (location.isEmpty) return;
-    await ref.read(agentsProvider.notifier).fetchAgents(location);
   }
 
   Future<void> _submitWithdrawal() async {
     final amount = double.tryParse(_amountController.text);
-    final location = _locationController.text.trim();
+    final location = _selectedLocation?.trim() ?? '';
     final accountDetails = _accountDetailsController.text.trim();
 
     if (amount == null || amount <= 0) {
@@ -74,6 +69,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           accountDetails: accountDetails,
         );
 
+    if (!mounted) return;
     setState(() => _isLoading = false);
 
     if (mounted) {
@@ -86,13 +82,18 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           );
         },
         (withdrawal) {
-          _showCodeDialog(withdrawal.code);
+          ref.read(walletProvider.notifier).fetchBalance();
+          _showCodeDialog(
+            withdrawal.code,
+            amount,
+            location,
+          );
         },
       );
     }
   }
 
-  void _showCodeDialog(String code) {
+  void _showCodeDialog(String code, double amount, String location) {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -101,7 +102,9 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Give this code to your selected agent:'),
+            const Text(
+              'Give this code to your selected agent. Your amount is held until the agent confirms payout.',
+            ),
             const SizedBox(height: 16),
             Container(
               padding: const EdgeInsets.all(16),
@@ -123,10 +126,13 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
               ),
             ),
             const SizedBox(height: 8),
+            Text('Amount: ${amount.toStringAsFixed(2)} MMK'),
+            Text('City: $location'),
             Text('Agent: $_selectedAgentName'),
             const SizedBox(height: 16),
             const Text(
-                'The agent will enter this code to approve your withdrawal.'),
+              'The agent will enter this code from the Agent app. Only then will the amount leave your balance and be credited to the agent.',
+            ),
           ],
         ),
         actions: [
@@ -152,6 +158,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
   @override
   Widget build(BuildContext context) {
     final agentsState = ref.watch(agentsProvider);
+    final locationsState = ref.watch(agentLocationsProvider);
+    final walletState = ref.watch(walletProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -169,26 +177,53 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const Text(
-                      'Location',
+                      'City',
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 8),
-                    TextField(
-                      controller: _locationController,
-                      decoration: const InputDecoration(
-                        hintText: 'Enter your location (e.g., Yangon)',
-                        prefixIcon: Icon(Icons.location_on),
-                        border: OutlineInputBorder(),
+                    locationsState.when(
+                      loading: () => const LinearProgressIndicator(),
+                      error: (error, _) => const Text(
+                        'Unable to load cities. Please refresh and try again.',
+                        style: TextStyle(color: AppTheme.errorColor),
                       ),
-                      onChanged: (value) {
-                        _selectedAgentId = null;
-                        _selectedAgentName = null;
-                        if (value.length >= 3) {
-                          _fetchAgents(value);
+                      data: (locations) {
+                        if (locations.isEmpty) {
+                          return const Text(
+                            'No active agent cities are available right now.',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          );
                         }
+                        return DropdownButtonFormField<String>(
+                          initialValue: _selectedLocation,
+                          decoration: const InputDecoration(
+                            hintText: 'Select a city',
+                            prefixIcon: Icon(Icons.location_on_outlined),
+                            border: OutlineInputBorder(),
+                          ),
+                          items: locations
+                              .map(
+                                (location) => DropdownMenuItem<String>(
+                                  value: location,
+                                  child: Text(location),
+                                ),
+                              )
+                              .toList(),
+                          onChanged: (value) {
+                            if (value == null) return;
+                            setState(() {
+                              _selectedLocation = value;
+                              _selectedAgentId = null;
+                              _selectedAgentName = null;
+                            });
+                            ref
+                                .read(agentsProvider.notifier)
+                                .fetchAgents(value);
+                          },
+                        );
                       },
                     ),
                   ],
@@ -210,45 +245,53 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    agentsState.isLoading
-                        ? const Center(child: CircularProgressIndicator())
-                        : agentsState.error != null
-                            ? Text(
-                                'Failed to load agents',
-                                style: TextStyle(color: AppTheme.errorColor),
-                              )
-                            : agentsState.agents.isEmpty
+                    _selectedLocation == null
+                        ? const Text(
+                            'Select a city first to see available agents.',
+                            style: TextStyle(color: AppTheme.textSecondary),
+                          )
+                        : agentsState.isLoading
+                            ? const Center(child: CircularProgressIndicator())
+                            : agentsState.error != null
                                 ? const Text(
-                                    'No agents available for this location',
-                                    style: TextStyle(
-                                        color: AppTheme.textSecondary),
+                                    'Failed to load agents',
+                                    style:
+                                        TextStyle(color: AppTheme.errorColor),
                                   )
-                                : DropdownButtonFormField<String>(
-                                    value: _selectedAgentId,
-                                    decoration: const InputDecoration(
-                                      hintText: 'Select an agent code',
-                                      border: OutlineInputBorder(),
-                                    ),
-                                    items: agentsState.agents.map((agent) {
-                                      final displayCode =
-                                          agent.customCode.isEmpty
-                                              ? 'Auto-generated'
-                                              : agent.customCode;
-                                      return DropdownMenuItem(
-                                        value: agent.id,
-                                        child: Text(
-                                            '$displayCode (${agent.fullName})'),
-                                      );
-                                    }).toList(),
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedAgentId = value;
-                                        _selectedAgentName = agentsState.agents
-                                            .firstWhere((a) => a.id == value)
-                                            .fullName;
-                                      });
-                                    },
-                                  ),
+                                : agentsState.agents.isEmpty
+                                    ? const Text(
+                                        'No agents available for this location',
+                                        style: TextStyle(
+                                            color: AppTheme.textSecondary),
+                                      )
+                                    : DropdownButtonFormField<String>(
+                                        initialValue: _selectedAgentId,
+                                        decoration: const InputDecoration(
+                                          hintText: 'Select an agent code',
+                                          border: OutlineInputBorder(),
+                                        ),
+                                        items: agentsState.agents.map((agent) {
+                                          final displayCode =
+                                              agent.customCode.isEmpty
+                                                  ? 'Auto-generated'
+                                                  : agent.customCode;
+                                          return DropdownMenuItem(
+                                            value: agent.id,
+                                            child: Text(
+                                                '$displayCode (${agent.fullName})'),
+                                          );
+                                        }).toList(),
+                                        onChanged: (value) {
+                                          setState(() {
+                                            _selectedAgentId = value;
+                                            _selectedAgentName = agentsState
+                                                .agents
+                                                .firstWhere(
+                                                    (a) => a.id == value)
+                                                .fullName;
+                                          });
+                                        },
+                                      ),
                   ],
                 ),
               ),
@@ -265,6 +308,30 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                       style: TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 6),
+                    walletState.when(
+                      data: (wallet) => Text(
+                        'Available: ${wallet.availableBalance.toStringAsFixed(2)} MMK',
+                        style: const TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      loading: () => const Text(
+                        'Checking available balance...',
+                        style: TextStyle(
+                          color: AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                      error: (_, __) => const Text(
+                        'Unable to check balance. You can still retry after refreshing.',
+                        style: TextStyle(
+                          color: AppTheme.warningColor,
+                          fontSize: 13,
+                        ),
                       ),
                     ),
                     const SizedBox(height: 8),
