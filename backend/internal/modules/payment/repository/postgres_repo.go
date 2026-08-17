@@ -232,6 +232,24 @@ func (r *postgresTransactionRepo) ListAssignedWithdrawals(ctx context.Context, a
 	return reqs, total, nil
 }
 
+func (r *postgresTransactionRepo) ListCustomerWithdrawals(ctx context.Context, customerID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequest, int64, error) {
+	var reqs []*domain.WithdrawalRequest
+	var total int64
+	query := r.db.WithContext(ctx).Model(&domain.WithdrawalRequest{}).
+		Where("customer_id = ?", customerID)
+	if status != "" {
+		query = query.Where("status = ?", status)
+	}
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListCustomerWithdrawals: count: %w", err)
+	}
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&reqs).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListCustomerWithdrawals: find: %w", err)
+	}
+	return reqs, total, nil
+}
+
 func (r *postgresTransactionRepo) UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status domain.WithdrawalRequestStatus, verifiedAt *time.Time) error {
 	updates := map[string]interface{}{"status": status}
 	if verifiedAt != nil {

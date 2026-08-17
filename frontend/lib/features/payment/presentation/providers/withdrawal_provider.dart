@@ -32,6 +32,53 @@ class AgentInfo {
 }
 
 // Withdrawal Request Entity
+class CustomerWithdrawalItem {
+  final String requestId;
+  final String transactionId;
+  final String agentId;
+  final String requestStatus;
+  final String transactionStatus;
+  final String location;
+  final String code;
+  final double amount;
+  final String currency;
+  final DateTime createdAt;
+
+  const CustomerWithdrawalItem({
+    required this.requestId,
+    required this.transactionId,
+    required this.agentId,
+    required this.requestStatus,
+    required this.transactionStatus,
+    required this.location,
+    required this.code,
+    required this.amount,
+    required this.currency,
+    required this.createdAt,
+  });
+
+  factory CustomerWithdrawalItem.fromJson(Map<String, dynamic> json) {
+    final request = json['request'] as Map<String, dynamic>? ?? const {};
+    final transaction =
+        json['transaction'] as Map<String, dynamic>? ?? const {};
+    return CustomerWithdrawalItem(
+      requestId: request['id'] as String? ?? '',
+      transactionId: transaction['id'] as String? ?? '',
+      agentId: request['agent_id'] as String? ?? '',
+      requestStatus: request['status'] as String? ?? 'pending',
+      transactionStatus: transaction['status'] as String? ?? 'pending',
+      location: request['location'] as String? ?? '',
+      code: request['code'] as String? ?? '',
+      amount: (transaction['amount'] as num?)?.toDouble() ?? 0,
+      currency: transaction['currency'] as String? ?? 'MMK',
+      createdAt: DateTime.tryParse(
+            transaction['created_at'] as String? ?? '',
+          ) ??
+          DateTime.now(),
+    );
+  }
+}
+
 class WithdrawalRequest {
   final String id;
   final String transactionId;
@@ -203,6 +250,19 @@ class WithdrawalNotifier extends StateNotifier<WithdrawalState> {
     }
   }
 
+  Future<Failure?> cancelRequest(String requestId) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      await _dioClient.dio.delete('/withdrawals/$requestId');
+      state = state.copyWith(isLoading: false);
+      return null;
+    } catch (e) {
+      final failure = ServerFailure(message: e.toString());
+      state = state.copyWith(isLoading: false, error: failure);
+      return failure;
+    }
+  }
+
   Future<Either<Failure, void>> cancelWithdrawal(String requestId) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
@@ -228,6 +288,20 @@ final agentLocationsProvider =
   final response = await client.dio.get('/withdrawals/locations');
   final data = response.data['data'] as List<dynamic>? ?? const [];
   return data.map((location) => location.toString()).toList();
+});
+
+final customerWithdrawalsProvider =
+    FutureProvider.autoDispose<List<CustomerWithdrawalItem>>((ref) async {
+  final client = ref.read(dioClientProvider);
+  final response = await client.dio.get('/withdrawals', queryParameters: {
+    'page': 1,
+    'limit': 20,
+  });
+  final data = response.data['data'] as List<dynamic>? ?? const [];
+  return data
+      .map((item) =>
+          CustomerWithdrawalItem.fromJson(item as Map<String, dynamic>))
+      .toList();
 });
 
 final agentsProvider =

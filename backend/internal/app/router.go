@@ -85,6 +85,7 @@ func RegisterRoutes(
 	withdrawals.GET("/agents/:location", paymentH.GetAgentsByLocation)
 
 	withdrawalsProtected := protected.Group("/withdrawals")
+	withdrawalsProtected.GET("", paymentH.GetCustomerWithdrawals)
 	withdrawalsProtected.POST("", paymentH.CreateLocationBasedWithdrawal)
 	withdrawalsProtected.DELETE("/:id", paymentH.CancelWithdrawalRequest)
 

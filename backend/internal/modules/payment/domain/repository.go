@@ -21,6 +21,7 @@ type TransactionRepository interface {
 	CreateWithdrawalRequest(ctx context.Context, req *WithdrawalRequest) error
 	FindPendingWithdrawalByAgentAndLookup(ctx context.Context, agentID, lookupHash string) (*WithdrawalRequest, error)
 	ListAssignedWithdrawals(ctx context.Context, agentID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
+	ListCustomerWithdrawals(ctx context.Context, customerID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
 	UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status WithdrawalRequestStatus, verifiedAt *time.Time) error
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
 

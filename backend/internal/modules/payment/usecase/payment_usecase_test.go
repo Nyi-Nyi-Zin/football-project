@@ -113,6 +113,16 @@ func (f *fakeTxRepo) CreateWithdrawalAuditLog(_ context.Context, _ *domain.Withd
 	return nil
 }
 
+func (f *fakeTxRepo) ListCustomerWithdrawals(_ context.Context, customerID string, _ domain.WithdrawalRequestStatus, _ int, _ int) ([]*domain.WithdrawalRequest, int64, error) {
+	items := make([]*domain.WithdrawalRequest, 0)
+	for _, req := range f.withdrawalByID {
+		if req.CustomerID == customerID {
+			items = append(items, req)
+		}
+	}
+	return items, int64(len(items)), nil
+}
+
 func (f *fakeTxRepo) FindAgentLocations(_ context.Context) ([]string, error) {
 	return []string{"Yangon"}, nil
 }

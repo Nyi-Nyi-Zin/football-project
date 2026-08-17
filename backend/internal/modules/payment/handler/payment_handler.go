@@ -335,6 +335,31 @@ func (h *PaymentHandler) AdminWalletReconciliation(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(report, nil))
 }
 
+// GetCustomerWithdrawals handles GET /api/v1/withdrawals
+func (h *PaymentHandler) GetCustomerWithdrawals(c echo.Context) error {
+	customerID := c.Get("user_id").(string)
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+	status := domain.WithdrawalRequestStatus(c.QueryParam("status"))
+	rows, total, err := h.useCase.GetCustomerWithdrawals(c.Request().Context(), customerID, status, page, limit)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get withdrawal requests")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	lastPage := int(math.Ceil(float64(total) / float64(limit)))
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(rows, &apperrors.PaginationMeta{
+		Total:    total,
+		Page:     page,
+		LastPage: lastPage,
+	}))
+}
+
 // AgentGetAssignedWithdrawals handles GET /api/v1/agent/withdrawals
 func (h *PaymentHandler) AgentGetAssignedWithdrawals(c echo.Context) error {
 	agentID := c.Get("user_id").(string)

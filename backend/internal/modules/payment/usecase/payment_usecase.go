@@ -598,6 +598,25 @@ func (uc *PaymentUseCase) RejectWithdrawal(ctx context.Context, txID, adminID, r
 	return tx, nil
 }
 
+func (uc *PaymentUseCase) GetCustomerWithdrawals(ctx context.Context, customerID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequestWithTransaction, int64, error) {
+	reqs, total, err := uc.txRepo.ListCustomerWithdrawals(ctx, customerID, status, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("usecase.GetCustomerWithdrawals: %w", err)
+	}
+	items := make([]*domain.WithdrawalRequestWithTransaction, 0, len(reqs))
+	for _, req := range reqs {
+		tx, txErr := uc.txRepo.FindByID(ctx, req.TransactionID)
+		if txErr != nil {
+			return nil, 0, fmt.Errorf("usecase.GetCustomerWithdrawals: find transaction: %w", txErr)
+		}
+		items = append(items, &domain.WithdrawalRequestWithTransaction{
+			Request:     req,
+			Transaction: tx,
+		})
+	}
+	return items, total, nil
+}
+
 func (uc *PaymentUseCase) GetAssignedWithdrawalsForAgent(ctx context.Context, agentID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequestWithTransaction, int64, error) {
 	reqs, total, err := uc.txRepo.ListAssignedWithdrawals(ctx, agentID, status, page, limit)
 	if err != nil {

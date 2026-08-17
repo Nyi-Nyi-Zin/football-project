@@ -160,6 +160,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
     final agentsState = ref.watch(agentsProvider);
     final locationsState = ref.watch(agentLocationsProvider);
     final walletState = ref.watch(walletProvider);
+    final customerWithdrawalsState = ref.watch(customerWithdrawalsProvider);
 
     return Scaffold(
       appBar: AppBar(
@@ -399,9 +400,175 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                           TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                     ),
             ),
+            const SizedBox(height: 24),
+            _buildRequestHistory(customerWithdrawalsState),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _buildRequestHistory(
+    AsyncValue<List<CustomerWithdrawalItem>> state,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Your withdrawal requests',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 12),
+            state.when(
+              loading: () => const Center(child: CircularProgressIndicator()),
+              error: (error, _) => Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Unable to load request history.',
+                      style: TextStyle(color: AppTheme.textSecondary),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () =>
+                        ref.invalidate(customerWithdrawalsProvider),
+                    icon: const Icon(Icons.refresh),
+                  ),
+                ],
+              ),
+              data: (requests) {
+                if (requests.isEmpty) {
+                  return const Text(
+                    'No withdrawal requests yet.',
+                    style: TextStyle(color: AppTheme.textSecondary),
+                  );
+                }
+                return ListView.separated(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: requests.length,
+                  separatorBuilder: (_, __) => const Divider(height: 20),
+                  itemBuilder: (context, index) =>
+                      _requestTile(requests[index]),
+                );
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _requestTile(CustomerWithdrawalItem request) {
+    final isPending = request.requestStatus == 'pending' &&
+        request.transactionStatus == 'pending';
+    final statusColor = switch (request.requestStatus) {
+      'approved' => AppTheme.successColor,
+      'rejected' => AppTheme.errorColor,
+      _ => AppTheme.warningColor,
+    };
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${request.amount.toStringAsFixed(2)} ${request.currency}',
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.14),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                request.requestStatus.toUpperCase(),
+                style: TextStyle(
+                  color: statusColor,
+                  fontSize: 11,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 5),
+        Text(
+          '${request.location} • Agent selected • ${request.createdAt.toLocal().toString().substring(0, 16)}',
+          style: const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+        ),
+        if (isPending) ...[
+          const SizedBox(height: 6),
+          Text(
+            request.code.isEmpty
+                ? 'Amount held pending agent confirmation.'
+                : 'Code: ${request.code} • Amount held pending agent confirmation.',
+            style: const TextStyle(
+              color: AppTheme.warningColor,
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              onPressed: () => _cancelRequest(request),
+              icon: const Icon(Icons.close, size: 16),
+              label: const Text('Cancel request'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _cancelRequest(CustomerWithdrawalItem request) async {
+    final shouldCancel = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Cancel withdrawal request?'),
+        content: Text(
+          '${request.amount.toStringAsFixed(2)} ${request.currency} is currently held. Cancelling will release it back to your available balance.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Keep request'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Cancel request'),
+          ),
+        ],
+      ),
+    );
+    if (shouldCancel != true || !mounted) return;
+
+    final failure = await ref
+        .read(withdrawalProvider.notifier)
+        .cancelRequest(request.requestId);
+    if (!mounted) return;
+    if (failure != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(failure.message),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+      return;
+    }
+    ref.invalidate(customerWithdrawalsProvider);
+    ref.read(walletProvider.notifier).fetchBalance();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+          content: Text('Withdrawal request cancelled. Funds released.')),
     );
   }
 }
