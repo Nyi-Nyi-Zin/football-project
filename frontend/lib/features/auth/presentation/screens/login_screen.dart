@@ -40,9 +40,16 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           _passwordController.text,
           deferNavigation: true,
         );
-    if (user == null || !mounted) return;
-
     if (!mounted) return;
+    if (user == null) {
+      setState(() {
+        _isSubmitting = false;
+        _statusMessage ??=
+            'Unable to sign in right now. Please check your connection and try again.';
+      });
+      return;
+    }
+
     setState(() {
       _isSubmitting = false;
       _statusMessage = 'Login successful. Redirecting...';

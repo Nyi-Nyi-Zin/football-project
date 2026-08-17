@@ -43,7 +43,9 @@ final authNotifierProvider =
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
-  static const _authRequestTimeout = Duration(seconds: 45);
+  // Keep the mobile UI responsive when the hosted backend is cold, down, or unreachable.
+  // Users can retry after the clear timeout message instead of seeing an indefinite spinner.
+  static const _authRequestTimeout = Duration(seconds: 15);
 
   final Ref _ref;
   Future<void>? _restoreFuture;
