@@ -221,6 +221,31 @@ func (h *PaymentHandler) AdminGetWithdrawals(c echo.Context) error {
 	}))
 }
 
+// AgentDepositToCustomer handles POST /api/v1/agent/deposits/customer.
+func (h *PaymentHandler) AgentDepositToCustomer(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	var req domain.AgentCustomerDepositRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	req.PerformedBy = agentID
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	tx, err := h.useCase.AgentDepositToCustomer(c.Request().Context(), &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to deposit to customer")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusCreated, apperrors.NewSuccessResponse(tx, nil))
+}
+
 // AdminAdjustBalance handles POST /api/v1/admin/balance/adjust
 func (h *PaymentHandler) AdminAdjustBalance(c echo.Context) error {
 	adminID := c.Get("user_id").(string)

@@ -154,21 +154,49 @@ class _AgentWalletTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
   ) async {
+    final customerIdCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     var saving = false;
+    final uuidV4Pattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+    );
     try {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Deposit funds'),
-            content: TextField(
-              controller: amountCtrl,
-              keyboardType:
-                  const TextInputType.numberWithOptions(decimal: true),
-              decoration: const InputDecoration(
-                labelText: 'Amount',
-                suffixText: 'MMK',
+            title: const Text('Deposit to customer'),
+            content: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Enter the customer User ID and the amount to credit.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: customerIdCtrl,
+                    maxLength: 36,
+                    decoration: const InputDecoration(
+                      labelText: 'Customer User ID',
+                      helperText: 'Paste the complete UUID (36 characters)',
+                      counterText: '',
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: amountCtrl,
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Amount',
+                      suffixText: 'MMK',
+                    ),
+                  ),
+                ],
               ),
             ),
             actions: [
@@ -181,34 +209,55 @@ class _AgentWalletTab extends ConsumerWidget {
                 onPressed: saving
                     ? null
                     : () async {
+                        final customerId = customerIdCtrl.text.trim();
                         final amount = double.tryParse(amountCtrl.text.trim());
+                        if (!uuidV4Pattern.hasMatch(customerId)) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Enter the complete customer User ID UUID.',
+                              ),
+                            ),
+                          );
+                          return;
+                        }
                         if (amount == null || amount <= 0) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Enter a valid amount.')),
+                              content: Text('Enter a valid MMK amount.'),
+                            ),
                           );
                           return;
                         }
                         setState(() => saving = true);
-                        final transaction = await ref
-                            .read(walletProvider.notifier)
-                            .deposit(amount: amount);
-                        if (!context.mounted) return;
-                        if (transaction == null) {
-                          setState(() => saving = false);
+                        try {
+                          await ref
+                              .read(paymentDatasourceProvider)
+                              .depositForCustomer(
+                                customerId: customerId,
+                                amount: amount,
+                              );
+                          if (!context.mounted) return;
+                          Navigator.of(dialogContext).pop();
+                          ref.invalidate(transactionsProvider);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content:
-                                    Text('Deposit failed. Please try again.')),
+                              content: Text(
+                                'Customer deposit completed successfully.',
+                              ),
+                            ),
                           );
-                          return;
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          setState(() => saving = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                'Customer deposit failed: $error',
+                              ),
+                            ),
+                          );
                         }
-                        Navigator.of(dialogContext).pop();
-                        ref.invalidate(transactionsProvider);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Deposit completed successfully.')),
-                        );
                       },
                 child: saving
                     ? const SizedBox(
@@ -223,6 +272,7 @@ class _AgentWalletTab extends ConsumerWidget {
         ),
       );
     } finally {
+      customerIdCtrl.dispose();
       amountCtrl.dispose();
     }
   }

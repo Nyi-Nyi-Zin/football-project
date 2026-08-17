@@ -473,6 +473,33 @@ func roundMoney(value float64) float64 {
 	return math.Round(value*100) / 100
 }
 
+func (uc *PaymentUseCase) AgentDepositToCustomer(ctx context.Context, req *domain.AgentCustomerDepositRequest) (*domain.Transaction, error) {
+	currentBalance, err := uc.walletRepo.GetBalance(ctx, req.CustomerID)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Customer wallet not found")
+	}
+
+	const currency = "MMK"
+	tx := &domain.Transaction{
+		UserID:         req.CustomerID,
+		Type:           domain.TransactionDeposit,
+		Amount:         req.Amount,
+		Currency:       currency,
+		Status:         domain.TransactionCompleted,
+		IdempotencyKey: fmt.Sprintf("agent-deposit-%s-%s-%d", req.CustomerID, req.PerformedBy, time.Now().UnixNano()),
+		Description:    fmt.Sprintf("Agent deposit by %s", req.PerformedBy),
+		BalanceBefore:  currentBalance,
+		BalanceAfter:   currentBalance + req.Amount,
+	}
+	if err := uc.txRepo.Create(ctx, tx); err != nil {
+		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: create transaction: %w", err)
+	}
+	if err := uc.walletRepo.UpdateBalance(ctx, req.CustomerID, req.Amount); err != nil {
+		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: update wallet: %w", err)
+	}
+	return tx, nil
+}
+
 func (uc *PaymentUseCase) AdminAdjustBalance(ctx context.Context, req *domain.AdminBalanceAdjustmentRequest) (*domain.Transaction, error) {
 	currentBalance, err := uc.walletRepo.GetBalance(ctx, req.UserID)
 	if err != nil {

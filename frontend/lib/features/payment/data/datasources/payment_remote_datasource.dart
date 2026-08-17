@@ -48,6 +48,21 @@ class PaymentRemoteDataSource {
         response.data['data'] as Map<String, dynamic>);
   }
 
+  Future<TransactionModel> depositForCustomer({
+    required String customerId,
+    required double amount,
+  }) async {
+    final response = await _client.dio.post(
+      '/agent/deposits/customer',
+      data: {
+        'customer_id': customerId,
+        'amount': amount,
+      },
+    );
+    return TransactionModel.fromJson(
+        response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<WithdrawalSubmissionModel> withdraw({
     required double amount,
     required String accountDetails,

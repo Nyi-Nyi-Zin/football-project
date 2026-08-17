@@ -136,4 +136,5 @@ func RegisterRoutes(
 	agent.Use(middleware.RequireRole("agent"))
 	agent.GET("/withdrawals", paymentH.AgentGetAssignedWithdrawals)
 	agent.POST("/withdrawals/verify", paymentH.AgentVerifyWithdrawalByCode)
+	agent.POST("/deposits/customer", paymentH.AgentDepositToCustomer)
 }

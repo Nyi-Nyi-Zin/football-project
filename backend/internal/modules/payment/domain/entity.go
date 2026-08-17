@@ -173,6 +173,12 @@ type AdminBalanceAdjustmentRequest struct {
 	PerformedBy string  `json:"-"`
 }
 
+type AgentCustomerDepositRequest struct {
+	CustomerID  string  `json:"customer_id" validate:"required,uuid4"`
+	Amount      float64 `json:"amount" validate:"required,gt=0"`
+	PerformedBy string  `json:"-"`
+}
+
 type WithdrawalRequest struct {
 	ID                      string                  `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
 	TransactionID           string                  `json:"transaction_id" gorm:"type:uuid;not null;uniqueIndex"`
