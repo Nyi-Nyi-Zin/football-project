@@ -326,6 +326,14 @@ class _AdminUsersScreenState extends ConsumerState<AdminUsersScreen> {
                   onPressed: () => setState(() => _page = 1),
                   child: const Text('Apply'),
                 ),
+                SizedBox(
+                  width: isMobile ? double.infinity : null,
+                  child: FilledButton.icon(
+                    onPressed: _showCreateAccountDialog,
+                    icon: const Icon(Icons.person_add_alt_1),
+                    label: const Text('Create account'),
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 12),
