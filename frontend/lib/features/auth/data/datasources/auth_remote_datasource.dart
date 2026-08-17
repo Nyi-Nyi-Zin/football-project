@@ -1,4 +1,6 @@
 import '../../../../core/network/dio_client.dart';
+import 'package:dio/dio.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../models/user_model.dart';
 import '../models/nrc_model.dart';
 
@@ -8,10 +10,18 @@ class AuthRemoteDataSource {
   AuthRemoteDataSource(this._client);
 
   Future<Map<String, dynamic>> login(String email, String password) async {
-    final response = await _client.dio.post('/auth/login', data: {
-      'email': email,
-      'password': password,
-    });
+    final response = await _client.dio.post(
+      '/auth/login',
+      data: {
+        'email': email,
+        'password': password,
+      },
+      options: Options(
+        connectTimeout: AppConstants.authRequestTimeout,
+        receiveTimeout: AppConstants.authRequestTimeout,
+        sendTimeout: AppConstants.authRequestTimeout,
+      ),
+    );
     return response.data['data'] as Map<String, dynamic>;
   }
 
@@ -22,13 +32,21 @@ class AuthRemoteDataSource {
     required String fullName,
     String? phone,
   }) async {
-    final response = await _client.dio.post('/auth/register', data: {
-      'email': email,
-      'username': username,
-      'password': password,
-      'full_name': fullName,
-      if (phone != null) 'phone': phone,
-    });
+    final response = await _client.dio.post(
+      '/auth/register',
+      data: {
+        'email': email,
+        'username': username,
+        'password': password,
+        'full_name': fullName,
+        if (phone != null) 'phone': phone,
+      },
+      options: Options(
+        connectTimeout: AppConstants.authRequestTimeout,
+        receiveTimeout: AppConstants.authRequestTimeout,
+        sendTimeout: AppConstants.authRequestTimeout,
+      ),
+    );
     return response.data['data'] as Map<String, dynamic>;
   }
 

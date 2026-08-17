@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/constants/app_constants.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../../../core/errors/failures.dart';
@@ -45,7 +46,7 @@ final authNotifierProvider =
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   // Keep the mobile UI responsive when the hosted backend is cold, down, or unreachable.
   // Users can retry after the clear timeout message instead of seeing an indefinite spinner.
-  static const _authRequestTimeout = Duration(seconds: 15);
+  static const _authRequestTimeout = AppConstants.authRequestTimeout;
 
   final Ref _ref;
   Future<void>? _restoreFuture;

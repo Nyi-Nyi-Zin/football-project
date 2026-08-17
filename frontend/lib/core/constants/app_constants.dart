@@ -28,4 +28,6 @@ class AppConstants {
   // Timeouts
   static const Duration connectionTimeout = Duration(seconds: 30);
   static const Duration receiveTimeout = Duration(seconds: 30);
+  // Render free-tier instances may need extra time to wake before auth responds.
+  static const Duration authRequestTimeout = Duration(seconds: 45);
 }
