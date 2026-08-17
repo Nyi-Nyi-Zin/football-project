@@ -20,6 +20,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
+  String? _statusMessage;
 
   @override
   void dispose() {
@@ -32,7 +34,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   }
 
   Future<void> _handleRegister() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false) || _isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _statusMessage = 'Connecting to the server...';
+    });
 
     final createdUser = await ref.read(authNotifierProvider.notifier).register(
           email: _emailController.text.trim(),
@@ -44,6 +51,8 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
               : _phoneController.text.trim(),
         );
     if (createdUser != null && mounted) {
+      setState(() =>
+          _statusMessage = 'Account created successfully. Preparing login...');
       await _showRegistrationSuccess();
     }
   }
@@ -76,6 +85,12 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
     ref.listen(authNotifierProvider, (_, next) {
       next.whenOrNull(
         error: (error, _) {
+          if (mounted) {
+            setState(() {
+              _isSubmitting = false;
+              _statusMessage = error.toString();
+            });
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(error.toString()),
@@ -216,8 +231,10 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _handleRegister,
-                        child: authState.isLoading
+                        onPressed: authState.isLoading || _isSubmitting
+                            ? null
+                            : _handleRegister,
+                        child: authState.isLoading || _isSubmitting
                             ? const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -236,6 +253,19 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
                             : Text(context.l10n.tr('createAccountBtn')),
                       ),
                     ),
+                    if (_statusMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _statusMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color: _statusMessage!.startsWith('Account created')
+                              ? AppTheme.successColor
+                              : AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,

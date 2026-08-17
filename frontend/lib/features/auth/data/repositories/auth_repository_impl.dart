@@ -180,6 +180,17 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   Failure _handleDioError(DioException e) {
+    if (e.error is ServerException) {
+      final exception = e.error as ServerException;
+      if (exception.code == 'NETWORK_ERROR') {
+        return NetworkFailure(message: exception.message, code: exception.code);
+      }
+      return ServerFailure(
+        message: exception.message,
+        code: exception.code,
+      );
+    }
+
     if (e.response != null) {
       final data = e.response!.data;
       if (data is Map<String, dynamic> && data.containsKey('error')) {
@@ -191,6 +202,14 @@ class AuthRepositoryImpl implements AuthRepository {
       }
       return ServerFailure(
         message: 'Server error: ${e.response!.statusCode}',
+      );
+    }
+    if (e.type == DioExceptionType.connectionTimeout ||
+        e.type == DioExceptionType.receiveTimeout ||
+        e.type == DioExceptionType.sendTimeout) {
+      return const ServerFailure(
+        message: 'Connection timed out. Please try again.',
+        code: 'TIMEOUT',
       );
     }
     if (e.type == DioExceptionType.connectionError) {

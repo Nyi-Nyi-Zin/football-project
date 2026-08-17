@@ -14,14 +14,24 @@ import '../../features/notification/presentation/screens/notification_screen.dar
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
-  final authState = ref.watch(authNotifierProvider);
+  final routerRefresh = ValueNotifier<int>(0);
+  ref.onDispose(routerRefresh.dispose);
+  ref.listen(authNotifierProvider, (_, __) {
+    routerRefresh.value++;
+  });
 
   return GoRouter(
+    refreshListenable: routerRefresh,
     initialLocation: '/login',
     redirect: (context, state) {
+      final authState = ref.read(authNotifierProvider);
       final isAuthenticated = authState.valueOrNull != null;
       final isAuthRoute = state.matchedLocation == '/login' ||
           state.matchedLocation == '/register';
+
+      // Do not redirect while restore/login/signup is in flight. This prevents
+      // a transient null state from bouncing a successful login back to /login.
+      if (authState.isLoading) return null;
 
       if (!isAuthenticated && !isAuthRoute) {
         return '/login';

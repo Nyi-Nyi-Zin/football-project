@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:dartz/dartz.dart';
 import '../../../../core/network/dio_client.dart';
@@ -41,8 +43,11 @@ final authNotifierProvider =
 });
 
 class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
+  static const _authRequestTimeout = Duration(seconds: 45);
+
   final Ref _ref;
   Future<void>? _restoreFuture;
+  int _authOperation = 0;
 
   AuthNotifier(this._ref) : super(const AsyncLoading()) {
     restoreSession(isInitialLoad: true);
@@ -64,6 +69,7 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
   }
 
   Future<void> _restoreSessionInternal({required bool isInitialLoad}) async {
+    final operation = _authOperation;
     final repo = _ref.read(authRepositoryProvider);
     final dioClient = _ref.read(dioClientProvider);
     final currentUser = state.valueOrNull;
@@ -73,18 +79,21 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     }
 
     final hasSession = await dioClient.hasTokens();
+    if (!_isCurrentOperation(operation)) return;
     if (!hasSession) {
       state = const AsyncData(null);
       return;
     }
 
     final accessTokenReady = await dioClient.ensureValidAccessToken();
+    if (!_isCurrentOperation(operation)) return;
     if (!accessTokenReady) {
       state = const AsyncData(null);
       return;
     }
 
     final profileResult = await repo.getProfile();
+    if (!_isCurrentOperation(operation)) return;
     Failure? failure;
     final nextState = profileResult.fold<AsyncValue<User?>>(
       (err) {
@@ -104,7 +113,9 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
       await dioClient.clearTokens();
     }
 
-    state = nextState;
+    if (_isCurrentOperation(operation)) {
+      state = nextState;
+    }
   }
 
   Future<User?> login(
@@ -112,23 +123,49 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     String password, {
     bool deferNavigation = false,
   }) async {
+    final operation = ++_authOperation;
     state = const AsyncLoading();
-    final result = await _ref
-        .read(loginUseCaseProvider)
-        .call(LoginParams(email: email, password: password));
+    try {
+      final result = await _ref
+          .read(loginUseCaseProvider)
+          .call(LoginParams(email: email, password: password))
+          .timeout(_authRequestTimeout);
 
-    return result.fold(
-      (failure) {
-        state = AsyncError(failure, StackTrace.current);
-        return null;
-      },
-      (authResult) {
-        state = deferNavigation
-            ? const AsyncData(null)
-            : AsyncData(authResult.user);
-        return authResult.user;
-      },
-    );
+      if (!_isCurrentOperation(operation)) return null;
+      final user = result.fold<User?>(
+        (failure) {
+          state = AsyncError(failure, StackTrace.current);
+          return null;
+        },
+        (authResult) {
+          state = deferNavigation
+              ? const AsyncData(null)
+              : AsyncData(authResult.user);
+          return authResult.user;
+        },
+      );
+      return user;
+    } on TimeoutException {
+      if (_isCurrentOperation(operation)) {
+        state = AsyncError(
+          const ServerFailure(
+            message:
+                'Connection timed out. Please check your internet connection and try again.',
+            code: 'TIMEOUT',
+          ),
+          StackTrace.current,
+        );
+      }
+      return null;
+    } catch (error, stackTrace) {
+      if (_isCurrentOperation(operation)) {
+        state = AsyncError(
+          ServerFailure(message: 'Unable to connect to the server: $error'),
+          stackTrace,
+        );
+      }
+      return null;
+    }
   }
 
   Future<User?> register({
@@ -138,35 +175,67 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     required String fullName,
     String? phone,
   }) async {
+    final operation = ++_authOperation;
     state = const AsyncLoading();
-    final result = await _ref.read(registerUseCaseProvider).call(
-          RegisterParams(
-            email: email,
-            username: username,
-            password: password,
-            fullName: fullName,
-            phone: phone,
-          ),
-        );
+    try {
+      final result = await _ref
+          .read(registerUseCaseProvider)
+          .call(
+            RegisterParams(
+              email: email,
+              username: username,
+              password: password,
+              fullName: fullName,
+              phone: phone,
+            ),
+          )
+          .timeout(_authRequestTimeout);
 
-    return result.fold(
-      (failure) {
-        state = AsyncError(failure, StackTrace.current);
-        return null;
-      },
-      (authResult) {
-        // Registration does not authenticate or navigate automatically.
-        state = const AsyncData(null);
-        return authResult.user;
-      },
-    );
+      if (!_isCurrentOperation(operation)) return null;
+      final user = result.fold<User?>(
+        (failure) {
+          state = AsyncError(failure, StackTrace.current);
+          return null;
+        },
+        (authResult) {
+          // Registration creates an account but does not authenticate automatically.
+          state = const AsyncData(null);
+          return authResult.user;
+        },
+      );
+      return user;
+    } on TimeoutException {
+      if (_isCurrentOperation(operation)) {
+        state = AsyncError(
+          const ServerFailure(
+            message:
+                'Connection timed out. Your account was not confirmed. Please try again.',
+            code: 'TIMEOUT',
+          ),
+          StackTrace.current,
+        );
+      }
+      return null;
+    } catch (error, stackTrace) {
+      if (_isCurrentOperation(operation)) {
+        state = AsyncError(
+          ServerFailure(message: 'Unable to connect to the server: $error'),
+          stackTrace,
+        );
+      }
+      return null;
+    }
   }
 
   void setAuthenticated(User user) {
+    _authOperation++;
     state = AsyncData(user);
   }
 
+  bool _isCurrentOperation(int operation) => operation == _authOperation;
+
   Future<void> logout() async {
+    _authOperation++;
     await _ref.read(logoutUseCaseProvider).call();
     state = const AsyncData(null);
   }

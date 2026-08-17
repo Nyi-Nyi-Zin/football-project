@@ -17,6 +17,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   bool _obscurePassword = true;
+  bool _isSubmitting = false;
+  String? _statusMessage;
 
   @override
   void dispose() {
@@ -26,7 +28,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   }
 
   Future<void> _handleLogin() async {
-    if (!(_formKey.currentState?.validate() ?? false)) return;
+    if (!(_formKey.currentState?.validate() ?? false) || _isSubmitting) return;
+
+    setState(() {
+      _isSubmitting = true;
+      _statusMessage = 'Connecting to the server...';
+    });
 
     final user = await ref.read(authNotifierProvider.notifier).login(
           _emailController.text.trim(),
@@ -35,6 +42,8 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
         );
     if (user == null || !mounted) return;
 
+    setState(
+        () => _statusMessage = 'Login successful. Preparing your account...');
     await showDialog<void>(
       context: context,
       barrierDismissible: false,
@@ -51,6 +60,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     );
     if (!mounted) return;
     ref.read(authNotifierProvider.notifier).setAuthenticated(user);
+    setState(() => _statusMessage = 'Redirecting to your account...');
     // Explicit navigation avoids relying only on the router-provider rebuild
     // after the deferred authentication state is committed.
     await Future<void>.delayed(Duration.zero);
@@ -65,6 +75,12 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     ref.listen(authNotifierProvider, (_, next) {
       next.whenOrNull(
         error: (error, _) {
+          if (mounted) {
+            setState(() {
+              _isSubmitting = false;
+              _statusMessage = error.toString();
+            });
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(error.toString()),
@@ -180,8 +196,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                     SizedBox(
                       height: 52,
                       child: ElevatedButton(
-                        onPressed: authState.isLoading ? null : _handleLogin,
-                        child: authState.isLoading
+                        onPressed: authState.isLoading || _isSubmitting
+                            ? null
+                            : _handleLogin,
+                        child: authState.isLoading || _isSubmitting
                             ? const Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -200,6 +218,21 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                             : Text(context.l10n.tr('signIn')),
                       ),
                     ),
+                    if (_statusMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Text(
+                        _statusMessage!,
+                        textAlign: TextAlign.center,
+                        style: TextStyle(
+                          color:
+                              _statusMessage!.startsWith('Login successful') ||
+                                      _statusMessage!.startsWith('Redirecting')
+                                  ? AppTheme.successColor
+                                  : AppTheme.textSecondary,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 24),
 
                     // Register link
