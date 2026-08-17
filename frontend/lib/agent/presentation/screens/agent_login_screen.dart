@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/errors/failures.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 
 class AgentLoginScreen extends ConsumerStatefulWidget {
@@ -26,7 +27,8 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
   @override
   Widget build(BuildContext context) {
     final authState = ref.watch(authNotifierProvider);
-    final error = authState.hasError ? authState.error.toString() : null;
+    final error =
+        authState.hasError ? _authErrorMessage(authState.error) : null;
 
     return Scaffold(
       body: Center(
@@ -67,6 +69,12 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
                       const SizedBox(height: 10),
                       Text(error, style: const TextStyle(color: Colors.red)),
                     ],
+                    const SizedBox(height: 10),
+                    Text(
+                      'Use an account created by Admin. Demo: agent@example.com',
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodySmall,
+                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
@@ -85,6 +93,18 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
         ),
       ),
     );
+  }
+
+  String _authErrorMessage(Object? error) {
+    if (error is Failure) return error.message;
+    final text = error?.toString() ?? '';
+    if (text.contains('Invalid email or password')) {
+      return 'Invalid email or password. Ask Admin to create or activate this agent account.';
+    }
+    if (text.contains('timed out') || text.contains('TIMEOUT')) {
+      return 'Connection timed out. Please retry when the backend is awake.';
+    }
+    return text.isEmpty ? 'Unable to sign in. Please try again.' : text;
   }
 
   Future<void> _login() async {
