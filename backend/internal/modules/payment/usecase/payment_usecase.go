@@ -349,6 +349,21 @@ func (uc *PaymentUseCase) GetWallet(ctx context.Context, userID string) (*domain
 	return wallet, nil
 }
 
+// GetReservedBalanceTotal returns funds currently held for pending withdrawals.
+func (uc *PaymentUseCase) GetReservedBalanceTotal(ctx context.Context) (float64, error) {
+	wallets, err := uc.walletRepo.ListAll(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("usecase.GetReservedBalanceTotal: %w", err)
+	}
+	var total float64
+	for _, wallet := range wallets {
+		if wallet != nil {
+			total += wallet.ReservedBalance
+		}
+	}
+	return roundMoney(total), nil
+}
+
 // GetTransactions returns paginated transactions for a user
 func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, page, limit int) ([]*domain.Transaction, int64, error) {
 	txs, total, err := uc.txRepo.FindByUser(ctx, userID, page, limit)
@@ -424,21 +439,26 @@ func (uc *PaymentUseCase) ReconcileWallets(ctx context.Context) (*domain.WalletR
 	for _, userID := range orderedUserIDs {
 		wallet := walletByUser[userID]
 		walletBalance := 0.0
+		reservedBalance := 0.0
 		currency := ""
 		if wallet != nil {
 			walletBalance = wallet.Balance
+			reservedBalance = wallet.ReservedBalance
 			currency = wallet.Currency
 		}
 		ledgerBalance := ledgerByUser[userID]
 		difference := roundMoney(walletBalance - ledgerBalance)
 		row := &domain.WalletReconciliationRow{
-			UserID:        userID,
-			Currency:      currency,
-			WalletBalance: roundMoney(walletBalance),
-			LedgerBalance: roundMoney(ledgerBalance),
-			Difference:    difference,
-			Reconciled:    math.Abs(difference) <= 0.01,
+			UserID:           userID,
+			Currency:         currency,
+			WalletBalance:    roundMoney(walletBalance),
+			ReservedBalance:  roundMoney(reservedBalance),
+			AvailableBalance: roundMoney(walletBalance - reservedBalance),
+			LedgerBalance:    roundMoney(ledgerBalance),
+			Difference:       difference,
+			Reconciled:       math.Abs(difference) <= 0.01,
 		}
+
 		report.Users = append(report.Users, row)
 		if row.Reconciled {
 			report.ReconciledUsers++

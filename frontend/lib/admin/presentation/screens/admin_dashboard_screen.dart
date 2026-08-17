@@ -61,6 +61,10 @@ class AdminDashboardScreen extends ConsumerWidget {
                       title: 'Pending Withdrawals',
                       value: '${financial.pendingWithdrawals}',
                     ),
+                    _KpiCard(
+                      title: 'Held Withdrawal Funds',
+                      value: currency.format(financial.reservedWithdrawalFunds),
+                    ),
                     const _KpiCard(
                       title: 'System Health',
                       value: 'Healthy',

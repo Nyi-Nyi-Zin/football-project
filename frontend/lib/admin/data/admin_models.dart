@@ -133,6 +133,7 @@ class AdminFinancialSummary {
   final double totalRefunds;
   final double netCashFlow;
   final int pendingWithdrawals;
+  final double reservedWithdrawalFunds;
 
   const AdminFinancialSummary({
     required this.totalTransactions,
@@ -142,6 +143,7 @@ class AdminFinancialSummary {
     required this.totalRefunds,
     required this.netCashFlow,
     required this.pendingWithdrawals,
+    required this.reservedWithdrawalFunds,
   });
 
   factory AdminFinancialSummary.fromJson(Map<String, dynamic> json) {
@@ -153,6 +155,8 @@ class AdminFinancialSummary {
       totalRefunds: (json['total_refunds'] as num?)?.toDouble() ?? 0,
       netCashFlow: (json['net_cash_flow'] as num?)?.toDouble() ?? 0,
       pendingWithdrawals: (json['pending_withdrawals'] as num?)?.toInt() ?? 0,
+      reservedWithdrawalFunds:
+          (json['reserved_withdrawal_funds'] as num?)?.toDouble() ?? 0,
     );
   }
 }

@@ -146,12 +146,14 @@ type UserLedgerBalance struct {
 }
 
 type WalletReconciliationRow struct {
-	UserID        string  `json:"user_id"`
-	Currency      string  `json:"currency"`
-	WalletBalance float64 `json:"wallet_balance"`
-	LedgerBalance float64 `json:"ledger_balance"`
-	Difference    float64 `json:"difference"`
-	Reconciled    bool    `json:"reconciled"`
+	UserID           string  `json:"user_id"`
+	Currency         string  `json:"currency"`
+	WalletBalance    float64 `json:"wallet_balance"`
+	ReservedBalance  float64 `json:"reserved_balance"`
+	AvailableBalance float64 `json:"available_balance"`
+	LedgerBalance    float64 `json:"ledger_balance"`
+	Difference       float64 `json:"difference"`
+	Reconciled       bool    `json:"reconciled"`
 }
 
 type WalletReconciliationReport struct {

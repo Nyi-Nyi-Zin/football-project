@@ -314,14 +314,21 @@ func (h *PaymentHandler) AdminDashboardSummary(c echo.Context) error {
 		}
 	}
 
+	reservedBalance, reservedErr := h.useCase.GetReservedBalanceTotal(ctx)
+	if reservedErr != nil {
+		appErr := apperrors.NewInternalError("Failed to load reserved withdrawal balance")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]interface{}{
-		"total_transactions":  len(allTxs),
-		"total_deposits":      totalDeposits,
-		"total_withdrawals":   totalWithdrawals,
-		"total_bet_wins":      totalBetWins,
-		"total_refunds":       totalRefunds,
-		"net_cash_flow":       totalDeposits - totalWithdrawals,
-		"pending_withdrawals": pendingWithdrawals,
+		"total_transactions":        len(allTxs),
+		"total_deposits":            totalDeposits,
+		"total_withdrawals":         totalWithdrawals,
+		"total_bet_wins":            totalBetWins,
+		"total_refunds":             totalRefunds,
+		"net_cash_flow":             totalDeposits - totalWithdrawals,
+		"pending_withdrawals":       pendingWithdrawals,
+		"reserved_withdrawal_funds": reservedBalance,
 	}, nil))
 }
 
