@@ -97,7 +97,7 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
     if (!mounted || user == null) return;
 
     if (user.role == 'agent') {
-      context.go('/withdrawals');
+      context.go('/wallet');
       return;
     }
 

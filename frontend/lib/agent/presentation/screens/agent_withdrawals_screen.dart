@@ -8,7 +8,9 @@ import '../../../features/payment/presentation/providers/withdrawal_provider.dar
 import '../providers/agent_provider.dart';
 
 class AgentWithdrawalsScreen extends ConsumerStatefulWidget {
-  const AgentWithdrawalsScreen({super.key});
+  final bool embedded;
+
+  const AgentWithdrawalsScreen({super.key, this.embedded = false});
 
   @override
   ConsumerState<AgentWithdrawalsScreen> createState() =>
@@ -51,16 +53,19 @@ class _AgentWithdrawalsScreenState
     final dateFmt = DateFormat('yyyy-MM-dd HH:mm');
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Agent Withdrawals'),
-        actions: [
-          IconButton(
-            onPressed: () => ref.read(authNotifierProvider.notifier).logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
-        ],
-      ),
+      appBar: widget.embedded
+          ? null
+          : AppBar(
+              title: const Text('Agent Withdrawals'),
+              actions: [
+                IconButton(
+                  onPressed: () =>
+                      ref.read(authNotifierProvider.notifier).logout(),
+                  icon: const Icon(Icons.logout),
+                  tooltip: 'Logout',
+                ),
+              ],
+            ),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(

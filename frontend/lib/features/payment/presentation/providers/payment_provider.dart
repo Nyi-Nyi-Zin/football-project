@@ -48,11 +48,15 @@ class WalletNotifier extends StateNotifier<AsyncValue<Wallet>> {
   Future<WithdrawalSubmission?> withdraw({
     required double amount,
     required String accountDetails,
+    String currency = 'MMK',
+    String paymentMethod = 'manual_agent',
   }) async {
     try {
       final submission = await _dataSource.withdraw(
         amount: amount,
         accountDetails: accountDetails,
+        currency: currency,
+        paymentMethod: paymentMethod,
       );
       await fetchBalance();
       return submission.toEntity();
