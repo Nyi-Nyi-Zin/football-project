@@ -75,9 +75,15 @@ class DioClient {
       onError: (error, handler) async {
         final statusCode = error.response?.statusCode;
         final reqPath = error.requestOptions.path;
+        final isAuthRoute = reqPath.contains('/auth/login') ||
+            reqPath.contains('/auth/register') ||
+            reqPath.contains('/auth/refresh');
         final isRefreshCall = reqPath.contains('/auth/refresh');
         final alreadyRetried = error.requestOptions.extra['retried'] == true;
-        if (statusCode == 401 && !isRefreshCall && !alreadyRetried) {
+        if (statusCode == 401 &&
+            !isAuthRoute &&
+            !isRefreshCall &&
+            !alreadyRetried) {
           // Try to refresh token
           final refreshed = await _refreshTokenGuarded();
           if (refreshed) {
