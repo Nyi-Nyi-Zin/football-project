@@ -21,6 +21,8 @@ class User extends Equatable {
   final int? nrcTypeId;
   final String? gmail;
   final String? location;
+  final String? region;
+  final String? township;
   final String? customCode;
 
   const User({
@@ -43,11 +45,30 @@ class User extends Equatable {
     this.nrcTypeId,
     this.gmail,
     this.location,
+    this.region,
+    this.township,
     this.customCode,
   });
 
   @override
-  List<Object?> get props => [id, email, username, nrc, nrcRegion, nrcTownship, nrcType, nrcNumber, nrcRegionId, nrcTownshipId, nrcTypeId, gmail, location, customCode];
+  List<Object?> get props => [
+        id,
+        email,
+        username,
+        nrc,
+        nrcRegion,
+        nrcTownship,
+        nrcType,
+        nrcNumber,
+        nrcRegionId,
+        nrcTownshipId,
+        nrcTypeId,
+        gmail,
+        location,
+        region,
+        township,
+        customCode
+      ];
 }
 
 /// Token pair entity

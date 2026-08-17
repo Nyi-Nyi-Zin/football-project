@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../features/payment/presentation/providers/withdrawal_provider.dart';
 import '../providers/agent_provider.dart';
 
 class AgentWithdrawalsScreen extends ConsumerStatefulWidget {
@@ -20,6 +21,10 @@ class _AgentWithdrawalsScreenState
   final _customCodeCtrl = TextEditingController();
   bool _submitting = false;
   bool _savingCustomCode = false;
+  bool _savingAgentLocation = false;
+  bool _locationInitialized = false;
+  String? _selectedAgentRegion;
+  String? _selectedAgentTownship;
 
   @override
   void dispose() {
@@ -32,6 +37,17 @@ class _AgentWithdrawalsScreenState
   Widget build(BuildContext context) {
     final asyncRows = ref.watch(agentWithdrawalsProvider);
     final status = ref.watch(agentWithdrawStatusProvider);
+    final user = ref.watch(authNotifierProvider).valueOrNull;
+    if (user != null && !_locationInitialized) {
+      _locationInitialized = true;
+      _customCodeCtrl.text = user.customCode ?? '';
+      _selectedAgentRegion = user.region;
+      _selectedAgentTownship = user.township;
+    }
+    final regionsAsync = ref.watch(agentRegionsProvider);
+    final townshipsAsync = _selectedAgentRegion == null
+        ? const AsyncValue<List<String>>.data(<String>[])
+        : ref.watch(agentTownshipsProvider(_selectedAgentRegion!));
     final dateFmt = DateFormat('yyyy-MM-dd HH:mm');
 
     return Scaffold(
@@ -90,6 +106,84 @@ class _AgentWithdrawalsScreenState
                               : const Text('Save'),
                         ),
                       ],
+                    ),
+                    const Divider(height: 24),
+                    Align(
+                      alignment: Alignment.centerLeft,
+                      child: Text(
+                        'Withdrawal Location',
+                        style: Theme.of(context).textTheme.titleMedium,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    regionsAsync.when(
+                      data: (regions) => DropdownButtonFormField<String>(
+                        initialValue: regions.contains(_selectedAgentRegion)
+                            ? _selectedAgentRegion
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Region / State',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: regions
+                            .map((region) => DropdownMenuItem(
+                                  value: region,
+                                  child: Text(region),
+                                ))
+                            .toList(),
+                        onChanged: (region) {
+                          setState(() {
+                            _selectedAgentRegion = region;
+                            _selectedAgentTownship = null;
+                          });
+                        },
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (error, _) =>
+                          Text('Failed to load regions: $error'),
+                    ),
+                    const SizedBox(height: 8),
+                    townshipsAsync.when(
+                      data: (townships) => DropdownButtonFormField<String>(
+                        initialValue: townships.contains(_selectedAgentTownship)
+                            ? _selectedAgentTownship
+                            : null,
+                        decoration: const InputDecoration(
+                          labelText: 'Township',
+                          border: OutlineInputBorder(),
+                        ),
+                        items: townships
+                            .map((township) => DropdownMenuItem(
+                                  value: township,
+                                  child: Text(township),
+                                ))
+                            .toList(),
+                        onChanged: _selectedAgentRegion == null
+                            ? null
+                            : (township) => setState(
+                                  () => _selectedAgentTownship = township,
+                                ),
+                      ),
+                      loading: () => const LinearProgressIndicator(),
+                      error: (error, _) =>
+                          Text('Failed to load townships: $error'),
+                    ),
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: ElevatedButton.icon(
+                        onPressed:
+                            _savingAgentLocation ? null : _saveAgentLocation,
+                        icon: _savingAgentLocation
+                            ? const SizedBox(
+                                width: 16,
+                                height: 16,
+                                child:
+                                    CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : const Icon(Icons.location_on_outlined),
+                        label: const Text('Save Location'),
+                      ),
                     ),
                     const Divider(height: 24),
                     const Text(
@@ -231,6 +325,39 @@ class _AgentWithdrawalsScreenState
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
+    }
+  }
+
+  Future<void> _saveAgentLocation() async {
+    final region = _selectedAgentRegion;
+    final township = _selectedAgentTownship;
+    if (region == null || township == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select both region and township')),
+      );
+      return;
+    }
+    setState(() => _savingAgentLocation = true);
+    try {
+      final result =
+          await ref.read(authNotifierProvider.notifier).updateProfile(
+                region: region,
+                township: township,
+                location: township,
+              );
+      if (!mounted) return;
+      result.fold(
+        (failure) => ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+              content: Text('Failed to save location: ${failure.message}')),
+        ),
+        (_) => ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Withdrawal location saved successfully')),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _savingAgentLocation = false);
     }
   }
 

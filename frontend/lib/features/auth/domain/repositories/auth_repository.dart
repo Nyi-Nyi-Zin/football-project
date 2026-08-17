@@ -32,6 +32,8 @@ abstract class AuthRepository {
     int? nrcTypeId,
     String? gmail,
     String? location,
+    String? region,
+    String? township,
     String? customCode,
   });
 

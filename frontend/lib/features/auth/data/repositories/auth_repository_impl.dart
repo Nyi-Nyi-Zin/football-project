@@ -96,6 +96,8 @@ class AuthRepositoryImpl implements AuthRepository {
     int? nrcTypeId,
     String? gmail,
     String? location,
+    String? region,
+    String? township,
     String? customCode,
   }) async {
     try {
@@ -112,6 +114,8 @@ class AuthRepositoryImpl implements AuthRepository {
         nrcTypeId: nrcTypeId,
         gmail: gmail,
         location: location,
+        region: region,
+        township: township,
         customCode: customCode,
       );
       return Right(model.toEntity());

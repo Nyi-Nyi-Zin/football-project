@@ -21,6 +21,8 @@ class UserModel {
   final int? nrcTypeId;
   final String? gmail;
   final String? location;
+  final String? region;
+  final String? township;
   final String? customCode;
 
   const UserModel({
@@ -43,6 +45,8 @@ class UserModel {
     this.nrcTypeId,
     this.gmail,
     this.location,
+    this.region,
+    this.township,
     this.customCode,
   });
 
@@ -67,6 +71,8 @@ class UserModel {
       nrcTypeId: json['nrc_type_id'] as int?,
       gmail: json['gmail'] as String?,
       location: json['location'] as String?,
+      region: json['region'] as String?,
+      township: json['township'] as String?,
       customCode: json['custom_code'] as String?,
     );
   }
@@ -92,6 +98,8 @@ class UserModel {
       'nrc_type_id': nrcTypeId,
       'gmail': gmail,
       'location': location,
+      'region': region,
+      'township': township,
       'custom_code': customCode,
     };
   }
@@ -118,6 +126,8 @@ class UserModel {
       nrcTypeId: nrcTypeId,
       gmail: gmail,
       location: location,
+      region: region,
+      township: township,
       customCode: customCode,
     );
   }

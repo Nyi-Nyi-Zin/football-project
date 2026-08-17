@@ -50,6 +50,8 @@ class AuthRemoteDataSource {
     int? nrcTypeId,
     String? gmail,
     String? location,
+    String? region,
+    String? township,
     String? customCode,
   }) async {
     final response = await _client.dio.patch('/users/me', data: {
@@ -65,6 +67,8 @@ class AuthRemoteDataSource {
       if (nrcTypeId != null) 'nrc_type_id': nrcTypeId,
       if (gmail != null) 'gmail': gmail,
       if (location != null) 'location': location,
+      if (region != null) 'region': region,
+      if (township != null) 'township': township,
       if (customCode != null) 'custom_code': customCode,
     });
     return UserModel.fromJson(response.data['data'] as Map<String, dynamic>);

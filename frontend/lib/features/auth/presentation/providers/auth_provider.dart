@@ -255,6 +255,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
     int? nrcTypeId,
     String? gmail,
     String? location,
+    String? region,
+    String? township,
     String? customCode,
   }) async {
     final currentUser = state.valueOrNull;
@@ -275,6 +277,8 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
           nrcTypeId: nrcTypeId,
           gmail: gmail,
           location: location,
+          region: region,
+          township: township,
           customCode: customCode,
         );
 

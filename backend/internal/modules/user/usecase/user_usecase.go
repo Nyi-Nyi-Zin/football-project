@@ -220,7 +220,17 @@ func (uc *UserUseCase) UpdateProfile(ctx context.Context, userID string, req *do
 	if req.Location != "" {
 		user.Location = req.Location
 	}
+	if req.Region != "" {
+		user.Region = req.Region
+	}
+	if req.Township != "" {
+		user.Township = req.Township
+		if user.Location == "" {
+			user.Location = req.Township
+		}
+	}
 	// Only update custom_code if it's provided and different from current value
+
 	if req.CustomCode != "" {
 		currentCode := ""
 		if user.CustomCode != nil {
