@@ -117,6 +117,7 @@ func RegisterRoutes(
 	admin := protected.Group("/admin")
 	admin.Use(middleware.RequireRole("admin"))
 	admin.GET("/users", userH.ListUsers)
+	admin.POST("/users", userH.AdminCreateUser)
 	admin.GET("/users/:id", userH.GetUserByID)
 	admin.PATCH("/users/:id/status", userH.AdminUpdateStatus)
 	admin.GET("/transactions", paymentH.AdminGetTransactions)

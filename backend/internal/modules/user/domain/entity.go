@@ -131,6 +131,19 @@ type LoginRequest struct {
 	Password string `json:"password" validate:"required"`
 }
 
+// AdminCreateUserRequest represents an admin-created customer or agent account.
+type AdminCreateUserRequest struct {
+	Email    string `json:"email" validate:"required,email"`
+	Username string `json:"username" validate:"required,min=3,max=30"`
+	Password string `json:"password" validate:"required,min=8"`
+	FullName string `json:"full_name" validate:"required,min=2"`
+	Phone    string `json:"phone" validate:"omitempty"`
+	Role     string `json:"role" validate:"required,oneof=user agent"`
+	Status   string `json:"status" validate:"omitempty,oneof=active suspended blocked"`
+	Region   string `json:"region" validate:"omitempty,max=100"`
+	Township string `json:"township" validate:"omitempty,max=100"`
+}
+
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
 }

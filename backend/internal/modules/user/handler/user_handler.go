@@ -226,6 +226,29 @@ func (h *UserHandler) GetUserByID(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(profile, nil))
 }
 
+// AdminCreateUser handles POST /api/v1/admin/users.
+func (h *UserHandler) AdminCreateUser(c echo.Context) error {
+	var req domain.AdminCreateUserRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	profile, err := h.useCase.AdminCreateUser(c.Request().Context(), &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to create user account")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusCreated, apperrors.NewSuccessResponse(profile, nil))
+}
+
 // AdminUpdateStatus handles PATCH /api/v1/admin/users/:id/status
 func (h *UserHandler) AdminUpdateStatus(c echo.Context) error {
 	userID := c.Param("id")

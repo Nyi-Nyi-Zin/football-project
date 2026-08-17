@@ -88,6 +88,52 @@ func (uc *UserUseCase) Register(ctx context.Context, req *domain.RegisterRequest
 	return user.ToProfile(), tokens, nil
 }
 
+// AdminCreateUser creates a customer or agent account without issuing a session.
+func (uc *UserUseCase) AdminCreateUser(ctx context.Context, req *domain.AdminCreateUserRequest) (*domain.UserProfile, error) {
+	email := strings.ToLower(strings.TrimSpace(req.Email))
+	username := strings.TrimSpace(req.Username)
+	role := strings.ToLower(strings.TrimSpace(req.Role))
+	status := strings.ToLower(strings.TrimSpace(req.Status))
+	region := strings.TrimSpace(req.Region)
+	township := strings.TrimSpace(req.Township)
+
+	if status == "" {
+		status = "active"
+	}
+	if role == "agent" && (region == "" || township == "") {
+		return nil, apperrors.NewBadRequestError("Region and township are required for agent accounts")
+	}
+
+	if existing, _ := uc.repo.FindByEmail(ctx, email); existing != nil {
+		return nil, apperrors.NewConflictError("Email already registered")
+	}
+	if existing, _ := uc.repo.FindByUsername(ctx, username); existing != nil {
+		return nil, apperrors.NewConflictError("Username already taken")
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), 12)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.AdminCreateUser: hash password: %w", err)
+	}
+
+	user := &domain.User{
+		Email:        email,
+		Username:     username,
+		PasswordHash: string(hashedPassword),
+		FullName:     strings.TrimSpace(req.FullName),
+		Phone:        strings.TrimSpace(req.Phone),
+		Role:         role,
+		Status:       status,
+		Region:       region,
+		Township:     township,
+		KYCStatus:    domain.KYCStatusPending,
+	}
+	if err := uc.repo.Create(ctx, user); err != nil {
+		return nil, fmt.Errorf("usecase.AdminCreateUser: %w", err)
+	}
+	return user.ToProfile(), nil
+}
+
 // Login authenticates a user and returns tokens
 func (uc *UserUseCase) Login(ctx context.Context, req *domain.LoginRequest) (*domain.UserProfile, *jwtpkg.TokenPair, error) {
 	user, err := uc.repo.FindByEmail(ctx, strings.ToLower(req.Email))

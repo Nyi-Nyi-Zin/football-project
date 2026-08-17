@@ -48,6 +48,34 @@ class AdminRemoteDataSource {
     );
   }
 
+  Future<AdminUser> createUser({
+    required String email,
+    required String username,
+    required String password,
+    required String fullName,
+    required String role,
+    required String status,
+    String phone = '',
+    String region = '',
+    String township = '',
+  }) async {
+    final response = await _client.dio.post(
+      '/admin/users',
+      data: {
+        'email': email.trim(),
+        'username': username.trim(),
+        'password': password,
+        'full_name': fullName.trim(),
+        'phone': phone.trim(),
+        'role': role,
+        'status': status,
+        if (region.trim().isNotEmpty) 'region': region.trim(),
+        if (township.trim().isNotEmpty) 'township': township.trim(),
+      },
+    );
+    return AdminUser.fromJson(response.data['data'] as Map<String, dynamic>);
+  }
+
   Future<AdminUser> getUserDetail(String id) async {
     final response = await _client.dio.get('/admin/users/$id');
     return AdminUser.fromJson(response.data['data'] as Map<String, dynamic>);
