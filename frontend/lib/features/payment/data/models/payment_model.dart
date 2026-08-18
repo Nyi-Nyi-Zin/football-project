@@ -42,31 +42,49 @@ class WalletModel {
 
 class TransactionModel {
   final String id;
+  final String userId;
   final String type;
   final double amount;
   final String currency;
   final String status;
   final String? description;
+  final String? reference;
+  final String? fromUserId;
+  final String? toUserId;
+  final double? balanceBefore;
+  final double? balanceAfter;
   final DateTime createdAt;
 
   const TransactionModel({
     required this.id,
+    required this.userId,
     required this.type,
     required this.amount,
     required this.currency,
     required this.status,
     this.description,
+    this.reference,
+    this.fromUserId,
+    this.toUserId,
+    this.balanceBefore,
+    this.balanceAfter,
     required this.createdAt,
   });
 
   factory TransactionModel.fromJson(Map<String, dynamic> json) {
     return TransactionModel(
       id: json['id'] as String,
+      userId: json['user_id'] as String? ?? '',
       type: json['type'] as String,
       amount: (json['amount'] as num).toDouble(),
       currency: json['currency'] as String? ?? 'MMK',
       status: json['status'] as String,
       description: json['description'] as String?,
+      reference: json['reference'] as String?,
+      fromUserId: json['from_user_id'] as String?,
+      toUserId: json['to_user_id'] as String?,
+      balanceBefore: (json['balance_before'] as num?)?.toDouble(),
+      balanceAfter: (json['balance_after'] as num?)?.toDouble(),
       createdAt: DateTime.parse(json['created_at'] as String),
     );
   }
@@ -74,11 +92,17 @@ class TransactionModel {
   Transaction toEntity() {
     return Transaction(
       id: id,
+      userId: userId,
       type: type,
       amount: amount,
       currency: currency,
       status: status,
       description: description,
+      reference: reference,
+      fromUserId: fromUserId,
+      toUserId: toUserId,
+      balanceBefore: balanceBefore,
+      balanceAfter: balanceAfter,
       createdAt: createdAt,
     );
   }

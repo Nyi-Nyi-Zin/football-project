@@ -486,7 +486,7 @@ class _CustomerDepositReceiptCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'This deposit credits the customer wallet; your Agent wallet balance does not change.',
+              'Customer wallet credited. Agent wallet debited by the same amount.',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -609,23 +609,179 @@ class _TransactionTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = transaction.isCredit ? Colors.green : Colors.deepOrange;
     final sign = transaction.isCredit ? '+' : '-';
-    return Card(
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: color.withValues(alpha: 0.12),
-          child: Icon(
-            transaction.isCredit ? Icons.south : Icons.north,
-            color: color,
+    final timestamp =
+        transaction.createdAt.toLocal().toString().split('.').first;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Card(
+        margin: EdgeInsets.zero,
+        clipBehavior: Clip.antiAlias,
+        child: InkWell(
+          onTap: () => _showTransactionDetails(context),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                CircleAvatar(
+                  backgroundColor: color.withValues(alpha: 0.12),
+                  child: Icon(
+                    transaction.isCredit ? Icons.south : Icons.north,
+                    color: color,
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        transaction.displayType,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '${transaction.status} • $timestamp',
+                        style: Theme.of(context).textTheme.bodyMedium,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    Text(
+                      '$sign${transaction.amount.toStringAsFixed(2)} ${transaction.currency}',
+                      style: TextStyle(
+                        color: color,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    const Icon(Icons.chevron_right, size: 20),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
-        title: Text(transaction.displayType),
-        subtitle: Text(
-          '${transaction.status} • ${transaction.createdAt.toLocal().toString().split('.').first}',
+      ),
+    );
+  }
+
+  void _showTransactionDetails(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (context) => _TransactionDetailsSheet(transaction: transaction),
+    );
+  }
+}
+
+class _TransactionDetailsSheet extends StatelessWidget {
+  final Transaction transaction;
+
+  const _TransactionDetailsSheet({required this.transaction});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = transaction.isCredit ? Colors.green : Colors.deepOrange;
+    final sign = transaction.isCredit ? '+' : '-';
+    final timestamp =
+        transaction.createdAt.toLocal().toString().split('.').first;
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Transaction details',
+              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+            ),
+            const SizedBox(height: 18),
+            Center(
+              child: Text(
+                '$sign${transaction.amount.toStringAsFixed(2)} ${transaction.currency}',
+                style: TextStyle(
+                  color: color,
+                  fontSize: 28,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            _DetailRow(label: 'Type', value: transaction.displayType),
+            _DetailRow(label: 'Status', value: transaction.status),
+            _DetailRow(label: 'Transaction ID', value: transaction.id),
+            _DetailRow(label: 'Ledger account', value: transaction.userId),
+            _DetailRow(
+              label: 'From account',
+              value: transaction.fromUserId ??
+                  'Not recorded for older transaction',
+            ),
+            _DetailRow(
+              label: 'To account',
+              value:
+                  transaction.toUserId ?? 'Not recorded for older transaction',
+            ),
+            _DetailRow(label: 'Currency', value: transaction.currency),
+            _DetailRow(label: 'Created', value: timestamp),
+            if (transaction.balanceBefore != null)
+              _DetailRow(
+                label: 'Balance before',
+                value:
+                    '${transaction.balanceBefore!.toStringAsFixed(2)} ${transaction.currency}',
+              ),
+            if (transaction.balanceAfter != null)
+              _DetailRow(
+                label: 'Balance after',
+                value:
+                    '${transaction.balanceAfter!.toStringAsFixed(2)} ${transaction.currency}',
+              ),
+            if (transaction.reference?.isNotEmpty == true)
+              _DetailRow(label: 'Reference', value: transaction.reference!),
+            if (transaction.description?.isNotEmpty == true)
+              _DetailRow(label: 'Description', value: transaction.description!),
+          ],
         ),
-        trailing: Text(
-          '$sign${transaction.amount.toStringAsFixed(2)} ${transaction.currency}',
-          style: TextStyle(color: color, fontWeight: FontWeight.w700),
-        ),
+      ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            value,
+            style: Theme.of(context).textTheme.bodyLarge,
+          ),
+        ],
       ),
     );
   }

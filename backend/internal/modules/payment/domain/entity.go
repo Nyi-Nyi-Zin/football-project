@@ -15,13 +15,14 @@ type TransactionType string
 var ErrInsufficientAvailableBalance = errors.New("insufficient available balance")
 
 const (
-	TransactionDeposit     TransactionType = "deposit"
-	TransactionWithdraw    TransactionType = "withdraw"
-	TransactionBetStake    TransactionType = "bet_stake"
-	TransactionBetWin      TransactionType = "bet_win"
-	TransactionCashOut     TransactionType = "cash_out"
-	TransactionRefund      TransactionType = "refund"
-	TransactionAgentPayout TransactionType = "agent_payout"
+	TransactionDeposit              TransactionType = "deposit"
+	TransactionWithdraw             TransactionType = "withdraw"
+	TransactionBetStake             TransactionType = "bet_stake"
+	TransactionBetWin               TransactionType = "bet_win"
+	TransactionCashOut              TransactionType = "cash_out"
+	TransactionRefund               TransactionType = "refund"
+	TransactionAgentPayout          TransactionType = "agent_payout"
+	TransactionAgentCustomerDeposit TransactionType = "agent_customer_deposit"
 )
 
 // TransactionStatus represents the status of a transaction
@@ -53,6 +54,8 @@ type Transaction struct {
 	IdempotencyKey string            `json:"idempotency_key" gorm:"uniqueIndex"`
 	Reference      string            `json:"reference"` // external payment reference
 	Description    string            `json:"description"`
+	FromUserID     *string           `json:"from_user_id,omitempty" gorm:"type:uuid;index"`
+	ToUserID       *string           `json:"to_user_id,omitempty" gorm:"type:uuid;index"`
 	BalanceBefore  float64           `json:"balance_before" gorm:"type:decimal(18,2)"`
 	BalanceAfter   float64           `json:"balance_after" gorm:"type:decimal(18,2)"`
 	CreatedAt      time.Time         `json:"created_at"`
