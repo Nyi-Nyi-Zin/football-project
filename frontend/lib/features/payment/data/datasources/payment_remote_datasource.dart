@@ -66,7 +66,7 @@ class PaymentRemoteDataSource {
   Future<WithdrawalSubmissionModel> withdraw({
     required double amount,
     required String accountDetails,
-    String currency = 'USD',
+    String currency = 'MMK',
     String paymentMethod = 'manual_agent',
   }) async {
     final idempotencyKey = _uuid.v4();

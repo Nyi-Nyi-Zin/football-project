@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/network/dio_client.dart';
@@ -66,3 +68,63 @@ final agentCommissionStatementProvider =
   final days = ref.watch(agentEarningsDaysProvider);
   return ds.getCommissionStatement(days: days);
 });
+
+final agentConnectivityProvider = StateNotifierProvider.autoDispose<
+    AgentConnectivityNotifier, AgentConnectivityState>((ref) {
+  return AgentConnectivityNotifier(ref.read(dioClientProvider));
+});
+
+class AgentConnectivityState {
+  final bool isOnline;
+  final bool isChecking;
+  final DateTime? checkedAt;
+
+  const AgentConnectivityState({
+    required this.isOnline,
+    required this.isChecking,
+    this.checkedAt,
+  });
+
+  AgentConnectivityState copyWith({
+    bool? isOnline,
+    bool? isChecking,
+    DateTime? checkedAt,
+  }) {
+    return AgentConnectivityState(
+      isOnline: isOnline ?? this.isOnline,
+      isChecking: isChecking ?? this.isChecking,
+      checkedAt: checkedAt ?? this.checkedAt,
+    );
+  }
+}
+
+class AgentConnectivityNotifier extends StateNotifier<AgentConnectivityState> {
+  final DioClient _client;
+  Timer? _timer;
+  bool _requestInFlight = false;
+
+  AgentConnectivityNotifier(this._client)
+      : super(const AgentConnectivityState(isOnline: false, isChecking: true)) {
+    checkNow();
+    _timer = Timer.periodic(const Duration(seconds: 15), (_) => checkNow());
+  }
+
+  Future<void> checkNow() async {
+    if (_requestInFlight) return;
+    _requestInFlight = true;
+    state = state.copyWith(isChecking: true);
+    final online = await _client.checkHealth();
+    state = AgentConnectivityState(
+      isOnline: online,
+      isChecking: false,
+      checkedAt: DateTime.now(),
+    );
+    _requestInFlight = false;
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+}

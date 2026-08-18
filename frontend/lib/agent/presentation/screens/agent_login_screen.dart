@@ -16,6 +16,7 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailCtrl = TextEditingController();
   final _passwordCtrl = TextEditingController();
+  bool _obscurePassword = true;
 
   @override
   void dispose() {
@@ -43,8 +44,18 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(24),
+                      child: Image.asset(
+                        'assets/cloud9_agent_icon.png',
+                        width: 82,
+                        height: 82,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
                     const Text(
-                      'Agent Sign In',
+                      'Cloud 9 Agent',
                       style:
                           TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                     ),
@@ -59,8 +70,22 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
                     const SizedBox(height: 10),
                     TextFormField(
                       controller: _passwordCtrl,
-                      obscureText: true,
-                      decoration: const InputDecoration(labelText: 'Password'),
+                      obscureText: _obscurePassword,
+                      decoration: InputDecoration(
+                        labelText: 'Password',
+                        prefixIcon: const Icon(Icons.lock_outline),
+                        suffixIcon: IconButton(
+                          tooltip: _obscurePassword
+                              ? 'Show password'
+                              : 'Hide password',
+                          icon: Icon(_obscurePassword
+                              ? Icons.visibility_off_outlined
+                              : Icons.visibility_outlined),
+                          onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword,
+                          ),
+                        ),
+                      ),
                       validator: (v) => (v == null || v.length < 8)
                           ? 'Password must be at least 8 chars'
                           : null,

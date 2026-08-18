@@ -40,7 +40,7 @@ class AgentWithdrawalItem {
       requestStatus: request['status'] as String? ?? 'pending',
       transactionStatus: tx['status'] as String? ?? 'pending',
       amount: (tx['amount'] as num?)?.toDouble() ?? 0,
-      currency: tx['currency'] as String? ?? 'USD',
+      currency: tx['currency'] as String? ?? 'MMK',
       createdAt: DateTime.tryParse(tx['created_at'] as String? ?? '') ??
           DateTime.now(),
       expiresAt: DateTime.tryParse(request['expires_at'] as String? ?? ''),

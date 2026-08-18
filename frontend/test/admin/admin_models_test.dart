@@ -21,7 +21,7 @@ void main() {
         'user_id': 'user-1',
         'type': 'withdraw',
         'amount': 25.5,
-        'currency': 'USD',
+        'currency': 'MMK',
         'status': 'pending',
         'description': 'Withdrawal',
         'reference': 'ref-1',
