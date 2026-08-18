@@ -11,6 +11,7 @@ import '../../../features/notification/presentation/providers/notification_provi
 import '../../data/agent_models.dart';
 import '../providers/agent_provider.dart';
 import 'agent_withdrawals_screen.dart';
+import 'agent_support_screen.dart';
 
 class AgentHomeScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -27,7 +28,7 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 5);
+    _selectedIndex = widget.initialIndex.clamp(0, 6);
   }
 
   @override
@@ -39,6 +40,7 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
       'Payouts',
       'Profile',
       'Notifications',
+      'Support',
     ];
     final pages = <Widget>[
       const _AgentDashboardTab(),
@@ -47,6 +49,7 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
       const AgentWithdrawalsScreen(embedded: true),
       const _AgentProfileTab(),
       const _AgentNotificationsTab(),
+      const AgentSupportScreen(),
     ];
 
     return Scaffold(
@@ -95,6 +98,11 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             icon: Icon(Icons.notifications_none),
             selectedIcon: Icon(Icons.notifications),
             label: 'Alerts',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.support_agent_outlined),
+            selectedIcon: Icon(Icons.support_agent),
+            label: 'Support',
           ),
         ],
       ),

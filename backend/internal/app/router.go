@@ -7,6 +7,7 @@ import (
 	notificationHandler "betting-app/internal/modules/notification/handler"
 	oddsHandler "betting-app/internal/modules/odds/handler"
 	paymentHandler "betting-app/internal/modules/payment/handler"
+	supportHandler "betting-app/internal/modules/support/handler"
 	userDomain "betting-app/internal/modules/user/domain"
 	userHandler "betting-app/internal/modules/user/handler"
 
@@ -28,6 +29,7 @@ func RegisterRoutes(
 	paymentH *paymentHandler.PaymentHandler,
 	oddsH *oddsHandler.OddsHandler,
 	notificationH *notificationHandler.NotificationHandler,
+	supportH *supportHandler.SupportHandler,
 ) {
 	// Global middleware
 	e.Use(middleware.LoggingMiddleware())
@@ -110,6 +112,18 @@ func RegisterRoutes(
 	notifications.PATCH("/read-all", notificationH.MarkAllAsRead)
 	notifications.DELETE("/:id", notificationH.DeleteNotification)
 
+	// Support routes for authenticated users, including Agents.
+	support := protected.Group("/support")
+	support.GET("/tickets", supportH.ListTickets)
+	support.POST("/tickets", supportH.CreateTicket)
+	support.GET("/tickets/:id/messages", supportH.ListMessages)
+	support.POST("/tickets/:id/messages", supportH.AddMessage)
+	support.GET("/tickets/:id", supportH.GetTicket)
+	// Support triage routes are restricted to administrators.
+	supportAdmin := protected.Group("/admin/support")
+	supportAdmin.Use(middleware.RequireRole("admin"))
+	supportAdmin.GET("/tickets", supportH.ListTickets)
+	supportAdmin.PATCH("/tickets/:id/status", supportH.UpdateStatus)
 	// WebSocket route
 	e.GET("/ws/odds", oddsH.HandleWebSocket)
 
