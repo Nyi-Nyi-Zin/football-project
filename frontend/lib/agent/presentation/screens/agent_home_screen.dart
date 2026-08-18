@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../core/errors/failures.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/theme/theme_provider.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/domain/entities/payment_entity.dart';
@@ -339,7 +340,7 @@ class _AgentDashboardTab extends ConsumerWidget {
           ),
           const SizedBox(height: 10),
           transactionsState.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const _AgentSkeletonList(rows: 3),
             error: (error, _) => Text('Unable to load activity: $error'),
             data: (items) => items.isEmpty
                 ? const Card(
@@ -382,8 +383,14 @@ class _AgentDashboardHero extends StatelessWidget {
         child: summaryState.when(
           loading: () => const SizedBox(
             height: 116,
-            child: Center(
-              child: CircularProgressIndicator(color: Colors.white),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _AgentSkeletonBlock(width: 150, height: 16),
+                _AgentSkeletonBlock(width: 250, height: 28),
+                _AgentSkeletonBlock(width: 230, height: 13),
+              ],
             ),
           ),
           error: (_, __) => const ListTile(
@@ -435,10 +442,7 @@ class _AgentEarningsCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: state.when(
-          loading: () => const SizedBox(
-            height: 150,
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () => const _AgentSkeletonCard(height: 150),
           error: (error, _) => ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.analytics_outlined),
@@ -665,7 +669,7 @@ class _AgentCustomersTabState extends ConsumerState<_AgentCustomersTab> {
           ),
           const SizedBox(height: 16),
           customersState.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const _AgentSkeletonList(rows: 3),
             error: (error, _) => Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -893,12 +897,7 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
           walletState.when(
-            loading: () => const Card(
-              child: SizedBox(
-                height: 220,
-                child: Center(child: CircularProgressIndicator()),
-              ),
-            ),
+            loading: () => const _AgentSkeletonCard(height: 220, rows: 4),
             error: (error, _) => Card(
               child: Padding(
                 padding: const EdgeInsets.all(20),
@@ -936,7 +935,7 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
           ),
           const SizedBox(height: 10),
           transactionsState.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
+            loading: () => const _AgentSkeletonList(rows: 3),
             error: (error, _) => Text('Unable to load transactions: $error'),
             data: (transactions) => transactions.isEmpty
                 ? const Card(
@@ -991,7 +990,8 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
                     maxLength: 36,
                     decoration: const InputDecoration(
                       labelText: 'Customer User ID',
-                      helperText: 'Paste the complete UUID (36 characters)',
+                      helperText:
+                          'Paste the Customer app Profile User ID, not your Agent ID.',
                       counterText: '',
                     ),
                   ),
@@ -1602,9 +1602,11 @@ class _AgentNotificationsTab extends ConsumerWidget {
       child: notifications.when(
         loading: () => ListView(
           physics: const AlwaysScrollableScrollPhysics(),
-          children: const [
-            SizedBox(height: 220),
-            Center(child: CircularProgressIndicator()),
+          padding: EdgeInsets.fromLTRB(16, 16, 16, 28),
+          children: [
+            _AgentSkeletonBlock(width: 190, height: 22),
+            SizedBox(height: 16),
+            _AgentSkeletonList(rows: 4),
           ],
         ),
         error: (error, _) => ListView(
@@ -1769,6 +1771,7 @@ class _AgentProfileTab extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final user = ref.watch(authNotifierProvider).valueOrNull;
+    final themeMode = ref.watch(themeModeProvider);
     final initials = (user?.fullName.isNotEmpty == true
             ? user!.fullName
             : user?.username ?? 'A')
@@ -1839,6 +1842,41 @@ class _AgentProfileTab extends ConsumerWidget {
             onTap: () => ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
                   content: Text('Open the Payouts tab to edit your profile.')),
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Card(
+          child: ListTile(
+            leading: Icon(
+              themeMode == ThemeMode.dark
+                  ? Icons.dark_mode_outlined
+                  : Icons.light_mode_outlined,
+            ),
+            title: const Text('Appearance'),
+            subtitle: const Text('Choose the Cloud 9 Agent color theme'),
+            trailing: DropdownButtonHideUnderline(
+              child: DropdownButton<ThemeMode>(
+                value: themeMode == ThemeMode.dark
+                    ? ThemeMode.dark
+                    : ThemeMode.light,
+                borderRadius: BorderRadius.circular(16),
+                items: const [
+                  DropdownMenuItem(
+                    value: ThemeMode.light,
+                    child: Text('Light'),
+                  ),
+                  DropdownMenuItem(
+                    value: ThemeMode.dark,
+                    child: Text('Dark'),
+                  ),
+                ],
+                onChanged: (mode) {
+                  if (mode != null) {
+                    ref.read(themeModeProvider.notifier).setThemeMode(mode);
+                  }
+                },
+              ),
             ),
           ),
         ),
@@ -2284,10 +2322,7 @@ class _AgentReconciliationCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: state.when(
-          loading: () => const SizedBox(
-            height: 120,
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () => const _AgentSkeletonCard(height: 120),
           error: (error, _) => ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.fact_check_outlined),
@@ -2462,10 +2497,7 @@ class _AgentCommissionCard extends ConsumerWidget {
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: state.when(
-          loading: () => const SizedBox(
-            height: 130,
-            child: Center(child: CircularProgressIndicator()),
-          ),
+          loading: () => const _AgentSkeletonCard(height: 150),
           error: (error, _) => ListTile(
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.percent_outlined),
@@ -2565,6 +2597,160 @@ class _AgentCommissionMetric extends StatelessWidget {
           const SizedBox(height: 4),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
         ],
+      ),
+    );
+  }
+}
+
+class _AgentSkeletonBlock extends StatelessWidget {
+  final double height;
+  final double? width;
+  final double radius;
+
+  const _AgentSkeletonBlock({
+    this.height = 14,
+    this.width,
+    this.radius = 10,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.surfaceContainerHighest;
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: color,
+        borderRadius: BorderRadius.circular(radius),
+      ),
+    );
+  }
+}
+
+class _AgentSkeletonCard extends StatelessWidget {
+  final int rows;
+  final double height;
+
+  const _AgentSkeletonCard({this.rows = 3, this.height = 118});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: SizedBox(
+          height: height,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              const _AgentSkeletonBlock(width: 150, height: 18),
+              for (var index = 0; index < rows; index++)
+                _AgentSkeletonBlock(
+                  width: index.isEven ? 240 : 190,
+                  height: 13,
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentSkeletonList extends StatelessWidget {
+  final int rows;
+
+  const _AgentSkeletonList({this.rows = 3});
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var index = 0; index < rows; index++)
+          Card(
+            margin: const EdgeInsets.only(bottom: 12),
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const _AgentSkeletonBlock(
+                    width: 44,
+                    height: 44,
+                    radius: 22,
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _AgentSkeletonBlock(width: 150, height: 15),
+                        SizedBox(height: 10),
+                        _AgentSkeletonBlock(width: 110, height: 12),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  _AgentSkeletonBlock(
+                      width: index.isEven ? 82 : 62, height: 15),
+                ],
+              ),
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+class AgentSplashScreen extends StatelessWidget {
+  const AgentSplashScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(gradient: AppTheme.brandGradient),
+        child: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(30),
+                child: Image.asset(
+                  'assets/cloud9_agent_icon.png',
+                  width: 112,
+                  height: 112,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              const SizedBox(height: 22),
+              Text(
+                'Cloud 9 Agent',
+                style: theme.textTheme.headlineSmall?.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: -0.4,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Operations made simple',
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.white.withValues(alpha: 0.82),
+                ),
+              ),
+              const SizedBox(height: 28),
+              const SizedBox(
+                width: 180,
+                child: _AgentSkeletonBlock(
+                  height: 8,
+                  radius: 99,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }

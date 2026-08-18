@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'agent/core/agent_router.dart';
+import 'agent/presentation/screens/agent_home_screen.dart';
 import 'core/i18n/app_localizations.dart';
 import 'core/i18n/locale_provider.dart';
 import 'core/theme/app_theme.dart';
@@ -53,14 +54,21 @@ class _AgentAppState extends ConsumerState<AgentApp>
     final router = ref.watch(agentRouterProvider);
     final locale = ref.watch(localeProvider);
     final themeMode = ref.watch(themeModeProvider);
+    final authState = ref.watch(authNotifierProvider);
 
     return MaterialApp.router(
-      onGenerateTitle: (context) => 'Agent',
+      onGenerateTitle: (context) => 'Cloud 9 Agent',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: themeMode,
       routerConfig: router,
+      builder: (context, child) {
+        if (authState.isLoading) {
+          return const AgentSplashScreen();
+        }
+        return child ?? const SizedBox.shrink();
+      },
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: AppLocalizations.localizationsDelegates,
