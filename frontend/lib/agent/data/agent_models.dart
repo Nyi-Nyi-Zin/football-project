@@ -1,3 +1,6 @@
+import '../../features/payment/data/models/payment_model.dart';
+import '../../features/payment/domain/entities/payment_entity.dart';
+
 class AgentWithdrawalItem {
   final String requestId;
   final String transactionId;
@@ -76,6 +79,61 @@ class AgentCustomerSummary {
       status: json['status'] as String? ?? 'active',
       balance: (json['balance'] as num?)?.toDouble() ?? 0,
       createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    );
+  }
+}
+
+class AgentCustomerActivity {
+  final List<Transaction> transactions;
+  final List<AgentWithdrawalItem> withdrawals;
+
+  const AgentCustomerActivity({
+    required this.transactions,
+    required this.withdrawals,
+  });
+
+  factory AgentCustomerActivity.fromJson(Map<String, dynamic> json) {
+    return AgentCustomerActivity(
+      transactions: (json['transactions'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map((json) => TransactionModel.fromJson(json).toEntity())
+          .toList(),
+      withdrawals: (json['withdrawals'] as List<dynamic>? ?? const [])
+          .whereType<Map<String, dynamic>>()
+          .map(AgentWithdrawalItem.fromJson)
+          .toList(),
+    );
+  }
+}
+
+class AgentDashboardSummary {
+  final double availableBalance;
+  final double reservedBalance;
+  final String currency;
+  final int pendingPayouts;
+  final double todayDeposits;
+  final double todayPayouts;
+  final int recentTransactions;
+
+  const AgentDashboardSummary({
+    required this.availableBalance,
+    required this.reservedBalance,
+    required this.currency,
+    required this.pendingPayouts,
+    required this.todayDeposits,
+    required this.todayPayouts,
+    required this.recentTransactions,
+  });
+
+  factory AgentDashboardSummary.fromJson(Map<String, dynamic> json) {
+    return AgentDashboardSummary(
+      availableBalance: (json['available_balance'] as num?)?.toDouble() ?? 0,
+      reservedBalance: (json['reserved_balance'] as num?)?.toDouble() ?? 0,
+      currency: json['currency'] as String? ?? 'MMK',
+      pendingPayouts: (json['pending_payouts'] as num?)?.toInt() ?? 0,
+      todayDeposits: (json['today_deposits'] as num?)?.toDouble() ?? 0,
+      todayPayouts: (json['today_payouts'] as num?)?.toDouble() ?? 0,
+      recentTransactions: (json['recent_transactions'] as num?)?.toInt() ?? 0,
     );
   }
 }

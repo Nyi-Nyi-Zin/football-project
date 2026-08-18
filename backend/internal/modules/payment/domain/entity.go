@@ -41,6 +41,7 @@ const (
 	WithdrawalRequestPending  WithdrawalRequestStatus = "pending"
 	WithdrawalRequestApproved WithdrawalRequestStatus = "approved"
 	WithdrawalRequestRejected WithdrawalRequestStatus = "rejected"
+	WithdrawalRequestExpired  WithdrawalRequestStatus = "expired"
 )
 
 // Transaction represents a financial transaction
@@ -129,6 +130,21 @@ type TransactionFilter struct {
 	UserID string
 	Type   TransactionType
 	Status TransactionStatus
+}
+
+type AgentDashboardSummary struct {
+	AvailableBalance   float64 `json:"available_balance"`
+	ReservedBalance    float64 `json:"reserved_balance"`
+	Currency           string  `json:"currency"`
+	PendingPayouts     int     `json:"pending_payouts"`
+	TodayDeposits      float64 `json:"today_deposits"`
+	TodayPayouts       float64 `json:"today_payouts"`
+	RecentTransactions int     `json:"recent_transactions"`
+}
+
+type AgentCustomerActivity struct {
+	Transactions []*Transaction       `json:"transactions"`
+	Withdrawals  []*WithdrawalRequest `json:"withdrawals"`
 }
 
 type ReconciliationTotals struct {

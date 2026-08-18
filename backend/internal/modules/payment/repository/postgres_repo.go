@@ -63,6 +63,56 @@ func (r *postgresTransactionRepo) FindByUser(ctx context.Context, userID string,
 	return txs, total, nil
 }
 
+func (r *postgresTransactionRepo) ListAgentCustomerTransactions(ctx context.Context, agentID, customerID string, page, limit int) ([]*domain.Transaction, int64, error) {
+	var txs []*domain.Transaction
+	var total int64
+
+	query := r.db.WithContext(ctx).Model(&domain.Transaction{}).Where(
+		"((user_id = ? AND (from_user_id = ? OR to_user_id = ?)) OR (user_id = ? AND from_user_id = ? AND to_user_id = ?))",
+		customerID, agentID, agentID, agentID, agentID, customerID,
+	)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAgentCustomerTransactions: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Offset(offset).Limit(limit).Order("created_at DESC").Find(&txs).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAgentCustomerTransactions: find: %w", err)
+	}
+	return txs, total, nil
+}
+
+func (r *postgresTransactionRepo) GetAgentDashboardStats(ctx context.Context, agentID string) (int, float64, float64, int, error) {
+	var row struct {
+		PendingPayouts     int     `gorm:"column:pending_payouts"`
+		TodayDeposits      float64 `gorm:"column:today_deposits"`
+		TodayPayouts       float64 `gorm:"column:today_payouts"`
+		RecentTransactions int     `gorm:"column:recent_transactions"`
+	}
+
+	err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			(SELECT COUNT(*) FROM payments.withdrawal_requests
+			 WHERE agent_id = ? AND status = 'pending') AS pending_payouts,
+			COALESCE((SELECT SUM(amount) FROM payments.transactions
+			 WHERE user_id = ? AND type = ? AND status = ?
+			 AND created_at >= CURRENT_DATE), 0) AS today_deposits,
+			COALESCE((SELECT SUM(amount) FROM payments.transactions
+			 WHERE user_id = ? AND type = ? AND status = ?
+			 AND created_at >= CURRENT_DATE), 0) AS today_payouts,
+			(SELECT COUNT(*) FROM payments.transactions WHERE user_id = ?) AS recent_transactions
+	`,
+		agentID,
+		agentID, domain.TransactionAgentCustomerDeposit, domain.TransactionCompleted,
+		agentID, domain.TransactionAgentPayout, domain.TransactionCompleted,
+		agentID,
+	).Scan(&row).Error
+	if err != nil {
+		return 0, 0, 0, 0, fmt.Errorf("transactionRepo.GetAgentDashboardStats: %w", err)
+	}
+	return row.PendingPayouts, row.TodayDeposits, row.TodayPayouts, row.RecentTransactions, nil
+}
+
 func (r *postgresTransactionRepo) ListAll(ctx context.Context, filter domain.TransactionFilter, page, limit int) ([]*domain.Transaction, int64, error) {
 	var txs []*domain.Transaction
 	var total int64
@@ -234,6 +284,26 @@ func (r *postgresTransactionRepo) ListAssignedWithdrawals(ctx context.Context, a
 	return reqs, total, nil
 }
 
+func (r *postgresTransactionRepo) ListAgentCustomerWithdrawals(ctx context.Context, agentID, customerID string, page, limit int) ([]*domain.WithdrawalRequest, int64, error) {
+	var reqs []*domain.WithdrawalRequest
+	var total int64
+
+	query := r.db.WithContext(ctx).
+		Table("payments.withdrawal_requests AS withdrawal_requests").
+		Joins("LEFT JOIN users.accounts AS customer ON customer.id = withdrawal_requests.customer_id").
+		Where("withdrawal_requests.agent_id = ? AND withdrawal_requests.customer_id = ?", agentID, customerID)
+	if err := query.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAgentCustomerWithdrawals: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := query.Select("withdrawal_requests.*, customer.full_name AS customer_name").
+		Offset(offset).Limit(limit).Order("withdrawal_requests.created_at DESC").Find(&reqs).Error; err != nil {
+		return nil, 0, fmt.Errorf("transactionRepo.ListAgentCustomerWithdrawals: find: %w", err)
+	}
+	return reqs, total, nil
+}
+
 func (r *postgresTransactionRepo) ListCustomerWithdrawals(ctx context.Context, customerID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequest, int64, error) {
 	var reqs []*domain.WithdrawalRequest
 	var total int64
@@ -267,6 +337,19 @@ func (r *postgresTransactionRepo) UpdateWithdrawalRequestStatus(ctx context.Cont
 		return fmt.Errorf("transactionRepo.UpdateWithdrawalRequestStatus: %w", result.Error)
 	}
 	return nil
+}
+
+func (r *postgresTransactionRepo) ExpireWithdrawalRequest(ctx context.Context, requestID string, expiredAt time.Time) (bool, error) {
+	result := r.db.WithContext(ctx).Model(&domain.WithdrawalRequest{}).
+		Where("(id = ? OR transaction_id = ?) AND status = ?", requestID, requestID, domain.WithdrawalRequestPending).
+		Updates(map[string]interface{}{
+			"status":       domain.WithdrawalRequestExpired,
+			"cancelled_at": expiredAt,
+		})
+	if result.Error != nil {
+		return false, fmt.Errorf("transactionRepo.ExpireWithdrawalRequest: %w", result.Error)
+	}
+	return result.RowsAffected == 1, nil
 }
 
 func (r *postgresTransactionRepo) CreateWithdrawalAuditLog(ctx context.Context, audit *domain.WithdrawalAuditLog) error {

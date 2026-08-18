@@ -364,6 +364,48 @@ func (uc *PaymentUseCase) GetReservedBalanceTotal(ctx context.Context) (float64,
 	return roundMoney(total), nil
 }
 
+// GetAgentCustomerActivity returns only activity shared between an Agent and customer.
+func (uc *PaymentUseCase) GetAgentCustomerActivity(ctx context.Context, agentID, customerID string) (*domain.AgentCustomerActivity, error) {
+	transactions, _, err := uc.txRepo.ListAgentCustomerTransactions(ctx, agentID, customerID, 1, 50)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentCustomerActivity: transactions: %w", err)
+	}
+	withdrawals, _, err := uc.txRepo.ListAgentCustomerWithdrawals(ctx, agentID, customerID, 1, 50)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentCustomerActivity: withdrawals: %w", err)
+	}
+	if len(transactions) == 0 && len(withdrawals) == 0 {
+		return nil, apperrors.NewNotFoundError("Customer is not connected to this Agent")
+	}
+	return &domain.AgentCustomerActivity{
+		Transactions: transactions,
+		Withdrawals:  withdrawals,
+	}, nil
+}
+
+// GetAgentDashboardSummary returns agent-scoped wallet and daily operation metrics.
+func (uc *PaymentUseCase) GetAgentDashboardSummary(ctx context.Context, agentID string) (*domain.AgentDashboardSummary, error) {
+	wallet, err := uc.GetWallet(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentDashboardSummary: wallet: %w", err)
+	}
+
+	pending, todayDeposits, todayPayouts, recent, err := uc.txRepo.GetAgentDashboardStats(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentDashboardSummary: stats: %w", err)
+	}
+
+	return &domain.AgentDashboardSummary{
+		AvailableBalance:   roundMoney(wallet.Balance - wallet.ReservedBalance),
+		ReservedBalance:    roundMoney(wallet.ReservedBalance),
+		Currency:           wallet.Currency,
+		PendingPayouts:     pending,
+		TodayDeposits:      roundMoney(todayDeposits),
+		TodayPayouts:       roundMoney(todayPayouts),
+		RecentTransactions: recent,
+	}, nil
+}
+
 // GetTransactions returns paginated transactions for a user
 func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, page, limit int) ([]*domain.Transaction, int64, error) {
 	txs, total, err := uc.txRepo.FindByUser(ctx, userID, page, limit)
@@ -698,6 +740,40 @@ func (uc *PaymentUseCase) GetCustomerWithdrawals(ctx context.Context, customerID
 	return items, total, nil
 }
 
+func (uc *PaymentUseCase) expireWithdrawalIfNeeded(ctx context.Context, req *domain.WithdrawalRequest) (bool, error) {
+	if req.ExpiresAt == nil || time.Now().UTC().Before(*req.ExpiresAt) {
+		return false, nil
+	}
+
+	now := time.Now().UTC()
+	expired, err := uc.txRepo.ExpireWithdrawalRequest(ctx, req.ID, now)
+	if err != nil {
+		return false, fmt.Errorf("usecase.expireWithdrawalIfNeeded: expire request: %w", err)
+	}
+	if !expired {
+		return true, nil
+	}
+
+	tx, err := uc.txRepo.FindByID(ctx, req.TransactionID)
+	if err != nil {
+		return false, fmt.Errorf("usecase.expireWithdrawalIfNeeded: find transaction: %w", err)
+	}
+	if err := uc.walletRepo.ReleaseReservedBalance(ctx, tx.UserID, tx.Amount); err != nil {
+		return false, fmt.Errorf("usecase.expireWithdrawalIfNeeded: release hold: %w", err)
+	}
+	_ = uc.txRepo.CreateWithdrawalAuditLog(ctx, &domain.WithdrawalAuditLog{
+		TransactionID:       tx.ID,
+		WithdrawalRequestID: &req.ID,
+		ActorRole:           "system",
+		Action:              "withdrawal_expired",
+		Details: domain.JSONMap{
+			"expired_at": now,
+			"status":     string(domain.WithdrawalRequestExpired),
+		},
+	})
+	return true, nil
+}
+
 func (uc *PaymentUseCase) GetAssignedWithdrawalsForAgent(ctx context.Context, agentID string, status domain.WithdrawalRequestStatus, page, limit int) ([]*domain.WithdrawalRequestWithTransaction, int64, error) {
 	reqs, total, err := uc.txRepo.ListAssignedWithdrawals(ctx, agentID, status, page, limit)
 	if err != nil {
@@ -705,6 +781,9 @@ func (uc *PaymentUseCase) GetAssignedWithdrawalsForAgent(ctx context.Context, ag
 	}
 	items := make([]*domain.WithdrawalRequestWithTransaction, 0, len(reqs))
 	for _, req := range reqs {
+		if _, expiryErr := uc.expireWithdrawalIfNeeded(ctx, req); expiryErr != nil {
+			return nil, 0, expiryErr
+		}
 		tx, txErr := uc.txRepo.FindByID(ctx, req.TransactionID)
 		if txErr != nil {
 			return nil, 0, fmt.Errorf("usecase.GetAssignedWithdrawalsForAgent: find tx: %w", txErr)
@@ -728,6 +807,11 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 	}
 	if err := compareCode(req.VerificationCodeHash, code); err != nil {
 		return nil, apperrors.NewBadRequestError("Invalid verification code")
+	}
+	if expired, expiryErr := uc.expireWithdrawalIfNeeded(ctx, req); expiryErr != nil {
+		return nil, expiryErr
+	} else if expired {
+		return nil, apperrors.NewBadRequestError("Withdrawal request expired; ask the customer to submit a new request")
 	}
 
 	tx, err := uc.txRepo.FindByID(ctx, req.TransactionID)
