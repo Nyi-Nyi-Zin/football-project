@@ -426,6 +426,34 @@ func (uc *PaymentUseCase) GetAgentEarningsSummary(ctx context.Context, agentID s
 	return summary, nil
 }
 
+// GetAgentReconciliation returns a wallet-versus-ledger snapshot for a bounded period.
+func (uc *PaymentUseCase) GetAgentReconciliation(ctx context.Context, agentID string, days int) (*domain.AgentReconciliationReport, error) {
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	to := time.Now().UTC()
+	from := to.AddDate(0, 0, -days)
+	report, err := uc.txRepo.GetAgentReconciliation(ctx, agentID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentReconciliation: %w", err)
+	}
+	if report.Currency == "" {
+		report.Currency = "MMK"
+	}
+	report.WalletBalance = roundMoney(report.WalletBalance)
+	report.ReservedBalance = roundMoney(report.ReservedBalance)
+	report.AvailableBalance = roundMoney(report.AvailableBalance)
+	report.LedgerChange = roundMoney(report.LedgerChange)
+	report.Difference = roundMoney(report.Difference)
+	report.DepositAmount = roundMoney(report.DepositAmount)
+	report.PayoutAmount = roundMoney(report.PayoutAmount)
+	report.NetSettlement = roundMoney(report.NetSettlement)
+	return report, nil
+}
+
 // GetTransactions returns paginated transactions for a user
 func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, page, limit int) ([]*domain.Transaction, int64, error) {
 	txs, total, err := uc.txRepo.FindByUser(ctx, userID, page, limit)

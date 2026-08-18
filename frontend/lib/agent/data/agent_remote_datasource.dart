@@ -1,3 +1,5 @@
+import 'package:dio/dio.dart';
+
 import '../../core/network/dio_client.dart';
 import 'agent_models.dart';
 
@@ -19,6 +21,24 @@ class AgentRemoteDataSource {
     );
     final data = response.data['data'] as Map<String, dynamic>? ?? const {};
     return AgentEarningsSummary.fromJson(data);
+  }
+
+  Future<AgentReconciliationReport> getReconciliation({int days = 30}) async {
+    final response = await _client.dio.get(
+      '/agent/reconciliation',
+      queryParameters: {'days': days.clamp(1, 90)},
+    );
+    final data = response.data['data'] as Map<String, dynamic>? ?? const {};
+    return AgentReconciliationReport.fromJson(data);
+  }
+
+  Future<String> getReconciliationCSV({int days = 30}) async {
+    final response = await _client.dio.get<String>(
+      '/agent/reconciliation/export',
+      queryParameters: {'days': days.clamp(1, 90)},
+      options: Options(responseType: ResponseType.plain),
+    );
+    return response.data ?? '';
   }
 
   Future<AgentCustomerActivity> getCustomerActivity(String customerId) async {

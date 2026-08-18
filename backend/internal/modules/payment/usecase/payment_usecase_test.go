@@ -58,6 +58,10 @@ func (f *fakeTxRepo) GetAgentEarningsSummary(_ context.Context, _ string, from, 
 	return &domain.AgentEarningsSummary{From: from, To: to, PeriodDays: int(to.Sub(from).Hours() / 24), Currency: "MMK"}, nil
 }
 
+func (f *fakeTxRepo) GetAgentReconciliation(_ context.Context, agentID string, from, to time.Time) (*domain.AgentReconciliationReport, error) {
+	return &domain.AgentReconciliationReport{AgentID: agentID, From: from, To: to, Currency: "MMK", Reconciled: true}, nil
+}
+
 func (f *fakeTxRepo) ListAll(_ context.Context, _ domain.TransactionFilter, _ int, _ int) ([]*domain.Transaction, int64, error) {
 	return nil, 0, nil
 }
@@ -459,6 +463,26 @@ func TestAgentEarningsSummaryUsesBoundedPeriod(t *testing.T) {
 	}
 	if cappedSummary.PeriodDays != 90 {
 		t.Fatalf("capped period = %d, want 90", cappedSummary.PeriodDays)
+	}
+}
+
+func TestAgentReconciliationUsesBoundedPeriod(t *testing.T) {
+	uc := NewPaymentUseCase(newFakeTxRepo(), &fakeWalletRepo{balances: map[string]float64{}}, event.NewBus(), SecurityOptions{})
+
+	defaultReport, err := uc.GetAgentReconciliation(context.Background(), "agent-1", 0)
+	if err != nil {
+		t.Fatalf("default reconciliation report: %v", err)
+	}
+	if days := int(defaultReport.To.Sub(defaultReport.From).Hours() / 24); days != 30 {
+		t.Fatalf("default period = %d, want 30", days)
+	}
+
+	cappedReport, err := uc.GetAgentReconciliation(context.Background(), "agent-1", 365)
+	if err != nil {
+		t.Fatalf("capped reconciliation report: %v", err)
+	}
+	if days := int(cappedReport.To.Sub(cappedReport.From).Hours() / 24); days != 90 {
+		t.Fatalf("capped period = %d, want 90", days)
 	}
 }
 

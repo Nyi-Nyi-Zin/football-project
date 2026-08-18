@@ -188,6 +188,8 @@ class _AgentDashboardTab extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           const _AgentEarningsCard(),
+          const SizedBox(height: 12),
+          const _AgentReconciliationCard(),
           const SizedBox(height: 20),
           Text(
             'Quick operations',
@@ -1992,5 +1994,184 @@ class _AgentSecurityCardState extends ConsumerState<_AgentSecurityCard> {
         setState(() => _busy = false);
       }
     }
+  }
+}
+
+class _AgentReconciliationCard extends ConsumerWidget {
+  const _AgentReconciliationCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(agentReconciliationProvider);
+    final selectedDays = ref.watch(agentEarningsDaysProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: state.when(
+          loading: () => const SizedBox(
+            height: 120,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.fact_check_outlined),
+            title: const Text('Reconciliation unavailable'),
+            subtitle: Text('$error'),
+            trailing: IconButton(
+              onPressed: () => ref.invalidate(agentReconciliationProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+          ),
+          data: (report) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Wallet reconciliation',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  DropdownButton<int>(
+                    value: selectedDays,
+                    underline: const SizedBox.shrink(),
+                    items: const [7, 30, 90]
+                        .map((days) => DropdownMenuItem<int>(
+                              value: days,
+                              child: Text('$days days'),
+                            ))
+                        .toList(),
+                    onChanged: (days) {
+                      if (days != null) {
+                        ref.read(agentEarningsDaysProvider.notifier).state =
+                            days;
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(
+                    report.reconciled
+                        ? Icons.verified_outlined
+                        : Icons.warning_amber_outlined,
+                    color: report.reconciled ? Colors.green : Colors.orange,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      report.reconciled
+                          ? 'Wallet and ledger are reconciled'
+                          : 'Review discrepancy before settlement',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  TextButton.icon(
+                    onPressed: () => _copyCsv(context, ref, selectedDays),
+                    icon: const Icon(Icons.copy_outlined),
+                    label: const Text('Export CSV'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AgentReconciliationMetric(
+                      label: 'Wallet balance',
+                      value:
+                          '${report.walletBalance.toStringAsFixed(0)} ${report.currency}',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AgentReconciliationMetric(
+                      label: 'Ledger change',
+                      value:
+                          '${report.ledgerChange.toStringAsFixed(0)} ${report.currency}',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AgentReconciliationMetric(
+                      label: 'Difference',
+                      value:
+                          '${report.difference.toStringAsFixed(2)} ${report.currency}',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AgentReconciliationMetric(
+                      label: 'Pending payouts',
+                      value: report.pendingPayouts.toString(),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Text(
+                'Settlement net ${report.netSettlement.toStringAsFixed(0)} ${report.currency} • ${report.transactionCount} transactions',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _copyCsv(BuildContext context, WidgetRef ref, int days) async {
+    try {
+      final csv = await ref
+          .read(agentDataSourceProvider)
+          .getReconciliationCSV(days: days);
+      await Clipboard.setData(ClipboardData(text: csv));
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content: Text('Reconciliation CSV copied to clipboard')),
+        );
+      }
+    } catch (error) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not export reconciliation: $error')),
+        );
+      }
+    }
+  }
+}
+
+class _AgentReconciliationMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AgentReconciliationMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
   }
 }
