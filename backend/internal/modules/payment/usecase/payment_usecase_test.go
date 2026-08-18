@@ -46,6 +46,14 @@ func (f *fakeTxRepo) FindByUser(_ context.Context, _ string, _ int, _ int) ([]*d
 	return nil, 0, nil
 }
 
+func (f *fakeTxRepo) ListAgentCustomerTransactions(_ context.Context, _, _ string, _ int, _ int) ([]*domain.Transaction, int64, error) {
+	return nil, 0, nil
+}
+
+func (f *fakeTxRepo) GetAgentDashboardStats(_ context.Context, _ string) (int, float64, float64, int, error) {
+	return 0, 0, 0, 0, nil
+}
+
 func (f *fakeTxRepo) ListAll(_ context.Context, _ domain.TransactionFilter, _ int, _ int) ([]*domain.Transaction, int64, error) {
 	return nil, 0, nil
 }
@@ -98,6 +106,21 @@ func (f *fakeTxRepo) FindPendingWithdrawalByAgentAndLookup(_ context.Context, ag
 
 func (f *fakeTxRepo) ListAssignedWithdrawals(_ context.Context, _ string, _ domain.WithdrawalRequestStatus, _ int, _ int) ([]*domain.WithdrawalRequest, int64, error) {
 	return nil, 0, nil
+}
+
+func (f *fakeTxRepo) ListAgentCustomerWithdrawals(_ context.Context, _, _ string, _ int, _ int) ([]*domain.WithdrawalRequest, int64, error) {
+	return nil, 0, nil
+}
+
+func (f *fakeTxRepo) ExpireWithdrawalRequest(_ context.Context, requestID string, expiredAt time.Time) (bool, error) {
+	for _, req := range f.withdrawalByID {
+		if (req.ID == requestID || req.TransactionID == requestID) && req.Status == domain.WithdrawalRequestPending {
+			req.Status = domain.WithdrawalRequestExpired
+			req.CancelledAt = &expiredAt
+			return true, nil
+		}
+	}
+	return false, nil
 }
 
 func (f *fakeTxRepo) UpdateWithdrawalRequestStatus(_ context.Context, requestID string, status domain.WithdrawalRequestStatus, verifiedAt *time.Time) error {
@@ -412,5 +435,60 @@ func TestAgentDepositToCustomerDebitsAgentAndCreditsCustomer(t *testing.T) {
 	}
 	if !agentDepositFound {
 		t.Fatal("expected Agent customer deposit transaction")
+	}
+}
+
+func TestExpiredWithdrawalReleasesHoldAndBlocksPayout(t *testing.T) {
+	txRepo := newFakeTxRepo()
+	walletRepo := &fakeWalletRepo{
+		balances: map[string]float64{"customer-1": 100, "agent-1": 0},
+		reserved: map[string]float64{"customer-1": 20},
+	}
+	uc := NewPaymentUseCase(txRepo, walletRepo, event.NewBus(), SecurityOptions{
+		CodePepper:    "pepper",
+		EncryptionKey: "encryption-key",
+	})
+	code := "ABC123"
+	hash, err := hashCode(code)
+	if err != nil {
+		t.Fatalf("hash code: %v", err)
+	}
+	tx := &domain.Transaction{
+		ID:       "tx-expired",
+		UserID:   "customer-1",
+		Type:     domain.TransactionWithdraw,
+		Amount:   20,
+		Currency: "MMK",
+		Status:   domain.TransactionPending,
+	}
+	if err := txRepo.Create(context.Background(), tx); err != nil {
+		t.Fatalf("create transaction: %v", err)
+	}
+	req := &domain.WithdrawalRequest{
+		ID:                   "wr-expired",
+		TransactionID:        tx.ID,
+		CustomerID:           "customer-1",
+		AgentID:              "agent-1",
+		VerificationCodeHash: hash,
+		CodeLookupHash:       uc.lookupHash(code),
+		Status:               domain.WithdrawalRequestPending,
+		ExpiresAt:            func() *time.Time { value := time.Now().UTC().Add(-time.Minute); return &value }(),
+	}
+	if err := txRepo.CreateWithdrawalRequest(context.Background(), req); err != nil {
+		t.Fatalf("create request: %v", err)
+	}
+
+	_, err = uc.VerifyWithdrawalCode(context.Background(), "agent-1", code)
+	if err == nil || !strings.Contains(err.Error(), "expired") {
+		t.Fatalf("expected expired payout error, got %v", err)
+	}
+	if req.Status != domain.WithdrawalRequestExpired {
+		t.Fatalf("request status = %s, want expired", req.Status)
+	}
+	if walletRepo.reserved["customer-1"] != 0 {
+		t.Fatalf("reserved balance = %.2f, want 0", walletRepo.reserved["customer-1"])
+	}
+	if walletRepo.balances["customer-1"] != 100 || walletRepo.balances["agent-1"] != 0 {
+		t.Fatalf("balances changed after expiry: customer=%.2f agent=%.2f", walletRepo.balances["customer-1"], walletRepo.balances["agent-1"])
 	}
 }

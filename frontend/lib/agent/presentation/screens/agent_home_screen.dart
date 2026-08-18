@@ -98,49 +98,76 @@ class _AgentDashboardTab extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final walletState = ref.watch(walletProvider);
+    final dashboardState = ref.watch(agentDashboardProvider);
     final transactionsState = ref.watch(transactionsProvider);
-    final withdrawalsState = ref.watch(agentWithdrawalsProvider);
 
     return RefreshIndicator(
       onRefresh: () async {
-        await ref.read(walletProvider.notifier).fetchBalance();
+        ref.invalidate(agentDashboardProvider);
         ref.invalidate(transactionsProvider);
-        ref.invalidate(agentWithdrawalsProvider);
       },
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
         children: [
-          _AgentDashboardHero(walletState: walletState),
+          _AgentDashboardHero(summaryState: dashboardState),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _AgentMetricCard(
-                  icon: Icons.pending_actions,
-                  label: 'Pending payouts',
-                  value: withdrawalsState.when(
-                    loading: () => '…',
-                    error: (_, __) => '—',
-                    data: (items) => items.length.toString(),
-                  ),
-                  color: Colors.orange,
-                ),
+          dashboardState.when(
+            loading: () => const LinearProgressIndicator(),
+            error: (error, _) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text('Unable to load dashboard metrics: $error'),
               ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: _AgentMetricCard(
-                  icon: Icons.receipt_long,
-                  label: 'Recent entries',
-                  value: transactionsState.when(
-                    loading: () => '…',
-                    error: (_, __) => '—',
-                    data: (items) => items.length.toString(),
-                  ),
-                  color: Colors.deepPurple,
+            ),
+            data: (summary) => Column(
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AgentMetricCard(
+                        icon: Icons.pending_actions,
+                        label: 'Pending payouts',
+                        value: summary.pendingPayouts.toString(),
+                        color: Colors.orange,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AgentMetricCard(
+                        icon: Icons.receipt_long,
+                        label: 'Recent entries',
+                        value: summary.recentTransactions.toString(),
+                        color: Colors.deepPurple,
+                      ),
+                    ),
+                  ],
                 ),
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: _AgentMetricCard(
+                        icon: Icons.arrow_downward,
+                        label: 'Today deposits',
+                        value:
+                            '${summary.todayDeposits.toStringAsFixed(0)} ${summary.currency}',
+                        color: Colors.green,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: _AgentMetricCard(
+                        icon: Icons.arrow_upward,
+                        label: 'Today payouts',
+                        value:
+                            '${summary.todayPayouts.toStringAsFixed(0)} ${summary.currency}',
+                        color: Colors.deepOrange,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
           const SizedBox(height: 20),
           Text(
@@ -209,9 +236,9 @@ class _AgentDashboardTab extends ConsumerWidget {
 }
 
 class _AgentDashboardHero extends StatelessWidget {
-  final AsyncValue<Wallet> walletState;
+  final AsyncValue<AgentDashboardSummary> summaryState;
 
-  const _AgentDashboardHero({required this.walletState});
+  const _AgentDashboardHero({required this.summaryState});
 
   @override
   Widget build(BuildContext context) {
@@ -224,7 +251,7 @@ class _AgentDashboardHero extends StatelessWidget {
             colors: [Color(0xff8050D0), Color(0xffA080E0)],
           ),
         ),
-        child: walletState.when(
+        child: summaryState.when(
           loading: () => const SizedBox(
             height: 116,
             child: Center(
@@ -239,7 +266,7 @@ class _AgentDashboardHero extends StatelessWidget {
             title: Text('Wallet unavailable'),
             subtitle: Text('Open Wallet and retry the balance request.'),
           ),
-          data: (wallet) => Column(
+          data: (summary) => Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
@@ -248,7 +275,7 @@ class _AgentDashboardHero extends StatelessWidget {
               ),
               const SizedBox(height: 8),
               Text(
-                '${wallet.availableBalance.toStringAsFixed(2)} ${wallet.currency}',
+                '${summary.availableBalance.toStringAsFixed(2)} ${summary.currency}',
                 style: const TextStyle(
                   color: Colors.white,
                   fontSize: 30,
@@ -257,7 +284,7 @@ class _AgentDashboardHero extends StatelessWidget {
               ),
               const SizedBox(height: 6),
               Text(
-                'Available balance • reserved ${wallet.reservedBalance.toStringAsFixed(2)} ${wallet.currency}',
+                'Available balance • reserved ${summary.reservedBalance.toStringAsFixed(2)} ${summary.currency}',
                 style: const TextStyle(color: Colors.white70),
               ),
             ],
@@ -410,57 +437,101 @@ class _AgentCustomersTabState extends ConsumerState<_AgentCustomersTab> {
     await showModalBottomSheet<void>(
       context: context,
       showDragHandle: true,
-      builder: (context) => SafeArea(
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                customer.fullName.isEmpty
-                    ? customer.username
-                    : customer.fullName,
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
+      builder: (context) => FutureBuilder<AgentCustomerActivity>(
+        future:
+            ref.read(agentDataSourceProvider).getCustomerActivity(customer.id),
+        builder: (context, activitySnapshot) => SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  customer.fullName.isEmpty
+                      ? customer.username
+                      : customer.fullName,
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 6),
+                Text('${customer.email} • ${customer.status}'),
+                const Divider(height: 24),
+                _CustomerDetailRow(label: 'Customer ID', value: customer.id),
+                _CustomerDetailRow(label: 'Username', value: customer.username),
+                _CustomerDetailRow(label: 'Phone', value: customer.phone),
+                _CustomerDetailRow(
+                  label: 'Balance',
+                  value: '${customer.balance.toStringAsFixed(2)} MMK',
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  'Shared activity',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                ),
+                const SizedBox(height: 8),
+                if (activitySnapshot.connectionState == ConnectionState.waiting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (activitySnapshot.hasError)
+                  Text('Activity unavailable: ${activitySnapshot.error}')
+                else ...[
+                  for (final transaction
+                      in activitySnapshot.data?.transactions ??
+                          const <Transaction>[])
+                    _CustomerActivityRow(
+                      title: transaction.displayType,
+                      subtitle:
+                          '${transaction.status} • ${transaction.createdAt.toLocal().toString().split('.').first}',
+                      amount:
+                          '${transaction.isCredit ? '+' : '-'}${transaction.amount.toStringAsFixed(2)} ${transaction.currency}',
                     ),
-              ),
-              const SizedBox(height: 6),
-              Text('${customer.email} • ${customer.status}'),
-              const Divider(height: 24),
-              _CustomerDetailRow(label: 'Customer ID', value: customer.id),
-              _CustomerDetailRow(label: 'Username', value: customer.username),
-              _CustomerDetailRow(label: 'Phone', value: customer.phone),
-              _CustomerDetailRow(
-                label: 'Balance',
-                value: '${customer.balance.toStringAsFixed(2)} MMK',
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: () async {
-                      await Clipboard.setData(ClipboardData(text: customer.id));
-                      if (context.mounted) {
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(content: Text('Customer ID copied')),
-                        );
-                      }
-                    },
-                    icon: const Icon(Icons.copy),
-                    label: const Text('Copy ID'),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => context.go('/wallet'),
-                      icon: const Icon(Icons.add_card),
-                      label: const Text('Deposit'),
+                  for (final withdrawal in activitySnapshot.data?.withdrawals ??
+                      const <AgentWithdrawalItem>[])
+                    _CustomerActivityRow(
+                      title: 'Withdrawal request',
+                      subtitle:
+                          '${withdrawal.requestStatus} • ${withdrawal.createdAt.toLocal().toString().split('.').first}',
+                      amount:
+                          '${withdrawal.amount.toStringAsFixed(2)} ${withdrawal.currency}',
                     ),
-                  ),
+                  if ((activitySnapshot.data?.transactions.isEmpty ?? true) &&
+                      (activitySnapshot.data?.withdrawals.isEmpty ?? true))
+                    const Text('No shared activity recorded yet.'),
                 ],
-              ),
-            ],
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        await Clipboard.setData(
+                            ClipboardData(text: customer.id));
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Customer ID copied')),
+                          );
+                        }
+                      },
+                      icon: const Icon(Icons.copy),
+                      label: const Text('Copy ID'),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () => context.go('/wallet'),
+                        icon: const Icon(Icons.add_card),
+                        label: const Text('Deposit'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
           ),
         ),
       ),
@@ -1324,6 +1395,50 @@ class _AgentProfileTab extends ConsumerWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _CustomerActivityRow extends StatelessWidget {
+  final String title;
+  final String subtitle;
+  final String amount;
+
+  const _CustomerActivityRow({
+    required this.title,
+    required this.subtitle,
+    required this.amount,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(title,
+                      style: const TextStyle(fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Text(amount, style: const TextStyle(fontWeight: FontWeight.w700)),
+          ],
+        ),
+      ),
     );
   }
 }

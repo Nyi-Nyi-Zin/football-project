@@ -393,6 +393,36 @@ func (h *PaymentHandler) GetCustomerWithdrawals(c echo.Context) error {
 	}))
 }
 
+// AgentGetCustomerActivity handles GET /api/v1/agent/customers/:customer_id/activity.
+func (h *PaymentHandler) AgentGetCustomerActivity(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	customerID := strings.TrimSpace(c.Param("customer_id"))
+	if customerID == "" {
+		appErr := apperrors.NewBadRequestError("Customer ID is required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	activity, err := h.useCase.GetAgentCustomerActivity(c.Request().Context(), agentID, customerID)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to get customer activity")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(activity, nil))
+}
+
+// AgentGetDashboardSummary handles GET /api/v1/agent/dashboard.
+func (h *PaymentHandler) AgentGetDashboardSummary(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	summary, err := h.useCase.GetAgentDashboardSummary(c.Request().Context(), agentID)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent dashboard summary")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(summary, nil))
+}
+
 // AgentGetAssignedWithdrawals handles GET /api/v1/agent/withdrawals
 func (h *PaymentHandler) AgentGetAssignedWithdrawals(c echo.Context) error {
 	agentID := c.Get("user_id").(string)

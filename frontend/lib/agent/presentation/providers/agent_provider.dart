@@ -17,6 +17,12 @@ final agentWithdrawalsProvider =
   return ds.getAssignedWithdrawals(status: status);
 });
 
+final agentDashboardProvider =
+    FutureProvider.autoDispose<AgentDashboardSummary>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  return ds.getDashboardSummary();
+});
+
 final agentCustomerQueryProvider = StateProvider<String>((_) => '');
 
 final agentCustomersProvider =

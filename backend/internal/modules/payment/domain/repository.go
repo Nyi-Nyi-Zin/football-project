@@ -11,6 +11,8 @@ type TransactionRepository interface {
 	FindByID(ctx context.Context, id string) (*Transaction, error)
 	FindByIdempotencyKey(ctx context.Context, key string) (*Transaction, error)
 	FindByUser(ctx context.Context, userID string, page, limit int) ([]*Transaction, int64, error)
+	ListAgentCustomerTransactions(ctx context.Context, agentID, customerID string, page, limit int) ([]*Transaction, int64, error)
+	GetAgentDashboardStats(ctx context.Context, agentID string) (pendingPayouts int, todayDeposits, todayPayouts float64, recentTransactions int, err error)
 	ListAll(ctx context.Context, filter TransactionFilter, page, limit int) ([]*Transaction, int64, error)
 	GetReconciliationTotals(ctx context.Context) (*ReconciliationTotals, error)
 	ListLedgerBalances(ctx context.Context) ([]*UserLedgerBalance, error)
@@ -21,8 +23,10 @@ type TransactionRepository interface {
 	CreateWithdrawalRequest(ctx context.Context, req *WithdrawalRequest) error
 	FindPendingWithdrawalByAgentAndLookup(ctx context.Context, agentID, lookupHash string) (*WithdrawalRequest, error)
 	ListAssignedWithdrawals(ctx context.Context, agentID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
+	ListAgentCustomerWithdrawals(ctx context.Context, agentID, customerID string, page, limit int) ([]*WithdrawalRequest, int64, error)
 	ListCustomerWithdrawals(ctx context.Context, customerID string, status WithdrawalRequestStatus, page, limit int) ([]*WithdrawalRequest, int64, error)
 	UpdateWithdrawalRequestStatus(ctx context.Context, requestID string, status WithdrawalRequestStatus, verifiedAt *time.Time) error
+	ExpireWithdrawalRequest(ctx context.Context, requestID string, expiredAt time.Time) (bool, error)
 	CreateWithdrawalAuditLog(ctx context.Context, audit *WithdrawalAuditLog) error
 
 	// Location-based withdrawal flow. The legacy location methods remain
