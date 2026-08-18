@@ -5,14 +5,17 @@ import (
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
+	"github.com/google/uuid"
 )
 
 // Claims represents the JWT claims
 type Claims struct {
-	UserID    string `json:"user_id"`
-	Email     string `json:"email"`
-	Role      string `json:"role"`
-	TokenType string `json:"token_type"`
+	UserID       string `json:"user_id"`
+	Email        string `json:"email"`
+	Role         string `json:"role"`
+	TokenType    string `json:"token_type"`
+	TokenVersion int    `json:"token_version"`
+	SessionID    string `json:"session_id"`
 	jwt.RegisteredClaims
 }
 
@@ -39,17 +42,25 @@ func NewManager(secret string, expiry, refreshExpiry time.Duration) *Manager {
 	}
 }
 
-// GenerateTokenPair creates a new access + refresh token pair
+// GenerateTokenPair creates a new access + refresh token pair using version 1.
 func (m *Manager) GenerateTokenPair(userID, email, role string) (*TokenPair, error) {
+	return m.GenerateTokenPairWithVersion(userID, email, role, 1)
+}
+
+// GenerateTokenPairWithVersion creates tokens that can be revoked in bulk by version.
+func (m *Manager) GenerateTokenPairWithVersion(userID, email, role string, tokenVersion int) (*TokenPair, error) {
 	now := time.Now()
+	sessionID := uuid.NewString()
 	expiresAt := now.Add(m.expiry)
 
 	// Access token
 	accessClaims := &Claims{
-		UserID:    userID,
-		Email:     email,
-		Role:      role,
-		TokenType: "access",
+		UserID:       userID,
+		Email:        email,
+		Role:         role,
+		TokenType:    "access",
+		TokenVersion: tokenVersion,
+		SessionID:    sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(expiresAt),
 			IssuedAt:  jwt.NewNumericDate(now),
@@ -65,8 +76,10 @@ func (m *Manager) GenerateTokenPair(userID, email, role string) (*TokenPair, err
 
 	// Refresh token
 	refreshClaims := &Claims{
-		UserID:    userID,
-		TokenType: "refresh",
+		UserID:       userID,
+		TokenType:    "refresh",
+		TokenVersion: tokenVersion,
+		SessionID:    sessionID,
 		RegisteredClaims: jwt.RegisteredClaims{
 			ExpiresAt: jwt.NewNumericDate(now.Add(m.refreshExpiry)),
 			IssuedAt:  jwt.NewNumericDate(now),

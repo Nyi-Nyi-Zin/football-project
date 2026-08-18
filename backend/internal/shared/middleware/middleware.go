@@ -60,6 +60,10 @@ func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient, 
 					appErr := apperrors.NewForbiddenError("Account is not active")
 					return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 				}
+				if claims.TokenVersion > 0 && user.TokenVersion > 0 && claims.TokenVersion != user.TokenVersion {
+					appErr := apperrors.NewUnauthorizedError("Session has been revoked")
+					return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+				}
 				// The database is authoritative when a user's role changes after
 				// the access token was issued.
 				effectiveRole = user.Role
@@ -67,6 +71,7 @@ func AuthMiddleware(jwtManager *jwtpkg.Manager, redisClient *cache.RedisClient, 
 
 			// Set user info in context
 			c.Set("user_id", claims.UserID)
+			c.Set("claims", claims)
 
 			c.Set("email", claims.Email)
 			c.Set("role", effectiveRole)

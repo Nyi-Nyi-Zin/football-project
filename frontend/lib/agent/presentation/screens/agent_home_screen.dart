@@ -1733,6 +1733,8 @@ class _AgentProfileTab extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 12),
+        const _AgentSecurityCard(),
+        const SizedBox(height: 12),
         Card(
           child: ListTile(
             leading: const Icon(Icons.logout, color: Colors.red),
@@ -1786,5 +1788,209 @@ class _CustomerActivityRow extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AgentSecurityCard extends ConsumerStatefulWidget {
+  const _AgentSecurityCard();
+
+  @override
+  ConsumerState<_AgentSecurityCard> createState() => _AgentSecurityCardState();
+}
+
+class _AgentSecurityCardState extends ConsumerState<_AgentSecurityCard> {
+  bool _busy = false;
+  late Future<AgentSecuritySession> _sessionFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _sessionFuture = ref.read(agentDataSourceProvider).getSecuritySession();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final session = _sessionFuture;
+    return Card(
+      child: Column(
+        children: [
+          const ListTile(
+            leading: Icon(Icons.security_outlined),
+            title: Text('Security controls'),
+            subtitle: Text('PIN, current session, and device revocation'),
+          ),
+          FutureBuilder<AgentSecuritySession>(
+            future: session,
+            builder: (context, snapshot) {
+              final value = snapshot.data;
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const ListTile(
+                  dense: true,
+                  leading: SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                  title: Text('Checking current session…'),
+                );
+              }
+              return ListTile(
+                dense: true,
+                leading: Icon(
+                  value?.isCurrent == true
+                      ? Icons.verified_user_outlined
+                      : Icons.warning_amber_outlined,
+                  color:
+                      value?.isCurrent == true ? Colors.green : Colors.orange,
+                ),
+                title: Text(value?.isCurrent == true
+                    ? 'Current session is active'
+                    : 'Session status unavailable'),
+                subtitle: value == null
+                    ? null
+                    : Text('Expires ${_formatDate(value.expiresAt)}'),
+              );
+            },
+          ),
+          const Divider(height: 1),
+          ListTile(
+            leading: const Icon(Icons.pin_outlined),
+            title: const Text('Change security PIN'),
+            subtitle:
+                const Text('Protect payout confirmation and sensitive actions'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: _busy ? null : _changePin,
+          ),
+          ListTile(
+            leading:
+                const Icon(Icons.devices_other_outlined, color: Colors.red),
+            title: const Text('Log out all devices',
+                style: TextStyle(color: Colors.red)),
+            subtitle: const Text('Revokes all existing sessions immediately'),
+            onTap: _busy ? null : _logoutAll,
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatDate(DateTime date) {
+    final local = date.toLocal();
+    return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _changePin() async {
+    final current = TextEditingController();
+    final next = TextEditingController();
+    final confirm = TextEditingController();
+    final formKey = GlobalKey<FormState>();
+    final changed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Change security PIN'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: current,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                    labelText: 'Current PIN (optional for first setup)'),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: next,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'New PIN'),
+                validator: (value) =>
+                    value == null || !RegExp(r'^\d{4,8}$').hasMatch(value)
+                        ? 'PIN must contain 4–8 digits'
+                        : null,
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: confirm,
+                obscureText: true,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Confirm new PIN'),
+                validator: (value) =>
+                    value != next.text ? 'PINs do not match' : null,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () async {
+              if (!(formKey.currentState?.validate() ?? false)) return;
+              try {
+                await ref.read(agentDataSourceProvider).changeSecurityPin(
+                      currentPin: current.text,
+                      newPin: next.text,
+                    );
+                if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+              } catch (error) {
+                if (dialogContext.mounted) {
+                  ScaffoldMessenger.of(dialogContext).showSnackBar(
+                    SnackBar(content: Text('Could not change PIN: $error')),
+                  );
+                }
+              }
+            },
+            child: const Text('Save PIN'),
+          ),
+        ],
+      ),
+    );
+    current.dispose();
+    next.dispose();
+    confirm.dispose();
+    if (changed == true && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Security PIN changed successfully')),
+      );
+    }
+  }
+
+  Future<void> _logoutAll() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Log out all devices?'),
+        content: const Text(
+            'All active sessions will be revoked. You will need to sign in again on this device.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Revoke sessions'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    setState(() => _busy = true);
+    try {
+      await ref.read(agentDataSourceProvider).logoutAllDevices();
+      await ref.read(authNotifierProvider.notifier).logout();
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not revoke sessions: $error')),
+        );
+        setState(() => _busy = false);
+      }
+    }
   }
 }

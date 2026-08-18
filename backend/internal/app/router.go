@@ -156,4 +156,7 @@ func RegisterRoutes(
 	agent.GET("/withdrawals", paymentH.AgentGetAssignedWithdrawals)
 	agent.POST("/withdrawals/verify", paymentH.AgentVerifyWithdrawalByCode)
 	agent.POST("/deposits/customer", paymentH.AgentDepositToCustomer)
+	agent.GET("/security/sessions", userH.GetCurrentSecuritySession)
+	agent.POST("/security/pin", userH.ChangeSecurityPIN)
+	agent.POST("/security/logout-all", userH.LogoutAllDevices)
 }

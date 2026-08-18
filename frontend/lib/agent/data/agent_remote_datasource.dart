@@ -128,4 +128,30 @@ class AgentRemoteDataSource {
       response.data['data'] as Map<String, dynamic>? ?? const {},
     );
   }
+
+  Future<AgentSecuritySession> getSecuritySession() async {
+    final response = await _client.dio.get('/agent/security/sessions');
+    final data = response.data['data'] as List<dynamic>? ?? const [];
+    return AgentSecuritySession.fromJson(
+      data.isEmpty ? const {} : data.first as Map<String, dynamic>,
+    );
+  }
+
+  Future<void> changeSecurityPin({
+    String? currentPin,
+    required String newPin,
+  }) async {
+    await _client.dio.post(
+      '/agent/security/pin',
+      data: {
+        if (currentPin != null && currentPin.trim().isNotEmpty)
+          'current_pin': currentPin.trim(),
+        'new_pin': newPin.trim(),
+      },
+    );
+  }
+
+  Future<void> logoutAllDevices() async {
+    await _client.dio.post('/agent/security/logout-all');
+  }
 }

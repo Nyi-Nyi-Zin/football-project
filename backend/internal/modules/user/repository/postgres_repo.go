@@ -57,6 +57,36 @@ func (r *postgresUserRepo) Update(ctx context.Context, user *domain.User) error 
 	return nil
 }
 
+func (r *postgresUserRepo) IncrementTokenVersion(ctx context.Context, userID string) (int, error) {
+	result := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("id = ?", userID).
+		UpdateColumn("token_version", gorm.Expr("COALESCE(token_version, 1) + 1"))
+	if result.Error != nil {
+		return 0, fmt.Errorf("userRepo.IncrementTokenVersion: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return 0, gorm.ErrRecordNotFound
+	}
+	var user domain.User
+	if err := r.db.WithContext(ctx).Select("token_version").Where("id = ?", userID).First(&user).Error; err != nil {
+		return 0, fmt.Errorf("userRepo.IncrementTokenVersion: read: %w", err)
+	}
+	return user.TokenVersion, nil
+}
+
+func (r *postgresUserRepo) UpdateSecurityPINHash(ctx context.Context, userID, pinHash string) error {
+	result := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("id = ?", userID).
+		Update("security_pin_hash", pinHash)
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateSecurityPINHash: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *postgresUserRepo) UpdateStatus(ctx context.Context, userID, status string) error {
 	result := r.db.WithContext(ctx).
 		Model(&domain.User{}).
