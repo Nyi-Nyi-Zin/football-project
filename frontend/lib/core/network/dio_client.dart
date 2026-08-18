@@ -14,6 +14,7 @@ final dioClientProvider = Provider<DioClient>((ref) {
 class DioClient {
   late final Dio _dio;
   late final Dio _refreshDio;
+  late final Dio _healthDio;
   final FlutterSecureStorage _storage = const FlutterSecureStorage();
   Future<bool>? _refreshingFuture;
 
@@ -40,6 +41,16 @@ class DioClient {
         },
       ),
     );
+    _healthDio = Dio(
+      BaseOptions(
+        baseUrl: AppConstants.baseUrl,
+        connectTimeout: AppConstants.connectionTimeout,
+        receiveTimeout: AppConstants.receiveTimeout,
+        headers: const {
+          'Accept': 'application/json',
+        },
+      ),
+    );
 
     _dio.interceptors.addAll([
       _authInterceptor(),
@@ -57,7 +68,7 @@ class DioClient {
   /// Performs a lightweight public health check without changing auth state.
   Future<bool> checkHealth() async {
     try {
-      final response = await _dio.get('/health');
+      final response = await _healthDio.get('/health');
       return response.statusCode == 200;
     } catch (_) {
       return false;

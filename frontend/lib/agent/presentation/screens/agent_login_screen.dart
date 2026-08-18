@@ -94,12 +94,6 @@ class _AgentLoginScreenState extends ConsumerState<AgentLoginScreen> {
                       const SizedBox(height: 10),
                       Text(error, style: const TextStyle(color: Colors.red)),
                     ],
-                    const SizedBox(height: 10),
-                    Text(
-                      'Use an account created by Admin. Demo: agent@example.com',
-                      textAlign: TextAlign.center,
-                      style: Theme.of(context).textTheme.bodySmall,
-                    ),
                     const SizedBox(height: 16),
                     SizedBox(
                       width: double.infinity,
