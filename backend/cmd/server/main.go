@@ -115,7 +115,7 @@ func main() {
 	eventBus := event.NewBus()
 
 	userRepository := userRepo.NewPostgresUserRepo(db)
-	userUC := userUsecase.NewUserUseCase(userRepository, jwtManager, eventBus)
+	userUC := userUsecase.NewUserUseCase(userRepository, jwtManager, eventBus, cfg.Security.WithdrawalDataKey)
 	userH := userHandler.NewUserHandler(userUC)
 
 	txRepository := paymentRepo.NewPostgresTransactionRepo(db)

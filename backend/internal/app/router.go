@@ -162,6 +162,11 @@ func RegisterRoutes(
 	agent.POST("/withdrawals/verify", paymentH.AgentVerifyWithdrawalByCode)
 	agent.POST("/deposits/customer", paymentH.AgentDepositToCustomer)
 	agent.GET("/security/sessions", userH.GetCurrentSecuritySession)
+	agent.GET("/security/2fa", userH.GetTwoFactorStatus)
+	agent.POST("/security/2fa/enroll", userH.BeginTwoFactorEnrollment)
+	agent.POST("/security/2fa/confirm", userH.ConfirmTwoFactorEnrollment)
+	agent.POST("/security/2fa/verify", userH.VerifyTwoFactorCode)
+	agent.POST("/security/2fa/disable", userH.DisableTwoFactor)
 	agent.POST("/security/pin", userH.ChangeSecurityPIN)
 	agent.POST("/security/logout-all", userH.LogoutAllDevices)
 }

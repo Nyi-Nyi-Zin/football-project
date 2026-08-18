@@ -181,6 +181,34 @@ class AgentRemoteDataSource {
     );
   }
 
+  Future<AgentTwoFactorStatus> getTwoFactorStatus() async {
+    final response = await _client.dio.get('/agent/security/2fa');
+    return AgentTwoFactorStatus.fromJson(
+      response.data['data'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  Future<AgentTwoFactorEnrollment> beginTwoFactorEnrollment() async {
+    final response = await _client.dio.post('/agent/security/2fa/enroll');
+    return AgentTwoFactorEnrollment.fromJson(
+      response.data['data'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  Future<void> confirmTwoFactor(String code) async {
+    await _client.dio.post(
+      '/agent/security/2fa/confirm',
+      data: {'code': code.trim()},
+    );
+  }
+
+  Future<void> disableTwoFactor(String code) async {
+    await _client.dio.post(
+      '/agent/security/2fa/disable',
+      data: {'code': code.trim()},
+    );
+  }
+
   Future<void> logoutAllDevices() async {
     await _client.dio.post('/agent/security/logout-all');
   }

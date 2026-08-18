@@ -179,6 +179,98 @@ func (h *UserHandler) ChangePassword(c echo.Context) error {
 	}, nil))
 }
 
+// GetTwoFactorStatus handles GET /api/v1/agent/security/2fa.
+func (h *UserHandler) GetTwoFactorStatus(c echo.Context) error {
+	status, err := h.useCase.GetTwoFactorStatus(c.Request().Context(), c.Get("user_id").(string))
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to get two-factor status")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(status, nil))
+}
+
+// BeginTwoFactorEnrollment handles POST /api/v1/agent/security/2fa/enroll.
+func (h *UserHandler) BeginTwoFactorEnrollment(c echo.Context) error {
+	enrollment, err := h.useCase.BeginTwoFactorEnrollment(c.Request().Context(), c.Get("user_id").(string))
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to begin two-factor enrollment")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(enrollment, nil))
+}
+
+// ConfirmTwoFactorEnrollment handles POST /api/v1/agent/security/2fa/confirm.
+func (h *UserHandler) ConfirmTwoFactorEnrollment(c echo.Context) error {
+	var req domain.TwoFactorCodeRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	status, err := h.useCase.ConfirmTwoFactorEnrollment(c.Request().Context(), c.Get("user_id").(string), &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to confirm two-factor enrollment")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(status, nil))
+}
+
+// VerifyTwoFactorCode handles POST /api/v1/agent/security/2fa/verify.
+func (h *UserHandler) VerifyTwoFactorCode(c echo.Context) error {
+	var req domain.TwoFactorCodeRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	verified, err := h.useCase.VerifyTwoFactorCode(c.Request().Context(), c.Get("user_id").(string), &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to verify two-factor code")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]bool{"verified": verified}, nil))
+}
+
+// DisableTwoFactor handles POST /api/v1/agent/security/2fa/disable.
+func (h *UserHandler) DisableTwoFactor(c echo.Context) error {
+	var req domain.TwoFactorCodeRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	status, err := h.useCase.DisableTwoFactor(c.Request().Context(), c.Get("user_id").(string), &req)
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to disable two-factor authentication")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(status, nil))
+}
+
 // ChangeSecurityPIN handles POST /api/v1/agent/security/pin.
 func (h *UserHandler) ChangeSecurityPIN(c echo.Context) error {
 	var req domain.ChangeSecurityPINRequest
