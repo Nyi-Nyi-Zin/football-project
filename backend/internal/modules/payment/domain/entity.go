@@ -147,6 +147,19 @@ type AgentCustomerActivity struct {
 	Withdrawals  []*WithdrawalRequest `json:"withdrawals"`
 }
 
+type AgentEarningsSummary struct {
+	PeriodDays         int       `json:"period_days"`
+	From               time.Time `json:"from"`
+	To                 time.Time `json:"to"`
+	Currency           string    `json:"currency"`
+	DepositCount       int       `json:"deposit_count"`
+	DepositAmount      float64   `json:"deposit_amount"`
+	PayoutCount        int       `json:"payout_count"`
+	PayoutAmount       float64   `json:"payout_amount"`
+	NetSettlement      float64   `json:"net_settlement"`
+	PendingPayoutCount int       `json:"pending_payout_count"`
+}
+
 type ReconciliationTotals struct {
 	TotalTransactions  int64   `json:"total_transactions"`
 	TotalDeposits      float64 `json:"total_deposits"`

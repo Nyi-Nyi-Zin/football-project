@@ -423,6 +423,28 @@ func (h *PaymentHandler) AgentGetDashboardSummary(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(summary, nil))
 }
 
+// AgentGetEarningsSummary handles GET /api/v1/agent/earnings.
+func (h *PaymentHandler) AgentGetEarningsSummary(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	days, err := strconv.Atoi(c.QueryParam("days"))
+	if err != nil && c.QueryParam("days") != "" {
+		appErr := apperrors.NewBadRequestError("days must be a number")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	summary, err := h.useCase.GetAgentEarningsSummary(c.Request().Context(), agentID, days)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent earnings summary")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(summary, nil))
+}
+
 // AgentGetAssignedWithdrawals handles GET /api/v1/agent/withdrawals
 func (h *PaymentHandler) AgentGetAssignedWithdrawals(c echo.Context) error {
 	agentID := c.Get("user_id").(string)

@@ -406,6 +406,26 @@ func (uc *PaymentUseCase) GetAgentDashboardSummary(ctx context.Context, agentID 
 	}, nil
 }
 
+// GetAgentEarningsSummary returns settled agent ledger activity for a bounded reporting period.
+func (uc *PaymentUseCase) GetAgentEarningsSummary(ctx context.Context, agentID string, days int) (*domain.AgentEarningsSummary, error) {
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	to := time.Now().UTC()
+	from := to.AddDate(0, 0, -days)
+	summary, err := uc.txRepo.GetAgentEarningsSummary(ctx, agentID, from, to)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentEarningsSummary: %w", err)
+	}
+	if summary.Currency == "" {
+		summary.Currency = "MMK"
+	}
+	return summary, nil
+}
+
 // GetTransactions returns paginated transactions for a user
 func (uc *PaymentUseCase) GetTransactions(ctx context.Context, userID string, page, limit int) ([]*domain.Transaction, int64, error) {
 	txs, total, err := uc.txRepo.FindByUser(ctx, userID, page, limit)

@@ -135,6 +135,8 @@ func RegisterRoutes(
 	agent := protected.Group("/agent")
 	agent.Use(middleware.RequireRole("agent"))
 	agent.GET("/dashboard", paymentH.AgentGetDashboardSummary)
+	agent.GET("/earnings", paymentH.AgentGetEarningsSummary)
+
 	agent.GET("/customers/:customer_id/activity", paymentH.AgentGetCustomerActivity)
 	agent.GET("/customers", userH.ListAgentCustomers)
 	agent.GET("/withdrawals", paymentH.AgentGetAssignedWithdrawals)

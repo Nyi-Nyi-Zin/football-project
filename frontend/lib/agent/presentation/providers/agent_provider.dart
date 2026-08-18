@@ -23,6 +23,15 @@ final agentDashboardProvider =
   return ds.getDashboardSummary();
 });
 
+final agentEarningsDaysProvider = StateProvider<int>((_) => 30);
+
+final agentEarningsProvider =
+    FutureProvider.autoDispose<AgentEarningsSummary>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  final days = ref.watch(agentEarningsDaysProvider);
+  return ds.getEarnings(days: days);
+});
+
 final agentCustomerQueryProvider = StateProvider<String>((_) => '');
 
 final agentCustomersProvider =

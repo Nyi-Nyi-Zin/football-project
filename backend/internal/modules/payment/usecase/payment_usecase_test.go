@@ -54,6 +54,10 @@ func (f *fakeTxRepo) GetAgentDashboardStats(_ context.Context, _ string) (int, f
 	return 0, 0, 0, 0, nil
 }
 
+func (f *fakeTxRepo) GetAgentEarningsSummary(_ context.Context, _ string, from, to time.Time) (*domain.AgentEarningsSummary, error) {
+	return &domain.AgentEarningsSummary{From: from, To: to, PeriodDays: int(to.Sub(from).Hours() / 24), Currency: "MMK"}, nil
+}
+
 func (f *fakeTxRepo) ListAll(_ context.Context, _ domain.TransactionFilter, _ int, _ int) ([]*domain.Transaction, int64, error) {
 	return nil, 0, nil
 }
@@ -435,6 +439,26 @@ func TestAgentDepositToCustomerDebitsAgentAndCreditsCustomer(t *testing.T) {
 	}
 	if !agentDepositFound {
 		t.Fatal("expected Agent customer deposit transaction")
+	}
+}
+
+func TestAgentEarningsSummaryUsesBoundedPeriod(t *testing.T) {
+	uc := NewPaymentUseCase(newFakeTxRepo(), &fakeWalletRepo{balances: map[string]float64{}}, event.NewBus(), SecurityOptions{})
+
+	defaultSummary, err := uc.GetAgentEarningsSummary(context.Background(), "agent-1", 0)
+	if err != nil {
+		t.Fatalf("default earnings summary: %v", err)
+	}
+	if defaultSummary.PeriodDays != 30 {
+		t.Fatalf("default period = %d, want 30", defaultSummary.PeriodDays)
+	}
+
+	cappedSummary, err := uc.GetAgentEarningsSummary(context.Background(), "agent-1", 365)
+	if err != nil {
+		t.Fatalf("capped earnings summary: %v", err)
+	}
+	if cappedSummary.PeriodDays != 90 {
+		t.Fatalf("capped period = %d, want 90", cappedSummary.PeriodDays)
 	}
 }
 

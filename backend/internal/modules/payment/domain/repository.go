@@ -13,6 +13,7 @@ type TransactionRepository interface {
 	FindByUser(ctx context.Context, userID string, page, limit int) ([]*Transaction, int64, error)
 	ListAgentCustomerTransactions(ctx context.Context, agentID, customerID string, page, limit int) ([]*Transaction, int64, error)
 	GetAgentDashboardStats(ctx context.Context, agentID string) (pendingPayouts int, todayDeposits, todayPayouts float64, recentTransactions int, err error)
+	GetAgentEarningsSummary(ctx context.Context, agentID string, from, to time.Time) (*AgentEarningsSummary, error)
 	ListAll(ctx context.Context, filter TransactionFilter, page, limit int) ([]*Transaction, int64, error)
 	GetReconciliationTotals(ctx context.Context) (*ReconciliationTotals, error)
 	ListLedgerBalances(ctx context.Context) ([]*UserLedgerBalance, error)

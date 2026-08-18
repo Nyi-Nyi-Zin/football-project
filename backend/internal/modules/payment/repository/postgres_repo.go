@@ -113,6 +113,42 @@ func (r *postgresTransactionRepo) GetAgentDashboardStats(ctx context.Context, ag
 	return row.PendingPayouts, row.TodayDeposits, row.TodayPayouts, row.RecentTransactions, nil
 }
 
+func (r *postgresTransactionRepo) GetAgentEarningsSummary(ctx context.Context, agentID string, from, to time.Time) (*domain.AgentEarningsSummary, error) {
+	var summary domain.AgentEarningsSummary
+	if err := r.db.WithContext(ctx).Raw(`
+		SELECT
+			COALESCE(MAX(currency), 'MMK') AS currency,
+			COUNT(*) FILTER (WHERE type = ? AND status = ?) AS deposit_count,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS deposit_amount,
+			COUNT(*) FILTER (WHERE type = ? AND status = ?) AS payout_count,
+			COALESCE(SUM(CASE WHEN type = ? AND status = ? THEN amount ELSE 0 END), 0) AS payout_amount
+		FROM payments.transactions
+		WHERE user_id = ? AND created_at >= ? AND created_at < ?
+	`,
+		domain.TransactionAgentCustomerDeposit, domain.TransactionCompleted,
+		domain.TransactionAgentCustomerDeposit, domain.TransactionCompleted,
+		domain.TransactionAgentPayout, domain.TransactionCompleted,
+		domain.TransactionAgentPayout, domain.TransactionCompleted,
+		agentID, from, to,
+	).Scan(&summary).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.GetAgentEarningsSummary: %w", err)
+	}
+
+	if err := r.db.WithContext(ctx).Raw(`
+		SELECT COUNT(*)
+		FROM payments.withdrawal_requests
+		WHERE agent_id = ? AND status = ?
+	`, agentID, domain.WithdrawalRequestPending).Scan(&summary.PendingPayoutCount).Error; err != nil {
+		return nil, fmt.Errorf("transactionRepo.GetAgentEarningsSummary: pending payouts: %w", err)
+	}
+
+	summary.From = from
+	summary.To = to
+	summary.PeriodDays = int(to.Sub(from).Hours() / 24)
+	summary.NetSettlement = summary.PayoutAmount - summary.DepositAmount
+	return &summary, nil
+}
+
 func (r *postgresTransactionRepo) ListAll(ctx context.Context, filter domain.TransactionFilter, page, limit int) ([]*domain.Transaction, int64, error) {
 	var txs []*domain.Transaction
 	var total int64
