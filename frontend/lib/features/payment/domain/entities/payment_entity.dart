@@ -46,7 +46,8 @@ class Transaction extends Equatable {
       type == 'deposit' ||
       type == 'bet_win' ||
       type == 'cash_out' ||
-      type == 'refund';
+      type == 'refund' ||
+      type == 'agent_payout';
 
   bool get isDebit => !isCredit;
 

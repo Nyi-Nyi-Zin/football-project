@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
+import '../../../features/payment/presentation/providers/payment_provider.dart';
 import '../../../features/payment/presentation/providers/withdrawal_provider.dart';
 import '../providers/agent_provider.dart';
 
@@ -327,6 +328,8 @@ class _AgentWithdrawalsScreenState
     setState(() => _submitting = true);
     try {
       await ref.read(agentDataSourceProvider).verifyWithdrawalCode(code);
+      await ref.read(walletProvider.notifier).fetchBalance();
+      await ref.refresh(transactionsProvider.future).then<void>((_) {});
       _codeCtrl.clear();
       ref.invalidate(agentWithdrawalsProvider);
       if (!mounted) return;
