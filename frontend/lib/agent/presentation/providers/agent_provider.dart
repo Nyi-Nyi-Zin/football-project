@@ -10,8 +10,18 @@ final agentDataSourceProvider = Provider<AgentRemoteDataSource>((ref) {
 
 final agentWithdrawStatusProvider = StateProvider<String>((_) => 'pending');
 
-final agentWithdrawalsProvider = FutureProvider.autoDispose<List<AgentWithdrawalItem>>((ref) async {
+final agentWithdrawalsProvider =
+    FutureProvider.autoDispose<List<AgentWithdrawalItem>>((ref) async {
   final ds = ref.read(agentDataSourceProvider);
   final status = ref.watch(agentWithdrawStatusProvider);
   return ds.getAssignedWithdrawals(status: status);
+});
+
+final agentCustomerQueryProvider = StateProvider<String>((_) => '');
+
+final agentCustomersProvider =
+    FutureProvider.autoDispose<List<AgentCustomerSummary>>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  final query = ref.watch(agentCustomerQueryProvider);
+  return ds.getCustomers(query: query);
 });

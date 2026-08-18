@@ -153,6 +153,42 @@ func (r *postgresUserRepo) CountPendingWithdrawalsByAgent(ctx context.Context, a
 	return int(total), nil
 }
 
+func (r *postgresUserRepo) ListAgentCustomers(ctx context.Context, agentID, query string, page, limit int) ([]*domain.User, int64, error) {
+	var users []*domain.User
+	base := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("role = ?", "user").
+		Where(`(
+			EXISTS (
+				SELECT 1 FROM payments.withdrawal_requests wr
+				WHERE wr.agent_id = ? AND wr.customer_id = users.accounts.id
+			)
+			OR EXISTS (
+				SELECT 1 FROM payments.transactions tx
+				WHERE (tx.from_user_id = ? AND tx.to_user_id = users.accounts.id)
+				   OR (tx.to_user_id = ? AND tx.from_user_id = users.accounts.id)
+			)
+		)`, agentID, agentID, agentID)
+
+	if trimmed := strings.TrimSpace(query); trimmed != "" {
+		like := "%" + strings.ToLower(trimmed) + "%"
+		base = base.Where(
+			"LOWER(users.accounts.id::text) LIKE ? OR LOWER(email) LIKE ? OR LOWER(username) LIKE ? OR LOWER(full_name) LIKE ? OR LOWER(phone) LIKE ?",
+			like, like, like, like, like,
+		)
+	}
+
+	var total int64
+	if err := base.Count(&total).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListAgentCustomers: count: %w", err)
+	}
+
+	offset := (page - 1) * limit
+	if err := base.Order("updated_at DESC").Offset(offset).Limit(limit).Find(&users).Error; err != nil {
+		return nil, 0, fmt.Errorf("userRepo.ListAgentCustomers: find: %w", err)
+	}
+	return users, total, nil
+}
+
 // ─── KYC / Verification ─────────────────────────────────────────────────────
 
 func (r *postgresUserRepo) SetEmailVerified(ctx context.Context, userID string, verified bool) error {

@@ -44,3 +44,38 @@ class AgentWithdrawalItem {
     );
   }
 }
+
+class AgentCustomerSummary {
+  final String id;
+  final String username;
+  final String email;
+  final String fullName;
+  final String phone;
+  final String status;
+  final double balance;
+  final DateTime? createdAt;
+
+  const AgentCustomerSummary({
+    required this.id,
+    required this.username,
+    required this.email,
+    required this.fullName,
+    required this.phone,
+    required this.status,
+    required this.balance,
+    required this.createdAt,
+  });
+
+  factory AgentCustomerSummary.fromJson(Map<String, dynamic> json) {
+    return AgentCustomerSummary(
+      id: json['id'] as String? ?? '',
+      username: json['username'] as String? ?? '',
+      email: json['email'] as String? ?? '',
+      fullName: json['full_name'] as String? ?? '',
+      phone: json['phone'] as String? ?? '',
+      status: json['status'] as String? ?? 'active',
+      balance: (json['balance'] as num?)?.toDouble() ?? 0,
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? ''),
+    );
+  }
+}

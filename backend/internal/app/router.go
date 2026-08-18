@@ -134,6 +134,7 @@ func RegisterRoutes(
 	// Agent routes (isolated from admin routes)
 	agent := protected.Group("/agent")
 	agent.Use(middleware.RequireRole("agent"))
+	agent.GET("/customers", userH.ListAgentCustomers)
 	agent.GET("/withdrawals", paymentH.AgentGetAssignedWithdrawals)
 	agent.POST("/withdrawals/verify", paymentH.AgentVerifyWithdrawalByCode)
 	agent.POST("/deposits/customer", paymentH.AgentDepositToCustomer)
