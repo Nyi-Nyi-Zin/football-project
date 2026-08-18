@@ -12,6 +12,15 @@ class AgentRemoteDataSource {
     return AgentDashboardSummary.fromJson(data);
   }
 
+  Future<AgentEarningsSummary> getEarnings({int days = 30}) async {
+    final response = await _client.dio.get(
+      '/agent/earnings',
+      queryParameters: {'days': days.clamp(1, 90)},
+    );
+    final data = response.data['data'] as Map<String, dynamic>? ?? const {};
+    return AgentEarningsSummary.fromJson(data);
+  }
+
   Future<AgentCustomerActivity> getCustomerActivity(String customerId) async {
     final response =
         await _client.dio.get('/agent/customers/$customerId/activity');

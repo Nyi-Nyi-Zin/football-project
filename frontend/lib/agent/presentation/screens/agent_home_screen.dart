@@ -6,6 +6,8 @@ import 'package:go_router/go_router.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/domain/entities/payment_entity.dart';
 import '../../../features/payment/presentation/providers/payment_provider.dart';
+import '../../../features/notification/domain/entities/notification_entity.dart';
+import '../../../features/notification/presentation/providers/notification_provider.dart';
 import '../../data/agent_models.dart';
 import '../providers/agent_provider.dart';
 import 'agent_withdrawals_screen.dart';
@@ -25,7 +27,7 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 4);
+    _selectedIndex = widget.initialIndex.clamp(0, 5);
   }
 
   @override
@@ -35,7 +37,8 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
       'Customers',
       'Agent Wallet',
       'Payouts',
-      'Profile'
+      'Profile',
+      'Notifications',
     ];
     final pages = <Widget>[
       const _AgentDashboardTab(),
@@ -43,6 +46,7 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
       const _AgentWalletTab(),
       const AgentWithdrawalsScreen(embedded: true),
       const _AgentProfileTab(),
+      const _AgentNotificationsTab(),
     ];
 
     return Scaffold(
@@ -86,6 +90,11 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             icon: Icon(Icons.person_outline),
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.notifications_none),
+            selectedIcon: Icon(Icons.notifications),
+            label: 'Alerts',
           ),
         ],
       ),
@@ -169,6 +178,8 @@ class _AgentDashboardTab extends ConsumerWidget {
               ],
             ),
           ),
+          const SizedBox(height: 16),
+          const _AgentEarningsCard(),
           const SizedBox(height: 20),
           Text(
             'Quick operations',
@@ -290,6 +301,156 @@ class _AgentDashboardHero extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _AgentEarningsCard extends ConsumerWidget {
+  const _AgentEarningsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(agentEarningsProvider);
+    final selectedDays = ref.watch(agentEarningsDaysProvider);
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: state.when(
+          loading: () => const SizedBox(
+            height: 150,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.analytics_outlined),
+            title: const Text('Earnings summary unavailable'),
+            subtitle: Text('$error'),
+            trailing: IconButton(
+              onPressed: () => ref.invalidate(agentEarningsProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+          ),
+          data: (summary) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  const Expanded(
+                    child: Text(
+                      'Settlement summary',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  DropdownButton<int>(
+                    value: selectedDays,
+                    underline: const SizedBox.shrink(),
+                    items: const [7, 30, 90]
+                        .map((days) => DropdownMenuItem<int>(
+                              value: days,
+                              child: Text('$days days'),
+                            ))
+                        .toList(),
+                    onChanged: (days) {
+                      if (days != null) {
+                        ref.read(agentEarningsDaysProvider.notifier).state =
+                            days;
+                      }
+                    },
+                  ),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Settled ledger activity; commission rules are not applied yet.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AgentEarningsMetric(
+                      label: 'Customer deposits',
+                      value:
+                          '${summary.depositAmount.toStringAsFixed(0)} ${summary.currency}',
+                      count: summary.depositCount,
+                      color: Colors.deepOrange,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: _AgentEarningsMetric(
+                      label: 'Payouts received',
+                      value:
+                          '${summary.payoutAmount.toStringAsFixed(0)} ${summary.currency}',
+                      count: summary.payoutCount,
+                      color: Colors.green,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.account_balance_outlined),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        'Net settlement: ${summary.netSettlement.toStringAsFixed(0)} ${summary.currency}',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text('${summary.pendingPayoutCount} pending'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentEarningsMetric extends StatelessWidget {
+  final String label;
+  final String value;
+  final int count;
+  final Color color;
+
+  const _AgentEarningsMetric({
+    required this.label,
+    required this.value,
+    required this.count,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          Text('$count transactions',
+              style: Theme.of(context).textTheme.labelSmall),
+        ],
       ),
     );
   }
@@ -1304,6 +1465,183 @@ class _DetailRow extends StatelessWidget {
         ],
       ),
     );
+  }
+}
+
+class _AgentNotificationsTab extends ConsumerWidget {
+  const _AgentNotificationsTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final notifications = ref.watch(notificationProvider);
+    final unreadCount = ref.watch(unreadNotificationCountProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        ref.invalidate(unreadNotificationCountProvider);
+        await ref.read(notificationProvider.notifier).loadNotifications();
+      },
+      child: notifications.when(
+        loading: () => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          children: const [
+            SizedBox(height: 220),
+            Center(child: CircularProgressIndicator()),
+          ],
+        ),
+        error: (error, _) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.all(24),
+          children: const [
+            SizedBox(height: 160),
+            Icon(Icons.notifications_off_outlined,
+                size: 56, color: Colors.grey),
+            SizedBox(height: 12),
+            Center(child: Text('Unable to load notifications')),
+          ],
+        ),
+        data: (items) => ListView(
+          physics: const AlwaysScrollableScrollPhysics(),
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+          children: [
+            Row(
+              children: [
+                const Expanded(
+                  child: Text(
+                    'Operations alerts',
+                    style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700),
+                  ),
+                ),
+                unreadCount.when(
+                  data: (count) => count == 0
+                      ? const SizedBox.shrink()
+                      : TextButton(
+                          onPressed: () async {
+                            await ref
+                                .read(notificationProvider.notifier)
+                                .markAllAsRead();
+                            ref.invalidate(unreadNotificationCountProvider);
+                          },
+                          child: const Text('Mark all read'),
+                        ),
+                  loading: () => const SizedBox.shrink(),
+                  error: (_, __) => const SizedBox.shrink(),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (items.isEmpty)
+              const Padding(
+                padding: EdgeInsets.only(top: 120),
+                child: Center(child: Text('No notifications yet')),
+              ),
+            for (final item in items)
+              _AgentNotificationCard(
+                item: item,
+                onRead: () async {
+                  if (!item.isRead) {
+                    await ref
+                        .read(notificationProvider.notifier)
+                        .markAsRead(item.id);
+                    ref.invalidate(unreadNotificationCountProvider);
+                  }
+                },
+                onDelete: () async {
+                  await ref
+                      .read(notificationProvider.notifier)
+                      .deleteNotification(item.id);
+                  ref.invalidate(unreadNotificationCountProvider);
+                },
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentNotificationCard extends StatelessWidget {
+  final NotificationItem item;
+  final VoidCallback onRead;
+  final VoidCallback onDelete;
+
+  const _AgentNotificationCard({
+    required this.item,
+    required this.onRead,
+    required this.onDelete,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Card(
+      margin: const EdgeInsets.only(bottom: 12),
+      color: item.isRead
+          ? theme.colorScheme.surface
+          : theme.colorScheme.primaryContainer.withValues(alpha: 0.35),
+      child: ListTile(
+        onTap: onRead,
+        leading: CircleAvatar(
+          backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.12),
+          child:
+              Icon(_iconForType(item.type), color: theme.colorScheme.primary),
+        ),
+        title: Row(
+          children: [
+            Expanded(
+              child: Text(
+                item.title,
+                style: TextStyle(
+                  fontWeight: item.isRead ? FontWeight.w500 : FontWeight.w700,
+                ),
+              ),
+            ),
+            if (!item.isRead)
+              Container(
+                width: 8,
+                height: 8,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primary,
+                  shape: BoxShape.circle,
+                ),
+              ),
+          ],
+        ),
+        subtitle: Padding(
+          padding: const EdgeInsets.only(top: 4),
+          child: Text('${item.message}\\n${_relativeTime(item.createdAt)}'),
+        ),
+        isThreeLine: true,
+        trailing: IconButton(
+          tooltip: 'Delete',
+          onPressed: onDelete,
+          icon: const Icon(Icons.delete_outline),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForType(String type) {
+    switch (type) {
+      case 'deposit':
+        return Icons.add_circle_outline;
+      case 'withdrawal':
+      case 'payout':
+        return Icons.payments_outlined;
+      case 'support':
+        return Icons.support_agent_outlined;
+      default:
+        return Icons.notifications_none;
+    }
+  }
+
+  String _relativeTime(DateTime date) {
+    final difference = DateTime.now().difference(date);
+    if (difference.inMinutes < 1) return 'Just now';
+    if (difference.inHours < 1) return '${difference.inMinutes}m ago';
+    if (difference.inDays < 1) return '${difference.inHours}h ago';
+    if (difference.inDays < 7) return '${difference.inDays}d ago';
+    return '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
   }
 }
 

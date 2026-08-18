@@ -106,6 +106,47 @@ class AgentCustomerActivity {
   }
 }
 
+class AgentEarningsSummary {
+  final int periodDays;
+  final DateTime from;
+  final DateTime to;
+  final String currency;
+  final int depositCount;
+  final double depositAmount;
+  final int payoutCount;
+  final double payoutAmount;
+  final double netSettlement;
+  final int pendingPayoutCount;
+
+  const AgentEarningsSummary({
+    required this.periodDays,
+    required this.from,
+    required this.to,
+    required this.currency,
+    required this.depositCount,
+    required this.depositAmount,
+    required this.payoutCount,
+    required this.payoutAmount,
+    required this.netSettlement,
+    required this.pendingPayoutCount,
+  });
+
+  factory AgentEarningsSummary.fromJson(Map<String, dynamic> json) {
+    return AgentEarningsSummary(
+      periodDays: (json['period_days'] as num?)?.toInt() ?? 30,
+      from: DateTime.tryParse(json['from'] as String? ?? '') ?? DateTime.now(),
+      to: DateTime.tryParse(json['to'] as String? ?? '') ?? DateTime.now(),
+      currency: json['currency'] as String? ?? 'MMK',
+      depositCount: (json['deposit_count'] as num?)?.toInt() ?? 0,
+      depositAmount: (json['deposit_amount'] as num?)?.toDouble() ?? 0,
+      payoutCount: (json['payout_count'] as num?)?.toInt() ?? 0,
+      payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 0,
+      netSettlement: (json['net_settlement'] as num?)?.toDouble() ?? 0,
+      pendingPayoutCount: (json['pending_payout_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}
+
 class AgentDashboardSummary {
   final double availableBalance;
   final double reservedBalance;
