@@ -6,6 +6,25 @@ class AgentRemoteDataSource {
 
   AgentRemoteDataSource(this._client);
 
+  Future<List<AgentCustomerSummary>> getCustomers({
+    String query = '',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/agent/customers',
+      queryParameters: {
+        if (query.trim().isNotEmpty) 'q': query.trim(),
+        'page': page,
+        'limit': limit,
+      },
+    );
+    final data = response.data['data'] as List<dynamic>? ?? const [];
+    return data
+        .map((e) => AgentCustomerSummary.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
   Future<List<AgentWithdrawalItem>> getAssignedWithdrawals({
     String status = 'pending',
     int page = 1,

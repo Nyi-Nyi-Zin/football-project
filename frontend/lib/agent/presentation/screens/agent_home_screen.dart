@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/domain/entities/payment_entity.dart';
 import '../../../features/payment/presentation/providers/payment_provider.dart';
+import '../../data/agent_models.dart';
+import '../providers/agent_provider.dart';
 import 'agent_withdrawals_screen.dart';
 
 class AgentHomeScreen extends ConsumerStatefulWidget {
@@ -21,13 +25,21 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 2);
+    _selectedIndex = widget.initialIndex.clamp(0, 4);
   }
 
   @override
   Widget build(BuildContext context) {
-    const titles = ['Agent Wallet', 'Payouts', 'Profile'];
+    const titles = [
+      'Agent Home',
+      'Customers',
+      'Agent Wallet',
+      'Payouts',
+      'Profile'
+    ];
     final pages = <Widget>[
+      const _AgentDashboardTab(),
+      const _AgentCustomersTab(),
       const _AgentWalletTab(),
       const AgentWithdrawalsScreen(embedded: true),
       const _AgentProfileTab(),
@@ -51,6 +63,16 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             setState(() => _selectedIndex = index),
         destinations: const [
           NavigationDestination(
+            icon: Icon(Icons.dashboard_outlined),
+            selectedIcon: Icon(Icons.dashboard),
+            label: 'Home',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.people_outline),
+            selectedIcon: Icon(Icons.people),
+            label: 'Customers',
+          ),
+          NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'Wallet',
@@ -65,6 +87,433 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             selectedIcon: Icon(Icons.person),
             label: 'Profile',
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentDashboardTab extends ConsumerWidget {
+  const _AgentDashboardTab();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final walletState = ref.watch(walletProvider);
+    final transactionsState = ref.watch(transactionsProvider);
+    final withdrawalsState = ref.watch(agentWithdrawalsProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async {
+        await ref.read(walletProvider.notifier).fetchBalance();
+        ref.invalidate(transactionsProvider);
+        ref.invalidate(agentWithdrawalsProvider);
+      },
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          _AgentDashboardHero(walletState: walletState),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _AgentMetricCard(
+                  icon: Icons.pending_actions,
+                  label: 'Pending payouts',
+                  value: withdrawalsState.when(
+                    loading: () => '…',
+                    error: (_, __) => '—',
+                    data: (items) => items.length.toString(),
+                  ),
+                  color: Colors.orange,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _AgentMetricCard(
+                  icon: Icons.receipt_long,
+                  label: 'Recent entries',
+                  value: transactionsState.when(
+                    loading: () => '…',
+                    error: (_, __) => '—',
+                    data: (items) => items.length.toString(),
+                  ),
+                  color: Colors.deepPurple,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Quick operations',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 10),
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Text(
+                    'Use Wallet to credit an assigned customer or review your agent ledger.',
+                  ),
+                  const SizedBox(height: 12),
+                  FilledButton.icon(
+                    onPressed: () => context.go('/wallet'),
+                    icon: const Icon(Icons.account_balance_wallet),
+                    label: const Text('Open Agent Wallet'),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: () => context.go('/withdrawals'),
+                    icon: const Icon(Icons.payments_outlined),
+                    label: const Text('Open Payout Queue'),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'Recent activity',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 10),
+          transactionsState.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Text('Unable to load activity: $error'),
+            data: (items) => items.isEmpty
+                ? const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(child: Text('No activity yet.')),
+                    ),
+                  )
+                : Column(
+                    children: items
+                        .take(3)
+                        .map((transaction) => _TransactionTile(
+                              transaction: transaction,
+                            ))
+                        .toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentDashboardHero extends StatelessWidget {
+  final AsyncValue<Wallet> walletState;
+
+  const _AgentDashboardHero({required this.walletState});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      clipBehavior: Clip.antiAlias,
+      child: Container(
+        padding: const EdgeInsets.all(22),
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xff8050D0), Color(0xffA080E0)],
+          ),
+        ),
+        child: walletState.when(
+          loading: () => const SizedBox(
+            height: 116,
+            child: Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+          ),
+          error: (_, __) => const ListTile(
+            contentPadding: EdgeInsets.zero,
+            textColor: Colors.white,
+            iconColor: Colors.white,
+            leading: Icon(Icons.cloud_off),
+            title: Text('Wallet unavailable'),
+            subtitle: Text('Open Wallet and retry the balance request.'),
+          ),
+          data: (wallet) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text(
+                'Agent operations',
+                style: TextStyle(color: Colors.white70, fontSize: 16),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '${wallet.availableBalance.toStringAsFixed(2)} ${wallet.currency}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 6),
+              Text(
+                'Available balance • reserved ${wallet.reservedBalance.toStringAsFixed(2)} ${wallet.currency}',
+                style: const TextStyle(color: Colors.white70),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentMetricCard extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color color;
+
+  const _AgentMetricCard({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Icon(icon, color: color),
+            const SizedBox(height: 12),
+            Text(value, style: Theme.of(context).textTheme.headlineSmall),
+            const SizedBox(height: 4),
+            Text(label, style: Theme.of(context).textTheme.bodySmall),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentCustomersTab extends ConsumerStatefulWidget {
+  const _AgentCustomersTab();
+
+  @override
+  ConsumerState<_AgentCustomersTab> createState() => _AgentCustomersTabState();
+}
+
+class _AgentCustomersTabState extends ConsumerState<_AgentCustomersTab> {
+  final _queryController = TextEditingController();
+
+  @override
+  void dispose() {
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  void _search() {
+    ref.read(agentCustomerQueryProvider.notifier).state =
+        _queryController.text.trim();
+    ref.invalidate(agentCustomersProvider);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final customersState = ref.watch(agentCustomersProvider);
+
+    return RefreshIndicator(
+      onRefresh: () async => ref.invalidate(agentCustomersProvider),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 28),
+        children: [
+          Text(
+            'Customer operations',
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Only customers connected to your assigned deposits or payouts are shown.',
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _queryController,
+            textInputAction: TextInputAction.search,
+            onSubmitted: (_) => _search(),
+            decoration: InputDecoration(
+              hintText: 'Search ID, name, email, phone, or username',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                onPressed: _search,
+                icon: const Icon(Icons.arrow_forward),
+                tooltip: 'Search',
+              ),
+              border: const OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 16),
+          customersState.when(
+            loading: () => const Center(child: CircularProgressIndicator()),
+            error: (error, _) => Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20),
+                child: Column(
+                  children: [
+                    const Icon(Icons.cloud_off, size: 40),
+                    const SizedBox(height: 8),
+                    Text('Unable to load customers: $error'),
+                    const SizedBox(height: 12),
+                    OutlinedButton(
+                      onPressed: () => ref.invalidate(agentCustomersProvider),
+                      child: const Text('Retry'),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            data: (customers) => customers.isEmpty
+                ? const Card(
+                    child: Padding(
+                      padding: EdgeInsets.all(24),
+                      child: Center(
+                        child: Text('No connected customers found.'),
+                      ),
+                    ),
+                  )
+                : Column(
+                    children: customers
+                        .map(
+                          (customer) => Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: _AgentCustomerCard(
+                              customer: customer,
+                              onTap: () => _showCustomerDetails(customer),
+                            ),
+                          ),
+                        )
+                        .toList(),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showCustomerDetails(AgentCustomerSummary customer) async {
+    await showModalBottomSheet<void>(
+      context: context,
+      showDragHandle: true,
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                customer.fullName.isEmpty
+                    ? customer.username
+                    : customer.fullName,
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.w700,
+                    ),
+              ),
+              const SizedBox(height: 6),
+              Text('${customer.email} • ${customer.status}'),
+              const Divider(height: 24),
+              _CustomerDetailRow(label: 'Customer ID', value: customer.id),
+              _CustomerDetailRow(label: 'Username', value: customer.username),
+              _CustomerDetailRow(label: 'Phone', value: customer.phone),
+              _CustomerDetailRow(
+                label: 'Balance',
+                value: '${customer.balance.toStringAsFixed(2)} MMK',
+              ),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  OutlinedButton.icon(
+                    onPressed: () async {
+                      await Clipboard.setData(ClipboardData(text: customer.id));
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Customer ID copied')),
+                        );
+                      }
+                    },
+                    icon: const Icon(Icons.copy),
+                    label: const Text('Copy ID'),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => context.go('/wallet'),
+                      icon: const Icon(Icons.add_card),
+                      label: const Text('Deposit'),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentCustomerCard extends StatelessWidget {
+  final AgentCustomerSummary customer;
+  final VoidCallback onTap;
+
+  const _AgentCustomerCard({required this.customer, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final displayName =
+        customer.fullName.isEmpty ? customer.username : customer.fullName;
+    return Card(
+      child: ListTile(
+        onTap: onTap,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        leading: CircleAvatar(
+          child: Text(displayName.isEmpty ? '?' : displayName[0].toUpperCase()),
+        ),
+        title: Text(displayName),
+        subtitle: Text('${customer.username} • ${customer.status}'),
+        trailing: const Icon(Icons.chevron_right),
+      ),
+    );
+  }
+}
+
+class _CustomerDetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _CustomerDetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 92,
+            child: Text(
+              label,
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+          ),
+          Expanded(child: SelectableText(value.isEmpty ? '—' : value)),
         ],
       ),
     );

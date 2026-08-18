@@ -178,6 +178,46 @@ func (h *UserHandler) ChangePassword(c echo.Context) error {
 	}, nil))
 }
 
+// ListAgentCustomers handles GET /api/v1/agent/customers.
+func (h *UserHandler) ListAgentCustomers(c echo.Context) error {
+	agentID, ok := c.Get("user_id").(string)
+	if !ok || agentID == "" {
+		appErr := apperrors.NewUnauthorizedError("Agent authentication required")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	page, _ := strconv.Atoi(c.QueryParam("page"))
+	limit, _ := strconv.Atoi(c.QueryParam("limit"))
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 || limit > 50 {
+		limit = 20
+	}
+
+	profiles, total, err := h.useCase.ListAgentCustomers(
+		c.Request().Context(),
+		agentID,
+		c.QueryParam("q"),
+		page,
+		limit,
+	)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to list agent customers")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"success": true,
+		"data":    profiles,
+		"meta": &apperrors.PaginationMeta{
+			Total:    total,
+			Page:     page,
+			LastPage: int(math.Ceil(float64(total) / float64(limit))),
+		},
+	})
+}
+
 // ListUsers handles GET /api/v1/users
 func (h *UserHandler) ListUsers(c echo.Context) error {
 	page, _ := strconv.Atoi(c.QueryParam("page"))

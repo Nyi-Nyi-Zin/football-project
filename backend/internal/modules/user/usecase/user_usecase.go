@@ -334,6 +334,20 @@ func (uc *UserUseCase) ListUsers(ctx context.Context, page, limit int) ([]*domai
 }
 
 // ListUsersAdmin returns paginated users and aggregate counters for admin screens.
+func (uc *UserUseCase) ListAgentCustomers(ctx context.Context, agentID, query string, page, limit int) ([]*domain.UserProfile, int64, error) {
+	users, total, err := uc.repo.ListAgentCustomers(ctx, agentID, query, page, limit)
+	if err != nil {
+		return nil, 0, fmt.Errorf("usecase.ListAgentCustomers: %w", err)
+	}
+
+	profiles := make([]*domain.UserProfile, len(users))
+	for i, user := range users {
+		profiles[i] = user.ToProfile()
+	}
+	return profiles, total, nil
+}
+
+// ListUsersAdmin returns paginated users and aggregate counters for admin screens.
 func (uc *UserUseCase) ListUsersAdmin(ctx context.Context, query, status string, page, limit int) ([]*domain.UserProfile, int64, *UserListStats, error) {
 	users, total, err := uc.repo.ListFiltered(ctx, query, status, page, limit)
 	if err != nil {

@@ -12,7 +12,7 @@ final agentRouterProvider = Provider<GoRouter>((ref) {
   ref.listen(authNotifierProvider, (_, __) => refresh.value++);
 
   return GoRouter(
-    initialLocation: '/wallet',
+    initialLocation: '/home',
     refreshListenable: refresh,
     redirect: (_, state) {
       final user = ref.read(authNotifierProvider).valueOrNull;
@@ -28,16 +28,24 @@ final agentRouterProvider = Provider<GoRouter>((ref) {
         builder: (_, __) => const AgentLoginScreen(),
       ),
       GoRoute(
-        path: '/wallet',
+        path: '/home',
         builder: (_, __) => const AgentHomeScreen(initialIndex: 0),
       ),
       GoRoute(
-        path: '/withdrawals',
+        path: '/customers',
         builder: (_, __) => const AgentHomeScreen(initialIndex: 1),
       ),
       GoRoute(
-        path: '/profile',
+        path: '/wallet',
         builder: (_, __) => const AgentHomeScreen(initialIndex: 2),
+      ),
+      GoRoute(
+        path: '/withdrawals',
+        builder: (_, __) => const AgentHomeScreen(initialIndex: 3),
+      ),
+      GoRoute(
+        path: '/profile',
+        builder: (_, __) => const AgentHomeScreen(initialIndex: 4),
       ),
     ],
   );
