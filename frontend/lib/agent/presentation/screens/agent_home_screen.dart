@@ -249,6 +249,13 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
                                 amount: amount,
                               );
                           if (!context.mounted) return;
+                          await ref
+                              .read(walletProvider.notifier)
+                              .fetchBalance();
+                          await ref
+                              .refresh(transactionsProvider.future)
+                              .then<void>((_) {});
+                          if (!context.mounted) return;
                           setState(() {
                             _lastCustomerDeposit = _CustomerDepositReceipt(
                               customerId: customerId,
@@ -504,7 +511,8 @@ class _WalletBalanceCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final currency = wallet.currency.isEmpty ? 'MMK' : wallet.currency;
+    // Agent payout and customer-credit accounting is denominated in MMK.
+    const currency = 'MMK';
     return Card(
       clipBehavior: Clip.antiAlias,
       child: Column(

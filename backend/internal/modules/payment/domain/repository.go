@@ -61,6 +61,7 @@ type WalletRepository interface {
 	ReserveBalance(ctx context.Context, userID string, amount float64) error
 	ReleaseReservedBalance(ctx context.Context, userID string, amount float64) error
 	SettleReservedTransfer(ctx context.Context, fromUserID, toUserID string, amount float64) error
+	TransferBalance(ctx context.Context, fromUserID, toUserID string, amount float64) error
 
 	// AML / Turnover tracking
 	IncrementRequiredTurnover(ctx context.Context, userID string, amount float64) error

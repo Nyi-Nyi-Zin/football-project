@@ -426,6 +426,69 @@ func (r *postgresWalletRepo) SettleReservedTransfer(ctx context.Context, fromUse
 	return nil
 }
 
+func (r *postgresWalletRepo) TransferBalance(ctx context.Context, fromUserID, toUserID string, amount float64) error {
+	if amount <= 0 {
+		return fmt.Errorf("walletRepo.TransferBalance: amount must be positive")
+	}
+	if fromUserID == toUserID {
+		return fmt.Errorf("walletRepo.TransferBalance: source and destination must differ")
+	}
+
+	db := r.db.WithContext(ctx)
+	if err := db.Where("user_id = ?", toUserID).FirstOrCreate(&domain.Wallet{
+		UserID:   toUserID,
+		Currency: "MMK",
+		Status:   "active",
+	}).Error; err != nil {
+		return fmt.Errorf("walletRepo.TransferBalance: ensure destination wallet: %w", err)
+	}
+
+	tx := db.Begin()
+	if tx.Error != nil {
+		return fmt.Errorf("walletRepo.TransferBalance: begin: %w", tx.Error)
+	}
+	rollback := func(err error) error {
+		_ = tx.Rollback()
+		return err
+	}
+
+	var wallets []domain.Wallet
+	if err := tx.Set("gorm:query_option", "FOR UPDATE").
+		Where("user_id IN ?", []string{fromUserID, toUserID}).
+		Order("user_id ASC").Find(&wallets).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.TransferBalance: lock wallets: %w", err))
+	}
+
+	var source, destination *domain.Wallet
+	for i := range wallets {
+		wallet := &wallets[i]
+		if wallet.UserID == fromUserID {
+			source = wallet
+		} else if wallet.UserID == toUserID {
+			destination = wallet
+		}
+	}
+	if source == nil || destination == nil {
+		return rollback(domain.ErrInsufficientAvailableBalance)
+	}
+	if source.Balance-source.ReservedBalance < amount {
+		return rollback(domain.ErrInsufficientAvailableBalance)
+	}
+
+	if err := tx.Model(&domain.Wallet{}).Where("id = ?", source.ID).
+		UpdateColumn("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.TransferBalance: debit source: %w", err))
+	}
+	if err := tx.Model(&domain.Wallet{}).Where("id = ?", destination.ID).
+		UpdateColumn("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+		return rollback(fmt.Errorf("walletRepo.TransferBalance: credit destination: %w", err))
+	}
+	if err := tx.Commit().Error; err != nil {
+		return fmt.Errorf("walletRepo.TransferBalance: commit: %w", err)
+	}
+	return nil
+}
+
 func (r *postgresWalletRepo) GetBalance(ctx context.Context, userID string) (float64, error) {
 	var wallet domain.Wallet
 	if err := r.db.WithContext(ctx).Select("balance").Where("user_id = ?", userID).First(&wallet).Error; err != nil {

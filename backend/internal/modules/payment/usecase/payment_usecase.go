@@ -474,30 +474,58 @@ func roundMoney(value float64) float64 {
 }
 
 func (uc *PaymentUseCase) AgentDepositToCustomer(ctx context.Context, req *domain.AgentCustomerDepositRequest) (*domain.Transaction, error) {
-	currentBalance, err := uc.walletRepo.GetBalance(ctx, req.CustomerID)
+	if req.PerformedBy == "" || req.PerformedBy == req.CustomerID {
+		return nil, apperrors.NewBadRequestError("A valid Agent account and different customer are required")
+	}
+
+	agentBalanceBefore, err := uc.walletRepo.GetBalance(ctx, req.PerformedBy)
+	if err != nil {
+		return nil, apperrors.NewNotFoundError("Agent wallet not found")
+	}
+	customerBalanceBefore, err := uc.walletRepo.GetBalance(ctx, req.CustomerID)
 	if err != nil {
 		return nil, apperrors.NewNotFoundError("Customer wallet not found")
 	}
 
+	if err := uc.walletRepo.TransferBalance(ctx, req.PerformedBy, req.CustomerID, req.Amount); err != nil {
+		if errors.Is(err, domain.ErrInsufficientAvailableBalance) {
+			return nil, apperrors.NewBadRequestError("Insufficient available Agent balance")
+		}
+		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: transfer balance: %w", err)
+	}
+
 	const currency = "MMK"
-	tx := &domain.Transaction{
+	customerTx := &domain.Transaction{
 		UserID:         req.CustomerID,
 		Type:           domain.TransactionDeposit,
 		Amount:         req.Amount,
 		Currency:       currency,
 		Status:         domain.TransactionCompleted,
-		IdempotencyKey: fmt.Sprintf("agent-deposit-%s-%s-%d", req.CustomerID, req.PerformedBy, time.Now().UnixNano()),
+		IdempotencyKey: fmt.Sprintf("agent-deposit-customer-%s-%s-%d", req.CustomerID, req.PerformedBy, time.Now().UnixNano()),
 		Description:    fmt.Sprintf("Agent deposit by %s", req.PerformedBy),
-		BalanceBefore:  currentBalance,
-		BalanceAfter:   currentBalance + req.Amount,
+		BalanceBefore:  customerBalanceBefore,
+		BalanceAfter:   customerBalanceBefore + req.Amount,
 	}
-	if err := uc.txRepo.Create(ctx, tx); err != nil {
-		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: create transaction: %w", err)
+	if err := uc.txRepo.Create(ctx, customerTx); err != nil {
+		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: create customer transaction: %w", err)
 	}
-	if err := uc.walletRepo.UpdateBalance(ctx, req.CustomerID, req.Amount); err != nil {
-		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: update wallet: %w", err)
+
+	agentTx := &domain.Transaction{
+		UserID:         req.PerformedBy,
+		Type:           domain.TransactionWithdraw,
+		Amount:         req.Amount,
+		Currency:       currency,
+		Status:         domain.TransactionCompleted,
+		IdempotencyKey: fmt.Sprintf("agent-deposit-agent-%s-%s-%d", req.PerformedBy, req.CustomerID, time.Now().UnixNano()),
+		Description:    fmt.Sprintf("Customer deposit to %s", req.CustomerID),
+		BalanceBefore:  agentBalanceBefore,
+		BalanceAfter:   agentBalanceBefore - req.Amount,
 	}
-	return tx, nil
+	if err := uc.txRepo.Create(ctx, agentTx); err != nil {
+		return nil, fmt.Errorf("usecase.AgentDepositToCustomer: create Agent transaction: %w", err)
+	}
+
+	return customerTx, nil
 }
 
 func (uc *PaymentUseCase) AdminAdjustBalance(ctx context.Context, req *domain.AdminBalanceAdjustmentRequest) (*domain.Transaction, error) {

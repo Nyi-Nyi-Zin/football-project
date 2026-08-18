@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -27,7 +28,7 @@ func newFakeTxRepo() *fakeTxRepo {
 
 func (f *fakeTxRepo) Create(_ context.Context, tx *domain.Transaction) error {
 	if tx.ID == "" {
-		tx.ID = "tx-1"
+		tx.ID = fmt.Sprintf("tx-%d", len(f.txByID)+1)
 	}
 	f.txByID[tx.ID] = tx
 	return nil
@@ -235,6 +236,14 @@ func (f *fakeWalletRepo) SettleReservedTransfer(_ context.Context, fromUserID, t
 	f.balances[toUserID] += amount
 	return nil
 }
+func (f *fakeWalletRepo) TransferBalance(_ context.Context, fromUserID, toUserID string, amount float64) error {
+	if f.balances[fromUserID]-f.reserved[fromUserID] < amount {
+		return domain.ErrInsufficientAvailableBalance
+	}
+	f.balances[fromUserID] -= amount
+	f.balances[toUserID] += amount
+	return nil
+}
 func (f *fakeWalletRepo) IncrementRequiredTurnover(_ context.Context, _ string, _ float64) error {
 	return nil
 }
@@ -358,5 +367,47 @@ func TestVerifyWithdrawalCodeApprovesAndDeducts(t *testing.T) {
 	req := txRepo.withdrawalByID["wr-1"]
 	if req.Status != domain.WithdrawalRequestApproved {
 		t.Fatalf("expected approved request status, got %s", req.Status)
+	}
+}
+
+func TestAgentDepositToCustomerDebitsAgentAndCreditsCustomer(t *testing.T) {
+	txRepo := newFakeTxRepo()
+	walletRepo := &fakeWalletRepo{
+		balances: map[string]float64{
+			"agent-1":    1000,
+			"customer-1": 100,
+		},
+		reserved: map[string]float64{},
+	}
+	uc := NewPaymentUseCase(txRepo, walletRepo, event.NewBus(), SecurityOptions{})
+
+	customerTx, err := uc.AgentDepositToCustomer(context.Background(), &domain.AgentCustomerDepositRequest{
+		CustomerID:  "customer-1",
+		Amount:      250,
+		PerformedBy: "agent-1",
+	})
+	if err != nil {
+		t.Fatalf("AgentDepositToCustomer returned error: %v", err)
+	}
+	if customerTx.UserID != "customer-1" || customerTx.Type != domain.TransactionDeposit {
+		t.Fatalf("unexpected customer transaction: %+v", customerTx)
+	}
+	if got := walletRepo.balances["agent-1"]; got != 750 {
+		t.Fatalf("agent balance = %.2f, want 750", got)
+	}
+	if got := walletRepo.balances["customer-1"]; got != 350 {
+		t.Fatalf("customer balance = %.2f, want 350", got)
+	}
+	if len(txRepo.txByID) != 2 {
+		t.Fatalf("transaction count = %d, want 2", len(txRepo.txByID))
+	}
+	var agentDebitFound bool
+	for _, tx := range txRepo.txByID {
+		if tx.UserID == "agent-1" && tx.Type == domain.TransactionWithdraw && tx.Amount == 250 {
+			agentDebitFound = true
+		}
+	}
+	if !agentDebitFound {
+		t.Fatal("expected Agent debit transaction")
 	}
 }
