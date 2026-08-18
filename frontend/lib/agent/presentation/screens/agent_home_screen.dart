@@ -1,8 +1,10 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/errors/failures.dart';
 import '../../../core/theme/app_theme.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
@@ -13,6 +15,49 @@ import '../../../features/notification/presentation/providers/notification_provi
 import '../../data/agent_models.dart';
 import '../providers/agent_provider.dart';
 import 'agent_withdrawals_screen.dart';
+
+String _normalizeCustomerUserId(String raw) {
+  final trimmed = raw.trim();
+  final match = RegExp(
+    r'[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}',
+  ).firstMatch(trimmed);
+  return (match?.group(0) ?? trimmed).toLowerCase();
+}
+
+String _customerDepositErrorMessage(Object error) {
+  if (error is DioException) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final apiError = data['error'];
+      if (apiError is Map) {
+        final message = apiError['message'];
+        final details = apiError['details'];
+        if (message is String && details is String && details.isNotEmpty) {
+          return '$message: $details';
+        }
+        if (message is String && message.isNotEmpty) return message;
+      }
+      if (data['message'] is String && (data['message'] as String).isNotEmpty) {
+        return data['message'] as String;
+      }
+    }
+    if (error.error is ServerException) {
+      return (error.error as ServerException).message;
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout) {
+      return 'Connection timed out. Please try again.';
+    }
+    if (error.type == DioExceptionType.connectionError) {
+      return 'Unable to connect to the server. Please check your internet connection.';
+    }
+    if (error.response?.statusCode == 400) {
+      return 'Deposit request was rejected. Check the customer User ID and available Agent balance.';
+    }
+  }
+  return 'Unable to complete customer deposit. Please try again.';
+}
 
 class AgentHomeScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -921,8 +966,8 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
     final customerIdCtrl = TextEditingController();
     final amountCtrl = TextEditingController();
     var saving = false;
-    final uuidV4Pattern = RegExp(
-      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-4[0-9a-fA-F]{3}-[89abAB][0-9a-fA-F]{3}-[0-9a-fA-F]{12}$',
+    final uuidPattern = RegExp(
+      r'^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$',
     );
     try {
       await showDialog<void>(
@@ -973,9 +1018,10 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
                 onPressed: saving
                     ? null
                     : () async {
-                        final customerId = customerIdCtrl.text.trim();
+                        final customerId =
+                            _normalizeCustomerUserId(customerIdCtrl.text);
                         final amount = double.tryParse(amountCtrl.text.trim());
-                        if (!uuidV4Pattern.hasMatch(customerId)) {
+                        if (!uuidPattern.hasMatch(customerId)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -1030,7 +1076,7 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
                           ScaffoldMessenger.of(context).showSnackBar(
                             SnackBar(
                               content: Text(
-                                'Customer deposit failed: $error',
+                                'Customer deposit failed: ${_customerDepositErrorMessage(error)}',
                               ),
                             ),
                           );

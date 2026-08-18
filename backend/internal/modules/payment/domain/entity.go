@@ -229,7 +229,7 @@ type AdminBalanceAdjustmentRequest struct {
 }
 
 type AgentCustomerDepositRequest struct {
-	CustomerID  string  `json:"customer_id" validate:"required,uuid4"`
+	CustomerID  string  `json:"customer_id" validate:"required,uuid"`
 	Amount      float64 `json:"amount" validate:"required,gt=0"`
 	PerformedBy string  `json:"-"`
 }
