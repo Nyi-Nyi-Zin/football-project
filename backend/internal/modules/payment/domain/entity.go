@@ -50,7 +50,7 @@ type Transaction struct {
 	UserID         string            `json:"user_id" gorm:"type:uuid;not null;index"`
 	Type           TransactionType   `json:"type" gorm:"not null"`
 	Amount         float64           `json:"amount" gorm:"type:decimal(18,2);not null"`
-	Currency       string            `json:"currency" gorm:"default:'USD'"`
+	Currency       string            `json:"currency" gorm:"default:'MMK'"`
 	Status         TransactionStatus `json:"status" gorm:"default:'pending'"`
 	IdempotencyKey string            `json:"idempotency_key" gorm:"uniqueIndex"`
 	Reference      string            `json:"reference"` // external payment reference
@@ -74,7 +74,7 @@ type Wallet struct {
 	UserID           string    `json:"user_id" gorm:"type:uuid;uniqueIndex;not null"`
 	Balance          float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
 	ReservedBalance  float64   `json:"reserved_balance" gorm:"type:decimal(18,2);default:0"`
-	Currency         string    `json:"currency" gorm:"default:'USD'"`
+	Currency         string    `json:"currency" gorm:"default:'MMK'"`
 	Status           string    `json:"status" gorm:"default:'active'"`
 	RequiredTurnover float64   `json:"required_turnover" gorm:"type:decimal(18,2);default:0"`
 	CurrentTurnover  float64   `json:"current_turnover" gorm:"type:decimal(18,2);default:0"`

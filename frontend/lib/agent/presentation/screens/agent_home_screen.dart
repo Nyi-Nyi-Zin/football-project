@@ -3,6 +3,8 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/theme/app_theme.dart';
+
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/domain/entities/payment_entity.dart';
 import '../../../features/payment/presentation/providers/payment_provider.dart';
@@ -11,7 +13,6 @@ import '../../../features/notification/presentation/providers/notification_provi
 import '../../data/agent_models.dart';
 import '../providers/agent_provider.dart';
 import 'agent_withdrawals_screen.dart';
-import 'agent_support_screen.dart';
 
 class AgentHomeScreen extends ConsumerStatefulWidget {
   final int initialIndex;
@@ -28,19 +29,18 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 6);
+    _selectedIndex = widget.initialIndex.clamp(0, 5);
   }
 
   @override
   Widget build(BuildContext context) {
     const titles = [
-      'Agent Home',
+      'Cloud 9 Agent',
       'Customers',
       'Agent Wallet',
       'Payouts',
       'Profile',
-      'Notifications',
-      'Support',
+      'Alerts',
     ];
     final pages = <Widget>[
       const _AgentDashboardTab(),
@@ -49,18 +49,21 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
       const AgentWithdrawalsScreen(embedded: true),
       const _AgentProfileTab(),
       const _AgentNotificationsTab(),
-      const AgentSupportScreen(),
     ];
+    final connectivity = ref.watch(agentConnectivityProvider);
 
     return Scaffold(
       appBar: AppBar(
         title: Text(titles[_selectedIndex]),
         actions: [
-          IconButton(
-            onPressed: () => ref.read(authNotifierProvider.notifier).logout(),
-            icon: const Icon(Icons.logout),
-            tooltip: 'Logout',
-          ),
+          _AgentConnectivityBadge(state: connectivity),
+          if (!connectivity.isOnline && !connectivity.isChecking)
+            IconButton(
+              onPressed: _resync,
+              icon: const Icon(Icons.sync_rounded),
+              tooltip: 'Resync app',
+            ),
+          const SizedBox(width: 6),
         ],
       ),
       body: IndexedStack(index: _selectedIndex, children: pages),
@@ -99,11 +102,68 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             selectedIcon: Icon(Icons.notifications),
             label: 'Alerts',
           ),
-          NavigationDestination(
-            icon: Icon(Icons.support_agent_outlined),
-            selectedIcon: Icon(Icons.support_agent),
-            label: 'Support',
-          ),
+        ],
+      ),
+    );
+  }
+
+  void _resync() {
+    ref.invalidate(agentDashboardProvider);
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(walletProvider);
+    ref.invalidate(agentWithdrawalsProvider);
+    ref.invalidate(agentCustomersProvider);
+    ref.invalidate(agentEarningsProvider);
+    ref.invalidate(agentReconciliationProvider);
+    ref.invalidate(agentCommissionStatementProvider);
+    ref.invalidate(notificationProvider);
+    ref.invalidate(unreadNotificationCountProvider);
+    ref.read(agentConnectivityProvider.notifier).checkNow();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Resync started. Checking connection…')),
+    );
+  }
+}
+
+class _AgentConnectivityBadge extends StatelessWidget {
+  final AgentConnectivityState state;
+
+  const _AgentConnectivityBadge({required this.state});
+
+  @override
+  Widget build(BuildContext context) {
+    final color = state.isChecking
+        ? Colors.orange
+        : state.isOnline
+            ? AppTheme.successColor
+            : AppTheme.errorColor;
+    final label = state.isChecking
+        ? 'Checking'
+        : state.isOnline
+            ? 'Online'
+            : 'Offline';
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .10),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .24)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state.isChecking)
+            SizedBox(
+              width: 10,
+              height: 10,
+              child: CircularProgressIndicator(strokeWidth: 2, color: color),
+            )
+          else
+            Icon(Icons.circle, size: 9, color: color),
+          const SizedBox(width: 6),
+          Text(label,
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.w700, fontSize: 12)),
         ],
       ),
     );
@@ -293,7 +353,7 @@ class _AgentDashboardHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text(
-                'Agent operations',
+                'Cloud 9 Agent operations',
                 style: TextStyle(color: Colors.white70, fontSize: 16),
               ),
               const SizedBox(height: 8),

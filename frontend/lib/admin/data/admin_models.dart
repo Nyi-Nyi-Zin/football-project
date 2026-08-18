@@ -125,7 +125,7 @@ class AdminTransaction {
       userId: json['user_id'] as String? ?? '',
       type: json['type'] as String? ?? '',
       amount: (json['amount'] as num?)?.toDouble() ?? 0,
-      currency: json['currency'] as String? ?? 'USD',
+      currency: json['currency'] as String? ?? 'MMK',
       status: json['status'] as String? ?? 'pending',
       description: json['description'] as String? ?? '',
       reference: json['reference'] as String? ?? '',

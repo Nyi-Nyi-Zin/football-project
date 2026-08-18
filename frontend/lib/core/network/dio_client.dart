@@ -54,6 +54,16 @@ class DioClient {
 
   Dio get dio => _dio;
 
+  /// Performs a lightweight public health check without changing auth state.
+  Future<bool> checkHealth() async {
+    try {
+      final response = await _dio.get('/health');
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
+    }
+  }
+
   /// Auth interceptor — attaches JWT token to requests
   InterceptorsWrapper _authInterceptor() {
     return InterceptorsWrapper(

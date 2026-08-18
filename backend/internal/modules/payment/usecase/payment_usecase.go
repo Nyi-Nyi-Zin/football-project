@@ -237,7 +237,7 @@ func (uc *PaymentUseCase) Withdraw(ctx context.Context, userID string, req *doma
 		return nil, fmt.Errorf("usecase.Withdraw: reserve balance: %w", err)
 	}
 	if strings.TrimSpace(req.Currency) == "" {
-		req.Currency = "USD"
+		req.Currency = "MMK"
 	}
 	if strings.TrimSpace(req.PaymentMethod) == "" {
 		req.PaymentMethod = "manual_agent"

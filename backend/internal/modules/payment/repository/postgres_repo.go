@@ -442,7 +442,7 @@ func (r *postgresWalletRepo) UpdateBalance(ctx context.Context, userID string, a
 		newWallet := domain.Wallet{
 			UserID:   userID,
 			Balance:  amount,
-			Currency: "USD",
+			Currency: "MMK",
 			Status:   "active",
 		}
 		return r.db.WithContext(ctx).Create(&newWallet).Error
@@ -616,7 +616,7 @@ func (r *postgresWalletRepo) GetBalance(ctx context.Context, userID string) (flo
 			newWallet := domain.Wallet{
 				UserID:   userID,
 				Balance:  0,
-				Currency: "USD",
+				Currency: "MMK",
 				Status:   "active",
 			}
 			if createErr := r.db.WithContext(ctx).Create(&newWallet).Error; createErr != nil {

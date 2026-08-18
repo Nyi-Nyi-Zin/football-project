@@ -249,7 +249,7 @@ func (f *fakeWalletRepo) FindByUserID(_ context.Context, _ string) (*domain.Wall
 func (f *fakeWalletRepo) ListAll(_ context.Context) ([]*domain.Wallet, error) {
 	wallets := make([]*domain.Wallet, 0, len(f.balances))
 	for userID, balance := range f.balances {
-		wallets = append(wallets, &domain.Wallet{UserID: userID, Balance: balance, ReservedBalance: f.reserved[userID], Currency: "USD"})
+		wallets = append(wallets, &domain.Wallet{UserID: userID, Balance: balance, ReservedBalance: f.reserved[userID], Currency: "MMK"})
 	}
 	return wallets, nil
 }
@@ -312,7 +312,7 @@ func TestWithdrawCreatesSecureAgentRequest(t *testing.T) {
 
 	res, err := uc.Withdraw(context.Background(), "user-1", &domain.WithdrawRequest{
 		Amount:         20,
-		Currency:       "USD",
+		Currency:       "MMK",
 		IdempotencyKey: "idem-1",
 		PaymentMethod:  "agent",
 		AccountDetails: "09-123456789",
@@ -386,7 +386,7 @@ func TestVerifyWithdrawalCodeApprovesAndDeducts(t *testing.T) {
 
 	res, err := uc.Withdraw(context.Background(), "user-1", &domain.WithdrawRequest{
 		Amount:         25,
-		Currency:       "USD",
+		Currency:       "MMK",
 		IdempotencyKey: "idem-2",
 		PaymentMethod:  "agent",
 		AccountDetails: "kpay-acc",

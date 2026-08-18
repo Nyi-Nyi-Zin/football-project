@@ -16,7 +16,6 @@ class AdminShell extends ConsumerWidget {
     '/transactions',
     '/withdrawals',
     '/odds',
-    '/support',
     '/reconciliation',
     '/commission',
   ];
@@ -57,11 +56,6 @@ class AdminShell extends ConsumerWidget {
         icon: Icon(Icons.candlestick_chart_outlined),
         selectedIcon: Icon(Icons.candlestick_chart),
         label: Text('Odds'),
-      ),
-      NavigationRailDestination(
-        icon: Icon(Icons.support_agent_outlined),
-        selectedIcon: Icon(Icons.support_agent),
-        label: Text('Support'),
       ),
       NavigationRailDestination(
         icon: Icon(Icons.fact_check_outlined),
@@ -130,11 +124,6 @@ class AdminShell extends ConsumerWidget {
                   icon: Icon(Icons.candlestick_chart_outlined),
                   selectedIcon: Icon(Icons.candlestick_chart),
                   label: 'Odds',
-                ),
-                NavigationDestination(
-                  icon: Icon(Icons.support_agent_outlined),
-                  selectedIcon: Icon(Icons.support_agent),
-                  label: 'Support',
                 ),
                 NavigationDestination(
                   icon: Icon(Icons.fact_check_outlined),
