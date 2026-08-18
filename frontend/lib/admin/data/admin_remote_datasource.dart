@@ -4,6 +4,7 @@ import 'package:uuid/uuid.dart';
 
 import '../../core/network/dio_client.dart';
 import 'admin_models.dart';
+import 'admin_ops_models.dart';
 
 final adminDatasourceProvider = Provider<AdminRemoteDataSource>((ref) {
   return AdminRemoteDataSource(ref.read(dioClientProvider));
@@ -232,6 +233,78 @@ class AdminRemoteDataSource {
       );
     }
     return buffer.toString();
+  }
+
+  Future<AdminSupportTicketsResponse> getSupportTickets({
+    String status = '',
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/admin/support/tickets',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+      },
+    );
+    final rows = (response.data['data'] as List<dynamic>? ?? const [])
+        .map(
+            (item) => AdminSupportTicket.fromJson(item as Map<String, dynamic>))
+        .toList();
+    final meta = response.data['meta'] as Map<String, dynamic>? ?? const {};
+    return AdminSupportTicketsResponse(
+      tickets: rows,
+      total: (meta['total'] as num?)?.toInt() ?? rows.length,
+      page: (meta['page'] as num?)?.toInt() ?? page,
+      lastPage: (meta['lastPage'] as num?)?.toInt() ?? 1,
+    );
+  }
+
+  Future<AdminSupportTicket> updateSupportTicketStatus({
+    required String ticketId,
+    required String status,
+  }) async {
+    final response = await _client.dio.patch(
+      '/admin/support/tickets/$ticketId/status',
+      data: {'status': status},
+    );
+    return AdminSupportTicket.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminReconciliationSummary> getWalletReconciliation() async {
+    final response = await _client.dio.get('/admin/wallet/reconciliation');
+    return AdminReconciliationSummary.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminAgentCommissionRule> getAgentCommissionRule(
+      String agentId) async {
+    final response = await _client.dio.get('/admin/agents/$agentId/commission');
+    return AdminAgentCommissionRule.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
+  }
+
+  Future<AdminAgentCommissionRule> updateAgentCommissionRule({
+    required String agentId,
+    required int depositRateBps,
+    required int payoutRateBps,
+    String currency = 'MMK',
+  }) async {
+    final response = await _client.dio.patch(
+      '/admin/agents/$agentId/commission',
+      data: {
+        'deposit_rate_bps': depositRateBps,
+        'payout_rate_bps': payoutRateBps,
+        'currency': currency,
+      },
+    );
+    return AdminAgentCommissionRule.fromJson(
+      response.data['data'] as Map<String, dynamic>,
+    );
   }
 
   Options buildSecureOptions() {

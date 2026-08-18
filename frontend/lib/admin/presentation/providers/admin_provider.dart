@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../data/admin_models.dart';
+import '../../data/admin_ops_models.dart';
 import '../../data/admin_remote_datasource.dart';
 
 final adminRefreshTickProvider = StreamProvider<int>((ref) async* {
@@ -56,6 +57,22 @@ final withdrawalsProvider =
         page: query.page,
         limit: query.limit,
       );
+});
+
+final adminSupportTicketsProvider =
+    FutureProvider<AdminSupportTicketsResponse>((ref) async {
+  return ref.read(adminDatasourceProvider).getSupportTickets();
+});
+
+final adminReconciliationProvider =
+    FutureProvider<AdminReconciliationSummary>((ref) async {
+  return ref.read(adminDatasourceProvider).getWalletReconciliation();
+});
+
+final adminCommissionRuleProvider =
+    FutureProvider.family<AdminAgentCommissionRule, String>(
+        (ref, agentId) async {
+  return ref.read(adminDatasourceProvider).getAgentCommissionRule(agentId);
 });
 
 @immutable
