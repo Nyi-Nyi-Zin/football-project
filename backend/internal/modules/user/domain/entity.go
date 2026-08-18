@@ -15,37 +15,39 @@ const (
 
 // User represents the user entity
 type User struct {
-	ID              string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
-	Email           string    `json:"email" gorm:"uniqueIndex;not null"`
-	Username        string    `json:"username" gorm:"uniqueIndex;not null"`
-	PasswordHash    string    `json:"-" gorm:"not null"`
-	FullName        string    `json:"full_name"`
-	Phone           string    `json:"phone"`
-	Role            string    `json:"role" gorm:"default:'user'"`
-	Status          string    `json:"status" gorm:"default:'active'"`
-	Balance         float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
-	IsEmailVerified bool      `json:"is_email_verified" gorm:"default:false"`
-	IsPhoneVerified bool      `json:"is_phone_verified" gorm:"default:false"`
-	KYCStatus       KYCStatus `json:"kyc_status" gorm:"default:'pending'"`
-	NationalID      string    `json:"national_id,omitempty" gorm:"size:100"`
-	KYCImageURL     string    `json:"kyc_image_url,omitempty" gorm:"type:text"`
-	NRC             string    `json:"nrc,omitempty" gorm:"size:100"`
-	NRCRegion       string    `json:"nrc_region,omitempty" gorm:"size:50"`
-	NRCTownship     string    `json:"nrc_township,omitempty" gorm:"size:100"`
-	NRCType         string    `json:"nrc_type,omitempty" gorm:"size:50"`
-	NRCNumber       string    `json:"nrc_number,omitempty" gorm:"size:20"`
-	NRCRegionID     *int      `json:"nrc_region_id,omitempty" gorm:"column:nrc_region_id"`
-	NRCTownshipID   *int      `json:"nrc_township_id,omitempty" gorm:"column:nrc_township_id"`
-	NRCTypeID       *int      `json:"nrc_type_id,omitempty" gorm:"column:nrc_type_id"`
-	Gmail           string    `json:"gmail,omitempty" gorm:"size:255"`
-	Location        string    `json:"location,omitempty" gorm:"type:text"`
-	Region          string    `json:"region,omitempty" gorm:"size:100"`
-	Township        string    `json:"township,omitempty" gorm:"size:100"`
-	CustomCode      *string   `json:"custom_code,omitempty" gorm:"size:10;uniqueIndex"`
-	TokenVersion    int       `json:"-" gorm:"not null;default:1"`
-	SecurityPINHash string    `json:"-" gorm:"column:security_pin_hash"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID                       string    `json:"id" gorm:"primaryKey;type:uuid;default:gen_random_uuid()"`
+	Email                    string    `json:"email" gorm:"uniqueIndex;not null"`
+	Username                 string    `json:"username" gorm:"uniqueIndex;not null"`
+	PasswordHash             string    `json:"-" gorm:"not null"`
+	FullName                 string    `json:"full_name"`
+	Phone                    string    `json:"phone"`
+	Role                     string    `json:"role" gorm:"default:'user'"`
+	Status                   string    `json:"status" gorm:"default:'active'"`
+	Balance                  float64   `json:"balance" gorm:"type:decimal(18,2);default:0"`
+	IsEmailVerified          bool      `json:"is_email_verified" gorm:"default:false"`
+	IsPhoneVerified          bool      `json:"is_phone_verified" gorm:"default:false"`
+	KYCStatus                KYCStatus `json:"kyc_status" gorm:"default:'pending'"`
+	NationalID               string    `json:"national_id,omitempty" gorm:"size:100"`
+	KYCImageURL              string    `json:"kyc_image_url,omitempty" gorm:"type:text"`
+	NRC                      string    `json:"nrc,omitempty" gorm:"size:100"`
+	NRCRegion                string    `json:"nrc_region,omitempty" gorm:"size:50"`
+	NRCTownship              string    `json:"nrc_township,omitempty" gorm:"size:100"`
+	NRCType                  string    `json:"nrc_type,omitempty" gorm:"size:50"`
+	NRCNumber                string    `json:"nrc_number,omitempty" gorm:"size:20"`
+	NRCRegionID              *int      `json:"nrc_region_id,omitempty" gorm:"column:nrc_region_id"`
+	NRCTownshipID            *int      `json:"nrc_township_id,omitempty" gorm:"column:nrc_township_id"`
+	NRCTypeID                *int      `json:"nrc_type_id,omitempty" gorm:"column:nrc_type_id"`
+	Gmail                    string    `json:"gmail,omitempty" gorm:"size:255"`
+	Location                 string    `json:"location,omitempty" gorm:"type:text"`
+	Region                   string    `json:"region,omitempty" gorm:"size:100"`
+	Township                 string    `json:"township,omitempty" gorm:"size:100"`
+	CustomCode               *string   `json:"custom_code,omitempty" gorm:"size:10;uniqueIndex"`
+	TokenVersion             int       `json:"-" gorm:"not null;default:1"`
+	SecurityPINHash          string    `json:"-" gorm:"column:security_pin_hash"`
+	TwoFactorSecretEncrypted string    `json:"-" gorm:"column:two_factor_secret_encrypted"`
+	TwoFactorEnabled         bool      `json:"two_factor_enabled" gorm:"column:two_factor_enabled;not null;default:false"`
+	CreatedAt                time.Time `json:"created_at"`
+	UpdatedAt                time.Time `json:"updated_at"`
 }
 
 // TableName overrides the table name for schema-per-module
@@ -148,6 +150,20 @@ type AdminCreateUserRequest struct {
 
 type RefreshTokenRequest struct {
 	RefreshToken string `json:"refresh_token" validate:"required"`
+}
+
+type TwoFactorCodeRequest struct {
+	Code string `json:"code" validate:"required,len=6,numeric"`
+}
+
+type TwoFactorStatus struct {
+	Enabled bool `json:"enabled"`
+}
+
+type TwoFactorEnrollment struct {
+	Secret     string `json:"secret"`
+	OtpauthURL string `json:"otpauth_url"`
+	Enabled    bool   `json:"enabled"`
 }
 
 // UpdateProfileRequest represents a profile update request

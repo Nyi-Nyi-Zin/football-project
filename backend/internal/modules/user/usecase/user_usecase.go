@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"crypto/sha256"
 	"errors"
 	"fmt"
 	"strings"
@@ -17,9 +18,10 @@ import (
 
 // UserUseCase handles user business logic
 type UserUseCase struct {
-	repo       domain.UserRepository
-	jwtManager *jwtpkg.Manager
-	eventBus   *event.Bus
+	repo         domain.UserRepository
+	jwtManager   *jwtpkg.Manager
+	eventBus     *event.Bus
+	twoFactorKey []byte
 }
 
 type UserListStats struct {
@@ -29,11 +31,17 @@ type UserListStats struct {
 }
 
 // NewUserUseCase creates a new user use case
-func NewUserUseCase(repo domain.UserRepository, jwtManager *jwtpkg.Manager, eventBus *event.Bus) *UserUseCase {
+func NewUserUseCase(repo domain.UserRepository, jwtManager *jwtpkg.Manager, eventBus *event.Bus, encryptionKeys ...string) *UserUseCase {
+	seed := "dev-two-factor-encryption-key"
+	if len(encryptionKeys) > 0 && strings.TrimSpace(encryptionKeys[0]) != "" {
+		seed = encryptionKeys[0]
+	}
+	key := sha256.Sum256([]byte(seed))
 	return &UserUseCase{
-		repo:       repo,
-		jwtManager: jwtManager,
-		eventBus:   eventBus,
+		repo:         repo,
+		jwtManager:   jwtManager,
+		eventBus:     eventBus,
+		twoFactorKey: key[:],
 	}
 }
 

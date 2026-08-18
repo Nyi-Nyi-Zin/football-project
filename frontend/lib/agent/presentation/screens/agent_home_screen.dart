@@ -1805,11 +1805,14 @@ class _AgentSecurityCard extends ConsumerStatefulWidget {
 class _AgentSecurityCardState extends ConsumerState<_AgentSecurityCard> {
   bool _busy = false;
   late Future<AgentSecuritySession> _sessionFuture;
+  late Future<AgentTwoFactorStatus> _twoFactorFuture;
 
   @override
   void initState() {
     super.initState();
-    _sessionFuture = ref.read(agentDataSourceProvider).getSecuritySession();
+    final ds = ref.read(agentDataSourceProvider);
+    _sessionFuture = ds.getSecuritySession();
+    _twoFactorFuture = ds.getTwoFactorStatus();
   }
 
   @override
@@ -1856,6 +1859,31 @@ class _AgentSecurityCardState extends ConsumerState<_AgentSecurityCard> {
               );
             },
           ),
+          FutureBuilder<AgentTwoFactorStatus>(
+            future: _twoFactorFuture,
+            builder: (context, snapshot) {
+              final enabled = snapshot.data?.enabled == true;
+              return ListTile(
+                leading: Icon(
+                  enabled
+                      ? Icons.phonelink_lock_outlined
+                      : Icons.phonelink_setup_outlined,
+                  color: enabled ? Colors.green : null,
+                ),
+                title: Text(enabled
+                    ? 'Authenticator 2FA enabled'
+                    : 'Set up authenticator 2FA'),
+                subtitle: Text(enabled
+                    ? 'Use a 6-digit code to manage 2FA'
+                    : 'Protect your Agent account with an authenticator app'),
+                trailing: const Icon(Icons.chevron_right),
+                onTap:
+                    _busy || snapshot.connectionState == ConnectionState.waiting
+                        ? null
+                        : () => _manageTwoFactor(enabled),
+              );
+            },
+          ),
           const Divider(height: 1),
           ListTile(
             leading: const Icon(Icons.pin_outlined),
@@ -1881,6 +1909,146 @@ class _AgentSecurityCardState extends ConsumerState<_AgentSecurityCard> {
   String _formatDate(DateTime date) {
     final local = date.toLocal();
     return '${local.year}-${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _manageTwoFactor(bool enabled) async {
+    if (enabled) {
+      final code = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Disable authenticator 2FA'),
+          content: TextField(
+            controller: code,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration:
+                const InputDecoration(labelText: 'Current 6-digit code'),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!RegExp(r'^\d{6}$').hasMatch(code.text.trim())) return;
+                try {
+                  await ref
+                      .read(agentDataSourceProvider)
+                      .disableTwoFactor(code.text);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text('Could not disable 2FA: $error')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Disable'),
+            ),
+          ],
+        ),
+      );
+      code.dispose();
+      if (confirmed == true && mounted) {
+        setState(() {
+          _twoFactorFuture =
+              ref.read(agentDataSourceProvider).getTwoFactorStatus();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authenticator 2FA disabled')),
+        );
+      }
+      return;
+    }
+
+    setState(() => _busy = true);
+    try {
+      final enrollment =
+          await ref.read(agentDataSourceProvider).beginTwoFactorEnrollment();
+      if (!mounted) return;
+      final code = TextEditingController();
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          title: const Text('Set up authenticator 2FA'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                    'Add this account to Google Authenticator, Microsoft Authenticator, or another TOTP app.'),
+                const SizedBox(height: 12),
+                const Text('Secret key',
+                    style: TextStyle(fontWeight: FontWeight.w700)),
+                SelectableText(enrollment.secret),
+                TextButton.icon(
+                  onPressed: () =>
+                      Clipboard.setData(ClipboardData(text: enrollment.secret)),
+                  icon: const Icon(Icons.copy_outlined),
+                  label: const Text('Copy secret'),
+                ),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: code,
+                  autofocus: true,
+                  keyboardType: TextInputType.number,
+                  maxLength: 6,
+                  decoration:
+                      const InputDecoration(labelText: 'Authenticator code'),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext, false),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!RegExp(r'^\d{6}$').hasMatch(code.text.trim())) return;
+                try {
+                  await ref
+                      .read(agentDataSourceProvider)
+                      .confirmTwoFactor(code.text);
+                  if (dialogContext.mounted) Navigator.pop(dialogContext, true);
+                } catch (error) {
+                  if (dialogContext.mounted) {
+                    ScaffoldMessenger.of(dialogContext).showSnackBar(
+                      SnackBar(content: Text('Could not confirm 2FA: $error')),
+                    );
+                  }
+                }
+              },
+              child: const Text('Enable 2FA'),
+            ),
+          ],
+        ),
+      );
+      code.dispose();
+      if (confirmed == true && mounted) {
+        setState(() {
+          _twoFactorFuture =
+              ref.read(agentDataSourceProvider).getTwoFactorStatus();
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Authenticator 2FA enabled')),
+        );
+      }
+    } catch (error) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Could not begin 2FA setup: $error')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   Future<void> _changePin() async {

@@ -391,3 +391,33 @@ class AgentCommissionStatement {
     );
   }
 }
+
+class AgentTwoFactorStatus {
+  final bool enabled;
+
+  const AgentTwoFactorStatus({required this.enabled});
+
+  factory AgentTwoFactorStatus.fromJson(Map<String, dynamic> json) {
+    return AgentTwoFactorStatus(enabled: json['enabled'] as bool? ?? false);
+  }
+}
+
+class AgentTwoFactorEnrollment {
+  final String secret;
+  final String otpauthUrl;
+  final bool enabled;
+
+  const AgentTwoFactorEnrollment({
+    required this.secret,
+    required this.otpauthUrl,
+    required this.enabled,
+  });
+
+  factory AgentTwoFactorEnrollment.fromJson(Map<String, dynamic> json) {
+    return AgentTwoFactorEnrollment(
+      secret: json['secret'] as String? ?? '',
+      otpauthUrl: json['otpauth_url'] as String? ?? '',
+      enabled: json['enabled'] as bool? ?? false,
+    );
+  }
+}

@@ -87,6 +87,38 @@ func (r *postgresUserRepo) UpdateSecurityPINHash(ctx context.Context, userID, pi
 	return nil
 }
 
+func (r *postgresUserRepo) UpdateTwoFactorSecret(ctx context.Context, userID, encryptedSecret string, enabled bool) error {
+	result := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"two_factor_secret_encrypted": encryptedSecret,
+			"two_factor_enabled":          enabled,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.UpdateTwoFactorSecret: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
+func (r *postgresUserRepo) ClearTwoFactorSecret(ctx context.Context, userID string) error {
+	result := r.db.WithContext(ctx).Model(&domain.User{}).
+		Where("id = ?", userID).
+		Updates(map[string]interface{}{
+			"two_factor_secret_encrypted": "",
+			"two_factor_enabled":          false,
+		})
+	if result.Error != nil {
+		return fmt.Errorf("userRepo.ClearTwoFactorSecret: %w", result.Error)
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
+
 func (r *postgresUserRepo) UpdateStatus(ctx context.Context, userID, status string) error {
 	result := r.db.WithContext(ctx).
 		Model(&domain.User{}).
