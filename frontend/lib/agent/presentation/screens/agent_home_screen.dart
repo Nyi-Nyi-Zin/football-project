@@ -71,11 +71,18 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   }
 }
 
-class _AgentWalletTab extends ConsumerWidget {
+class _AgentWalletTab extends ConsumerStatefulWidget {
   const _AgentWalletTab();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_AgentWalletTab> createState() => _AgentWalletTabState();
+}
+
+class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
+  _CustomerDepositReceipt? _lastCustomerDeposit;
+
+  @override
+  Widget build(BuildContext context) {
     final walletState = ref.watch(walletProvider);
     final transactionsState = ref.watch(transactionsProvider);
 
@@ -118,9 +125,13 @@ class _AgentWalletTab extends ConsumerWidget {
               onWithdraw: () => _openWithdrawDialog(context, ref, wallet),
             ),
           ),
+          if (_lastCustomerDeposit != null) ...[
+            const SizedBox(height: 16),
+            _CustomerDepositReceiptCard(receipt: _lastCustomerDeposit!),
+          ],
           const SizedBox(height: 22),
           Text(
-            'Recent transactions',
+            'Agent wallet transactions',
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -238,8 +249,14 @@ class _AgentWalletTab extends ConsumerWidget {
                                 amount: amount,
                               );
                           if (!context.mounted) return;
+                          setState(() {
+                            _lastCustomerDeposit = _CustomerDepositReceipt(
+                              customerId: customerId,
+                              amount: amount,
+                              completedAt: DateTime.now(),
+                            );
+                          });
                           Navigator.of(dialogContext).pop();
-                          ref.invalidate(transactionsProvider);
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
                               content: Text(
@@ -396,6 +413,81 @@ class _AgentWalletTab extends ConsumerWidget {
       amountCtrl.dispose();
       accountCtrl.dispose();
     }
+  }
+}
+
+class _CustomerDepositReceipt {
+  final String customerId;
+  final double amount;
+  final DateTime completedAt;
+
+  const _CustomerDepositReceipt({
+    required this.customerId,
+    required this.amount,
+    required this.completedAt,
+  });
+}
+
+class _CustomerDepositReceiptCard extends StatelessWidget {
+  final _CustomerDepositReceipt receipt;
+
+  const _CustomerDepositReceiptCard({required this.receipt});
+
+  @override
+  Widget build(BuildContext context) {
+    final timestamp = receipt.completedAt.toLocal().toString().split('.').first;
+    return Card(
+      color: Colors.green.withValues(alpha: 0.08),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.check_circle, color: Colors.green),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Customer deposit completed',
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green.shade800,
+                        ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Text(
+              '+${receipt.amount.toStringAsFixed(2)} MMK credited',
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w800,
+                color: Colors.green,
+              ),
+            ),
+            const SizedBox(height: 4),
+            SelectableText(
+              'Customer ID: ${receipt.customerId}',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Completed: $timestamp',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'This deposit credits the customer wallet; your Agent wallet balance does not change.',
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
