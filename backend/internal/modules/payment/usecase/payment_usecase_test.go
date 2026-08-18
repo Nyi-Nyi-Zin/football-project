@@ -401,13 +401,16 @@ func TestAgentDepositToCustomerDebitsAgentAndCreditsCustomer(t *testing.T) {
 	if len(txRepo.txByID) != 2 {
 		t.Fatalf("transaction count = %d, want 2", len(txRepo.txByID))
 	}
-	var agentDebitFound bool
+	var agentDepositFound bool
 	for _, tx := range txRepo.txByID {
-		if tx.UserID == "agent-1" && tx.Type == domain.TransactionWithdraw && tx.Amount == 250 {
-			agentDebitFound = true
+		if tx.UserID == "agent-1" && tx.Type == domain.TransactionAgentCustomerDeposit && tx.Amount == 250 {
+			if tx.FromUserID == nil || *tx.FromUserID != "agent-1" || tx.ToUserID == nil || *tx.ToUserID != "customer-1" {
+				t.Fatalf("unexpected Agent transfer parties: %+v", tx)
+			}
+			agentDepositFound = true
 		}
 	}
-	if !agentDebitFound {
-		t.Fatal("expected Agent debit transaction")
+	if !agentDepositFound {
+		t.Fatal("expected Agent customer deposit transaction")
 	}
 }

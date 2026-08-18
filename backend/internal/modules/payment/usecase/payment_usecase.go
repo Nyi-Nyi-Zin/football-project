@@ -495,6 +495,8 @@ func (uc *PaymentUseCase) AgentDepositToCustomer(ctx context.Context, req *domai
 	}
 
 	const currency = "MMK"
+	fromUserID := req.PerformedBy
+	toUserID := req.CustomerID
 	customerTx := &domain.Transaction{
 		UserID:         req.CustomerID,
 		Type:           domain.TransactionDeposit,
@@ -503,6 +505,8 @@ func (uc *PaymentUseCase) AgentDepositToCustomer(ctx context.Context, req *domai
 		Status:         domain.TransactionCompleted,
 		IdempotencyKey: fmt.Sprintf("agent-deposit-customer-%s-%s-%d", req.CustomerID, req.PerformedBy, time.Now().UnixNano()),
 		Description:    fmt.Sprintf("Agent deposit by %s", req.PerformedBy),
+		FromUserID:     &fromUserID,
+		ToUserID:       &toUserID,
 		BalanceBefore:  customerBalanceBefore,
 		BalanceAfter:   customerBalanceBefore + req.Amount,
 	}
@@ -512,12 +516,14 @@ func (uc *PaymentUseCase) AgentDepositToCustomer(ctx context.Context, req *domai
 
 	agentTx := &domain.Transaction{
 		UserID:         req.PerformedBy,
-		Type:           domain.TransactionWithdraw,
+		Type:           domain.TransactionAgentCustomerDeposit,
 		Amount:         req.Amount,
 		Currency:       currency,
 		Status:         domain.TransactionCompleted,
 		IdempotencyKey: fmt.Sprintf("agent-deposit-agent-%s-%s-%d", req.PerformedBy, req.CustomerID, time.Now().UnixNano()),
 		Description:    fmt.Sprintf("Customer deposit to %s", req.CustomerID),
+		FromUserID:     &fromUserID,
+		ToUserID:       &toUserID,
 		BalanceBefore:  agentBalanceBefore,
 		BalanceAfter:   agentBalanceBefore - req.Amount,
 	}
@@ -765,6 +771,8 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 	})
 
 	// Keep an agent-side ledger entry for reconciliation and agent reporting.
+	fromUserID := tx.UserID
+	toUserID := req.AgentID
 	_ = uc.txRepo.Create(ctx, &domain.Transaction{
 		UserID:        req.AgentID,
 		Type:          domain.TransactionAgentPayout,
@@ -773,6 +781,8 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 		Status:        domain.TransactionCompleted,
 		Reference:     ref,
 		Description:   "Agent payout received for customer withdrawal",
+		FromUserID:    &fromUserID,
+		ToUserID:      &toUserID,
 		BalanceBefore: agentBalanceBefore,
 		BalanceAfter:  agentBalanceBefore + tx.Amount,
 	})

@@ -25,20 +25,32 @@ class Wallet extends Equatable {
 
 class Transaction extends Equatable {
   final String id;
+  final String userId;
   final String type; // deposit, withdraw, bet_stake, bet_win, cash_out, refund
   final double amount;
   final String currency;
   final String status;
   final String? description;
+  final String? reference;
+  final String? fromUserId;
+  final String? toUserId;
+  final double? balanceBefore;
+  final double? balanceAfter;
   final DateTime createdAt;
 
   const Transaction({
     required this.id,
+    required this.userId,
     required this.type,
     required this.amount,
     required this.currency,
     required this.status,
     this.description,
+    this.reference,
+    this.fromUserId,
+    this.toUserId,
+    this.balanceBefore,
+    this.balanceAfter,
     required this.createdAt,
   });
 
@@ -51,7 +63,11 @@ class Transaction extends Equatable {
 
   bool get isDebit => !isCredit;
 
-  String get displayType => type.replaceAll('_', ' ').toUpperCase();
+  String get displayType {
+    if (type == 'agent_customer_deposit') return 'DEPOSIT';
+    if (type == 'agent_payout') return 'PAYOUT';
+    return type.replaceAll('_', ' ').toUpperCase();
+  }
 
   @override
   List<Object?> get props => [id];
