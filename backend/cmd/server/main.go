@@ -26,6 +26,9 @@ import (
 	paymentHandler "betting-app/internal/modules/payment/handler"
 	paymentRepo "betting-app/internal/modules/payment/repository"
 	paymentUsecase "betting-app/internal/modules/payment/usecase"
+	supportHandler "betting-app/internal/modules/support/handler"
+	supportRepo "betting-app/internal/modules/support/repository"
+	supportUsecase "betting-app/internal/modules/support/usecase"
 	userDomain "betting-app/internal/modules/user/domain"
 	userHandler "betting-app/internal/modules/user/handler"
 	userRepo "betting-app/internal/modules/user/repository"
@@ -198,13 +201,16 @@ func main() {
 	notifRepository := notificationRepo.NewPostgresNotificationRepo(db)
 	notifUC := notificationUsecase.NewNotificationUseCase(notifRepository, eventBus)
 	notifH := notificationHandler.NewNotificationHandler(notifUC)
+	supportRepository := supportRepo.NewPostgresSupportRepo(db)
+	supportUC := supportUsecase.NewSupportUseCase(supportRepository)
+	supportH := supportHandler.NewSupportHandler(supportUC)
 
 	registerEventHandlers(eventBus, notifUC)
 
 	e := echo.New()
 	e.HideBanner = true
 
-	app.RegisterRoutes(e, jwtManager, redisClient, userH, userRepository, bettingH, paymentH, oddsH, notifH)
+	app.RegisterRoutes(e, jwtManager, redisClient, userH, userRepository, bettingH, paymentH, oddsH, notifH, supportH)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)

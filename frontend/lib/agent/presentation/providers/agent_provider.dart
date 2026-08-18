@@ -40,3 +40,15 @@ final agentCustomersProvider =
   final query = ref.watch(agentCustomerQueryProvider);
   return ds.getCustomers(query: query);
 });
+
+final agentSupportTicketsProvider =
+    FutureProvider.autoDispose<List<AgentSupportTicket>>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  return ds.getSupportTickets();
+});
+
+final agentSupportMessagesProvider = FutureProvider.autoDispose
+    .family<List<AgentSupportMessage>, String>((ref, ticketId) async {
+  final ds = ref.read(agentDataSourceProvider);
+  return ds.getSupportMessages(ticketId);
+});

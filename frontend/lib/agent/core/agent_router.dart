@@ -51,6 +51,10 @@ final agentRouterProvider = Provider<GoRouter>((ref) {
         path: '/notifications',
         builder: (_, __) => const AgentHomeScreen(initialIndex: 5),
       ),
+      GoRoute(
+        path: '/support',
+        builder: (_, __) => const AgentHomeScreen(initialIndex: 6),
+      ),
     ],
   );
 });

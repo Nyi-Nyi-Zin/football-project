@@ -72,4 +72,60 @@ class AgentRemoteDataSource {
       data: {'code': code.trim().toUpperCase()},
     );
   }
+
+  Future<List<AgentSupportTicket>> getSupportTickets({
+    int page = 1,
+    int limit = 20,
+  }) async {
+    final response = await _client.dio.get(
+      '/support/tickets',
+      queryParameters: {'page': page, 'limit': limit},
+    );
+    final data = response.data['data'] as List<dynamic>? ?? const [];
+    return data
+        .map((e) => AgentSupportTicket.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AgentSupportTicket> createSupportTicket({
+    required String subject,
+    required String category,
+    required String priority,
+    required String description,
+  }) async {
+    final response = await _client.dio.post(
+      '/support/tickets',
+      data: {
+        'subject': subject.trim(),
+        'category': category.trim(),
+        'priority': priority,
+        'description': description.trim(),
+      },
+    );
+    return AgentSupportTicket.fromJson(
+      response.data['data'] as Map<String, dynamic>? ?? const {},
+    );
+  }
+
+  Future<List<AgentSupportMessage>> getSupportMessages(String ticketId) async {
+    final response =
+        await _client.dio.get('/support/tickets/$ticketId/messages');
+    final data = response.data['data'] as List<dynamic>? ?? const [];
+    return data
+        .map((e) => AgentSupportMessage.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<AgentSupportMessage> addSupportMessage({
+    required String ticketId,
+    required String body,
+  }) async {
+    final response = await _client.dio.post(
+      '/support/tickets/$ticketId/messages',
+      data: {'body': body.trim()},
+    );
+    return AgentSupportMessage.fromJson(
+      response.data['data'] as Map<String, dynamic>? ?? const {},
+    );
+  }
 }

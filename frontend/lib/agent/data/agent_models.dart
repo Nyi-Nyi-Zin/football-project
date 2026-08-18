@@ -178,3 +178,79 @@ class AgentDashboardSummary {
     );
   }
 }
+
+class AgentSupportTicket {
+  final String id;
+  final String requesterId;
+  final String subject;
+  final String category;
+  final String priority;
+  final String status;
+  final String description;
+  final String? assignedTo;
+  final DateTime? resolvedAt;
+  final DateTime createdAt;
+  final DateTime updatedAt;
+
+  const AgentSupportTicket({
+    required this.id,
+    required this.requesterId,
+    required this.subject,
+    required this.category,
+    required this.priority,
+    required this.status,
+    required this.description,
+    required this.assignedTo,
+    required this.resolvedAt,
+    required this.createdAt,
+    required this.updatedAt,
+  });
+
+  factory AgentSupportTicket.fromJson(Map<String, dynamic> json) {
+    return AgentSupportTicket(
+      id: json['id'] as String? ?? '',
+      requesterId: json['requester_id'] as String? ?? '',
+      subject: json['subject'] as String? ?? '',
+      category: json['category'] as String? ?? 'general',
+      priority: json['priority'] as String? ?? 'normal',
+      status: json['status'] as String? ?? 'open',
+      description: json['description'] as String? ?? '',
+      assignedTo: json['assigned_to'] as String?,
+      resolvedAt: DateTime.tryParse(json['resolved_at'] as String? ?? ''),
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
+      updatedAt: DateTime.tryParse(json['updated_at'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
+
+class AgentSupportMessage {
+  final String id;
+  final String ticketId;
+  final String authorId;
+  final String authorRole;
+  final String body;
+  final DateTime createdAt;
+
+  const AgentSupportMessage({
+    required this.id,
+    required this.ticketId,
+    required this.authorId,
+    required this.authorRole,
+    required this.body,
+    required this.createdAt,
+  });
+
+  factory AgentSupportMessage.fromJson(Map<String, dynamic> json) {
+    return AgentSupportMessage(
+      id: json['id'] as String? ?? '',
+      ticketId: json['ticket_id'] as String? ?? '',
+      authorId: json['author_id'] as String? ?? '',
+      authorRole: json['author_role'] as String? ?? 'user',
+      body: json['body'] as String? ?? '',
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+}
