@@ -53,7 +53,23 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   };
 
   // Myanmar numerals
-  static const List<String> _mmNumerals = ['၀', '၁', '၂', '၃', '၄', '၅', '၆', '၇', '၈', '၉', '၁၀', '၁၁', '၁၂', '၁၃', '၁၄'];
+  static const List<String> _mmNumerals = [
+    '၀',
+    '၁',
+    '၂',
+    '၃',
+    '၄',
+    '၅',
+    '၆',
+    '၇',
+    '၈',
+    '၉',
+    '၁၀',
+    '၁၁',
+    '၁၂',
+    '၁၃',
+    '၁၄'
+  ];
 
   @override
   void dispose() {
@@ -88,12 +104,14 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   }
 
   void _loadNRCTownships(int region, {String? townshipNameToMatch}) {
-    final townships = _nrcData.where((item) => item['nrc_code'] == region.toString()).toList();
+    final townships = _nrcData
+        .where((item) => item['nrc_code'] == region.toString())
+        .toList();
     setState(() {
       _nrcTownships = townships;
       _selectedTownshipId = null;
     });
-    
+
     // If a township name is provided, find and set its ID after townships are loaded
     if (townshipNameToMatch != null && townships.isNotEmpty) {
       final township = townships.firstWhere(
@@ -141,7 +159,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       _nrcController.text = user.nrc ?? '';
       _gmailController.text = user.gmail ?? '';
       _locationController.text = user.location ?? '';
-      
+
       // Populate NRC component fields if available
       // Prefer ID fields from backend if available
       if (user.nrcRegionId != null) {
@@ -149,7 +167,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } else if (user.nrcRegion != null && user.nrcRegion!.isNotEmpty) {
         _selectedRegion = int.tryParse(user.nrcRegion!);
       }
-      
+
       if (user.nrcTownshipId != null) {
         // Use township ID from backend
         _selectedTownshipId = user.nrcTownshipId.toString();
@@ -169,14 +187,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         } else {
           // It's a name - load townships and match by name
           if (_selectedRegion != null) {
-            _loadNRCTownships(_selectedRegion!, townshipNameToMatch: townshipValue);
+            _loadNRCTownships(_selectedRegion!,
+                townshipNameToMatch: townshipValue);
           }
         }
       } else if (_selectedRegion != null) {
         // No township value, just load townships for the region
         _loadNRCTownships(_selectedRegion!);
       }
-      
+
       if (user.nrcTypeId != null) {
         // Map ID back to type name
         final typeEntry = _numberTypeIds.entries.firstWhere(
@@ -189,7 +208,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       } else if (user.nrcType != null && user.nrcType!.isNotEmpty) {
         _selectedNumberType = user.nrcType;
       }
-      
+
       if (user.nrcNumber != null && user.nrcNumber!.isNotEmpty) {
         _nrcNumberController.text = user.nrcNumber!;
       }
@@ -230,6 +249,51 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             '@${user.username}',
                             style:
                                 const TextStyle(color: AppTheme.textSecondary),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'User ID',
+                                      style: TextStyle(
+                                        color: AppTheme.textSecondary,
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    SelectableText(
+                                      user.id,
+                                      style: const TextStyle(
+                                        color: AppTheme.textPrimary,
+                                        fontSize: 13,
+                                        fontFamily: 'monospace',
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              IconButton(
+                                tooltip: 'Copy User ID',
+                                icon: const Icon(Icons.copy_outlined),
+                                onPressed: () async {
+                                  await Clipboard.setData(
+                                    ClipboardData(text: user.id),
+                                  );
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('User ID copied'),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ],
                           ),
                         ],
                       ),
@@ -370,9 +434,11 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               value: _selectedRegion,
                               decoration: InputDecoration(
                                 labelText: 'ပြည်နယ်/တိုင်း',
-                                prefixIcon: const Icon(Icons.location_city_outlined),
+                                prefixIcon:
+                                    const Icon(Icons.location_city_outlined),
                               ),
-                              items: List.generate(14, (index) => index + 1).map((region) {
+                              items: List.generate(14, (index) => index + 1)
+                                  .map((region) {
                                 return DropdownMenuItem<int>(
                                   value: region,
                                   child: Text('${_mmNumerals[region]}'),
@@ -435,11 +501,15 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               maxLength: 6,
                               decoration: InputDecoration(
                                 labelText: 'နံပါတ်',
-                                prefixIcon: const Icon(Icons.format_list_numbered_outlined),
+                                prefixIcon: const Icon(
+                                    Icons.format_list_numbered_outlined),
                                 counterText: '',
                               ),
                               validator: (value) {
-                                if (_selectedRegion != null && _selectedTownshipId != null && _selectedNumberType != null && (value == null || value.isEmpty)) {
+                                if (_selectedRegion != null &&
+                                    _selectedTownshipId != null &&
+                                    _selectedNumberType != null &&
+                                    (value == null || value.isEmpty)) {
                                   return 'Please enter NRC number';
                                 }
                                 return null;
@@ -455,7 +525,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                               ),
                               validator: (value) {
                                 if (value != null && value.isNotEmpty) {
-                                  final gmailRegex = RegExp(r'^[\w-\.]+@gmail\.com$');
+                                  final gmailRegex =
+                                      RegExp(r'^[\w-\.]+@gmail\.com$');
                                   if (!gmailRegex.hasMatch(value)) {
                                     return 'Please enter a valid Gmail address';
                                   }
@@ -471,14 +542,18 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                     controller: _locationController,
                                     decoration: InputDecoration(
                                       labelText: 'Location',
-                                      prefixIcon: const Icon(Icons.location_on_outlined),
+                                      prefixIcon: const Icon(
+                                          Icons.location_on_outlined),
                                       suffixIcon: IconButton(
-                                        onPressed: _isVerifyingLocation ? null : _verifyLocation,
+                                        onPressed: _isVerifyingLocation
+                                            ? null
+                                            : _verifyLocation,
                                         icon: _isVerifyingLocation
                                             ? const SizedBox(
                                                 height: 18,
                                                 width: 18,
-                                                child: CircularProgressIndicator(
+                                                child:
+                                                    CircularProgressIndicator(
                                                   strokeWidth: 2,
                                                 ),
                                               )
@@ -657,29 +732,34 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     String? nrcTownship;
     String? nrcType;
     String? nrcNumber;
-    
+
     // NRC ID fields for backend reference tables
     int? nrcRegionId;
     int? nrcTownshipIdInt;
     int? nrcTypeId;
-    
-    if (_selectedRegion != null && _selectedTownshipId != null && _selectedNumberType != null && _nrcNumberController.text.isNotEmpty) {
+
+    if (_selectedRegion != null &&
+        _selectedTownshipId != null &&
+        _selectedNumberType != null &&
+        _nrcNumberController.text.isNotEmpty) {
       final regionMM = _mmNumerals[_selectedRegion!];
       // Get township name from ID
-      final township = _nrcTownships.firstWhere((t) => t['id'] == _selectedTownshipId, orElse: () => {});
+      final township = _nrcTownships
+          .firstWhere((t) => t['id'] == _selectedTownshipId, orElse: () => {});
       final townshipName = township['name_mm'] as String? ?? '';
       final townshipCode = _extractTownshipCode(townshipName);
       final numberMM = _convertToMMNumerals(_nrcNumberController.text.trim());
       nrcValue = '$regionMM/$townshipCode$_selectedNumberType$numberMM';
-      
+
       // Send IDs to backend (primary way)
       nrcRegionId = _selectedRegion;
       nrcTownshipIdInt = int.tryParse(_selectedTownshipId!);
       nrcTypeId = _numberTypeIds[_selectedNumberType];
-      
+
       // Also send string values for backward compatibility
       nrcRegion = _selectedRegion.toString();
-      nrcTownship = township['nrc_code'] as String?; // Use nrc_code for string value
+      nrcTownship =
+          township['nrc_code'] as String?; // Use nrc_code for string value
       nrcType = _selectedNumberType;
       nrcNumber = _nrcNumberController.text.trim();
     }
@@ -729,7 +809,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
       // Simulated location - in production, use actual geolocation
       _locationController.text = 'Yangon, Myanmar';
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: const Text('Location verified successfully'),
