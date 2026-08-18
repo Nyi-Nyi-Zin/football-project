@@ -196,6 +196,29 @@ type WalletReconciliationReport struct {
 	DiscrepancyUsers int                        `json:"discrepancy_users"`
 }
 
+// AgentReconciliationReport is a commission-ready settlement snapshot.
+// Commission is intentionally not calculated until the business rate is defined.
+type AgentReconciliationReport struct {
+	GeneratedAt      time.Time `json:"generated_at"`
+	From             time.Time `json:"from"`
+	To               time.Time `json:"to"`
+	AgentID          string    `json:"agent_id"`
+	Currency         string    `json:"currency"`
+	WalletBalance    float64   `json:"wallet_balance"`
+	ReservedBalance  float64   `json:"reserved_balance"`
+	AvailableBalance float64   `json:"available_balance"`
+	LedgerChange     float64   `json:"ledger_change"`
+	Difference       float64   `json:"difference"`
+	Reconciled       bool      `json:"reconciled"`
+	DepositCount     int       `json:"deposit_count"`
+	DepositAmount    float64   `json:"deposit_amount"`
+	PayoutCount      int       `json:"payout_count"`
+	PayoutAmount     float64   `json:"payout_amount"`
+	NetSettlement    float64   `json:"net_settlement"`
+	PendingPayouts   int       `json:"pending_payouts"`
+	TransactionCount int       `json:"transaction_count"`
+}
+
 type AdminBalanceAdjustmentRequest struct {
 	UserID      string  `json:"user_id" validate:"required,uuid4"`
 	Amount      float64 `json:"amount" validate:"required,gt=0"`

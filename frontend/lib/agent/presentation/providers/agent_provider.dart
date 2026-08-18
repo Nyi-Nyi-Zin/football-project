@@ -52,3 +52,10 @@ final agentSupportMessagesProvider = FutureProvider.autoDispose
   final ds = ref.read(agentDataSourceProvider);
   return ds.getSupportMessages(ticketId);
 });
+
+final agentReconciliationProvider =
+    FutureProvider.autoDispose<AgentReconciliationReport>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  final days = ref.watch(agentEarningsDaysProvider);
+  return ds.getReconciliation(days: days);
+});

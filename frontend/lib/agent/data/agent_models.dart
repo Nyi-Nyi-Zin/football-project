@@ -282,3 +282,69 @@ class AgentSecuritySession {
     );
   }
 }
+
+class AgentReconciliationReport {
+  final DateTime generatedAt;
+  final DateTime from;
+  final DateTime to;
+  final String agentId;
+  final String currency;
+  final double walletBalance;
+  final double reservedBalance;
+  final double availableBalance;
+  final double ledgerChange;
+  final double difference;
+  final bool reconciled;
+  final int depositCount;
+  final double depositAmount;
+  final int payoutCount;
+  final double payoutAmount;
+  final double netSettlement;
+  final int pendingPayouts;
+  final int transactionCount;
+
+  const AgentReconciliationReport({
+    required this.generatedAt,
+    required this.from,
+    required this.to,
+    required this.agentId,
+    required this.currency,
+    required this.walletBalance,
+    required this.reservedBalance,
+    required this.availableBalance,
+    required this.ledgerChange,
+    required this.difference,
+    required this.reconciled,
+    required this.depositCount,
+    required this.depositAmount,
+    required this.payoutCount,
+    required this.payoutAmount,
+    required this.netSettlement,
+    required this.pendingPayouts,
+    required this.transactionCount,
+  });
+
+  factory AgentReconciliationReport.fromJson(Map<String, dynamic> json) {
+    return AgentReconciliationReport(
+      generatedAt: DateTime.tryParse(json['generated_at'] as String? ?? '') ??
+          DateTime.now(),
+      from: DateTime.tryParse(json['from'] as String? ?? '') ?? DateTime.now(),
+      to: DateTime.tryParse(json['to'] as String? ?? '') ?? DateTime.now(),
+      agentId: json['agent_id'] as String? ?? '',
+      currency: json['currency'] as String? ?? 'MMK',
+      walletBalance: (json['wallet_balance'] as num?)?.toDouble() ?? 0,
+      reservedBalance: (json['reserved_balance'] as num?)?.toDouble() ?? 0,
+      availableBalance: (json['available_balance'] as num?)?.toDouble() ?? 0,
+      ledgerChange: (json['ledger_change'] as num?)?.toDouble() ?? 0,
+      difference: (json['difference'] as num?)?.toDouble() ?? 0,
+      reconciled: json['reconciled'] as bool? ?? false,
+      depositCount: (json['deposit_count'] as num?)?.toInt() ?? 0,
+      depositAmount: (json['deposit_amount'] as num?)?.toDouble() ?? 0,
+      payoutCount: (json['payout_count'] as num?)?.toInt() ?? 0,
+      payoutAmount: (json['payout_amount'] as num?)?.toDouble() ?? 0,
+      netSettlement: (json['net_settlement'] as num?)?.toDouble() ?? 0,
+      pendingPayouts: (json['pending_payouts'] as num?)?.toInt() ?? 0,
+      transactionCount: (json['transaction_count'] as num?)?.toInt() ?? 0,
+    );
+  }
+}

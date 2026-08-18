@@ -1,10 +1,12 @@
 package handler
 
 import (
+	"fmt"
 	"math"
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"betting-app/internal/modules/payment/domain"
 	"betting-app/internal/modules/payment/usecase"
@@ -443,6 +445,51 @@ func (h *PaymentHandler) AgentGetEarningsSummary(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(summary, nil))
+}
+
+// AgentGetReconciliation handles GET /api/v1/agent/reconciliation.
+func (h *PaymentHandler) AgentGetReconciliation(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	days, err := strconv.Atoi(c.QueryParam("days"))
+	if err != nil && c.QueryParam("days") != "" {
+		appErr := apperrors.NewBadRequestError("days must be a number")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	report, err := h.useCase.GetAgentReconciliation(c.Request().Context(), agentID, days)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent reconciliation report")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(report, nil))
+}
+
+// AgentExportReconciliationCSV handles GET /api/v1/agent/reconciliation/export.
+func (h *PaymentHandler) AgentExportReconciliationCSV(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	days, err := strconv.Atoi(c.QueryParam("days"))
+	if err != nil && c.QueryParam("days") != "" {
+		appErr := apperrors.NewBadRequestError("days must be a number")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	report, err := h.useCase.GetAgentReconciliation(c.Request().Context(), agentID, days)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to export agent reconciliation report")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	csv := fmt.Sprintf("field,value\nagent_id,%s\nfrom,%s\nto,%s\ncurrency,%s\nwallet_balance,%.2f\nreserved_balance,%.2f\navailable_balance,%.2f\nledger_change,%.2f\ndifference,%.2f\nreconciled,%t\ndeposit_count,%d\ndeposit_amount,%.2f\npayout_count,%d\npayout_amount,%.2f\nnet_settlement,%.2f\npending_payouts,%d\ntransaction_count,%d\n", report.AgentID, report.From.Format(time.RFC3339), report.To.Format(time.RFC3339), report.Currency, report.WalletBalance, report.ReservedBalance, report.AvailableBalance, report.LedgerChange, report.Difference, report.Reconciled, report.DepositCount, report.DepositAmount, report.PayoutCount, report.PayoutAmount, report.NetSettlement, report.PendingPayouts, report.TransactionCount)
+	return c.Blob(http.StatusOK, "text/csv; charset=utf-8", []byte(csv))
 }
 
 // AgentGetAssignedWithdrawals handles GET /api/v1/agent/withdrawals
