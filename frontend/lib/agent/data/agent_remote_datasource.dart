@@ -23,6 +23,16 @@ class AgentRemoteDataSource {
     return AgentEarningsSummary.fromJson(data);
   }
 
+  Future<AgentCommissionStatement> getCommissionStatement(
+      {int days = 30}) async {
+    final response = await _client.dio.get(
+      '/agent/commission-statement',
+      queryParameters: {'days': days.clamp(1, 90)},
+    );
+    final data = response.data['data'] as Map<String, dynamic>? ?? const {};
+    return AgentCommissionStatement.fromJson(data);
+  }
+
   Future<AgentReconciliationReport> getReconciliation({int days = 30}) async {
     final response = await _client.dio.get(
       '/agent/reconciliation',

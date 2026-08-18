@@ -348,3 +348,46 @@ class AgentReconciliationReport {
     );
   }
 }
+
+class AgentCommissionStatement {
+  final AgentEarningsSummary earnings;
+  final int depositRateBps;
+  final int payoutRateBps;
+  final double depositRatePercent;
+  final double payoutRatePercent;
+  final double depositCommission;
+  final double payoutCommission;
+  final double commissionAmount;
+  final double grossSettlement;
+  final double netAfterCommission;
+
+  const AgentCommissionStatement({
+    required this.earnings,
+    required this.depositRateBps,
+    required this.payoutRateBps,
+    required this.depositRatePercent,
+    required this.payoutRatePercent,
+    required this.depositCommission,
+    required this.payoutCommission,
+    required this.commissionAmount,
+    required this.grossSettlement,
+    required this.netAfterCommission,
+  });
+
+  factory AgentCommissionStatement.fromJson(Map<String, dynamic> json) {
+    return AgentCommissionStatement(
+      earnings: AgentEarningsSummary.fromJson(json),
+      depositRateBps: (json['deposit_rate_bps'] as num?)?.toInt() ?? 0,
+      payoutRateBps: (json['payout_rate_bps'] as num?)?.toInt() ?? 0,
+      depositRatePercent:
+          (json['deposit_rate_percent'] as num?)?.toDouble() ?? 0,
+      payoutRatePercent: (json['payout_rate_percent'] as num?)?.toDouble() ?? 0,
+      depositCommission: (json['deposit_commission'] as num?)?.toDouble() ?? 0,
+      payoutCommission: (json['payout_commission'] as num?)?.toDouble() ?? 0,
+      commissionAmount: (json['commission_amount'] as num?)?.toDouble() ?? 0,
+      grossSettlement: (json['gross_settlement'] as num?)?.toDouble() ?? 0,
+      netAfterCommission:
+          (json['net_after_commission'] as num?)?.toDouble() ?? 0,
+    );
+  }
+}

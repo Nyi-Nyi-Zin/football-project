@@ -447,6 +447,58 @@ func (h *PaymentHandler) AgentGetEarningsSummary(c echo.Context) error {
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(summary, nil))
 }
 
+// AgentGetCommissionStatement handles GET /api/v1/agent/commission-statement.
+func (h *PaymentHandler) AgentGetCommissionStatement(c echo.Context) error {
+	agentID := c.Get("user_id").(string)
+	days, err := strconv.Atoi(c.QueryParam("days"))
+	if err != nil && c.QueryParam("days") != "" {
+		appErr := apperrors.NewBadRequestError("days must be a number")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if days < 1 {
+		days = 30
+	}
+	if days > 90 {
+		days = 90
+	}
+	statement, err := h.useCase.GetAgentCommissionStatement(c.Request().Context(), agentID, days)
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent commission statement")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(statement, nil))
+}
+
+// AdminGetAgentCommissionRule handles GET /api/v1/admin/agents/:id/commission.
+func (h *PaymentHandler) AdminGetAgentCommissionRule(c echo.Context) error {
+	rule, err := h.useCase.GetAgentCommissionRule(c.Request().Context(), strings.TrimSpace(c.Param("id")))
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to get agent commission rule")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(rule, nil))
+}
+
+// AdminUpdateAgentCommissionRule handles PATCH /api/v1/admin/agents/:id/commission.
+func (h *PaymentHandler) AdminUpdateAgentCommissionRule(c echo.Context) error {
+	var req domain.UpdateAgentCommissionRuleRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	req.AgentID = strings.TrimSpace(c.Param("id"))
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	rule, err := h.useCase.UpdateAgentCommissionRule(c.Request().Context(), &req, c.Get("user_id").(string))
+	if err != nil {
+		appErr := apperrors.NewInternalError("Failed to update agent commission rule")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(rule, nil))
+}
+
 // AgentGetReconciliation handles GET /api/v1/agent/reconciliation.
 func (h *PaymentHandler) AgentGetReconciliation(c echo.Context) error {
 	agentID := c.Get("user_id").(string)

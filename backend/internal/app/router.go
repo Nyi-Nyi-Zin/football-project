@@ -143,6 +143,8 @@ func RegisterRoutes(
 	admin.POST("/withdrawals/:id/reject", paymentH.AdminRejectWithdrawal)
 	admin.POST("/balance/adjust", paymentH.AdminAdjustBalance)
 	admin.GET("/dashboard/financial-summary", paymentH.AdminDashboardSummary)
+	admin.GET("/agents/:id/commission", paymentH.AdminGetAgentCommissionRule)
+	admin.PATCH("/agents/:id/commission", paymentH.AdminUpdateAgentCommissionRule)
 	admin.GET("/wallet/reconciliation", paymentH.AdminWalletReconciliation)
 
 	// Agent routes (isolated from admin routes)
@@ -150,6 +152,7 @@ func RegisterRoutes(
 	agent.Use(middleware.RequireRole("agent"))
 	agent.GET("/dashboard", paymentH.AgentGetDashboardSummary)
 	agent.GET("/earnings", paymentH.AgentGetEarningsSummary)
+	agent.GET("/commission-statement", paymentH.AgentGetCommissionStatement)
 	agent.GET("/reconciliation", paymentH.AgentGetReconciliation)
 	agent.GET("/reconciliation/export", paymentH.AgentExportReconciliationCSV)
 

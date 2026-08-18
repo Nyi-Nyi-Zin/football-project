@@ -16,6 +16,8 @@ type fakeTxRepo struct {
 	withdrawalByID   map[string]*domain.WithdrawalRequest
 	withdrawalByKey  map[string]*domain.WithdrawalRequest
 	leastLoadedAgent string
+	commissionRule   *domain.AgentCommissionRule
+	earningsSummary  *domain.AgentEarningsSummary
 }
 
 func newFakeTxRepo() *fakeTxRepo {
@@ -55,11 +57,25 @@ func (f *fakeTxRepo) GetAgentDashboardStats(_ context.Context, _ string) (int, f
 }
 
 func (f *fakeTxRepo) GetAgentEarningsSummary(_ context.Context, _ string, from, to time.Time) (*domain.AgentEarningsSummary, error) {
+	if f.earningsSummary != nil {
+		return f.earningsSummary, nil
+	}
 	return &domain.AgentEarningsSummary{From: from, To: to, PeriodDays: int(to.Sub(from).Hours() / 24), Currency: "MMK"}, nil
 }
 
 func (f *fakeTxRepo) GetAgentReconciliation(_ context.Context, agentID string, from, to time.Time) (*domain.AgentReconciliationReport, error) {
 	return &domain.AgentReconciliationReport{AgentID: agentID, From: from, To: to, Currency: "MMK", Reconciled: true}, nil
+}
+
+func (f *fakeTxRepo) GetAgentCommissionRule(_ context.Context, agentID string) (*domain.AgentCommissionRule, error) {
+	if f.commissionRule != nil {
+		return f.commissionRule, nil
+	}
+	return &domain.AgentCommissionRule{AgentID: agentID, Currency: "MMK", Active: true}, nil
+}
+
+func (f *fakeTxRepo) UpsertAgentCommissionRule(_ context.Context, _ *domain.AgentCommissionRule) error {
+	return nil
 }
 
 func (f *fakeTxRepo) ListAll(_ context.Context, _ domain.TransactionFilter, _ int, _ int) ([]*domain.Transaction, int64, error) {
@@ -463,6 +479,38 @@ func TestAgentEarningsSummaryUsesBoundedPeriod(t *testing.T) {
 	}
 	if cappedSummary.PeriodDays != 90 {
 		t.Fatalf("capped period = %d, want 90", cappedSummary.PeriodDays)
+	}
+}
+
+func TestAgentCommissionStatementCalculatesConfiguredRates(t *testing.T) {
+	txRepo := newFakeTxRepo()
+	txRepo.earningsSummary = &domain.AgentEarningsSummary{
+		Currency:      "MMK",
+		DepositAmount: 100000,
+		PayoutAmount:  200000,
+		NetSettlement: 100000,
+	}
+	txRepo.commissionRule = &domain.AgentCommissionRule{
+		AgentID:        "agent-1",
+		Currency:       "MMK",
+		DepositRateBPS: 100,
+		PayoutRateBPS:  250,
+		Active:         true,
+	}
+	uc := NewPaymentUseCase(txRepo, &fakeWalletRepo{balances: map[string]float64{}}, event.NewBus(), SecurityOptions{})
+
+	statement, err := uc.GetAgentCommissionStatement(context.Background(), "agent-1", 30)
+	if err != nil {
+		t.Fatalf("commission statement: %v", err)
+	}
+	if statement.DepositCommission != 1000 {
+		t.Fatalf("deposit commission = %.2f, want 1000", statement.DepositCommission)
+	}
+	if statement.PayoutCommission != 5000 {
+		t.Fatalf("payout commission = %.2f, want 5000", statement.PayoutCommission)
+	}
+	if statement.CommissionAmount != 6000 || statement.NetAfterCommission != 106000 {
+		t.Fatalf("statement totals = commission %.2f net %.2f, want 6000 and 106000", statement.CommissionAmount, statement.NetAfterCommission)
 	}
 }
 

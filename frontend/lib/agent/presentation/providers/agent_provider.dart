@@ -59,3 +59,10 @@ final agentReconciliationProvider =
   final days = ref.watch(agentEarningsDaysProvider);
   return ds.getReconciliation(days: days);
 });
+
+final agentCommissionStatementProvider =
+    FutureProvider.autoDispose<AgentCommissionStatement>((ref) async {
+  final ds = ref.read(agentDataSourceProvider);
+  final days = ref.watch(agentEarningsDaysProvider);
+  return ds.getCommissionStatement(days: days);
+});

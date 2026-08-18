@@ -189,6 +189,8 @@ class _AgentDashboardTab extends ConsumerWidget {
           const SizedBox(height: 16),
           const _AgentEarningsCard(),
           const SizedBox(height: 12),
+          const _AgentCommissionCard(),
+          const SizedBox(height: 12),
           const _AgentReconciliationCard(),
           const SizedBox(height: 20),
           Text(
@@ -2155,6 +2157,124 @@ class _AgentReconciliationMetric extends StatelessWidget {
   final String value;
 
   const _AgentReconciliationMetric({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label, style: Theme.of(context).textTheme.bodySmall),
+          const SizedBox(height: 4),
+          Text(value, style: const TextStyle(fontWeight: FontWeight.w700)),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentCommissionCard extends ConsumerWidget {
+  const _AgentCommissionCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final state = ref.watch(agentCommissionStatementProvider);
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: state.when(
+          loading: () => const SizedBox(
+            height: 130,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          error: (error, _) => ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.percent_outlined),
+            title: const Text('Commission statement unavailable'),
+            subtitle: Text('$error'),
+            trailing: IconButton(
+              onPressed: () => ref.invalidate(agentCommissionStatementProvider),
+              icon: const Icon(Icons.refresh),
+            ),
+          ),
+          data: (statement) => Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      'Commission statement',
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                  Icon(Icons.receipt_long_outlined),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Configured rates are applied only to settled activity.',
+                style: Theme.of(context).textTheme.bodySmall,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AgentCommissionMetric(
+                      label: 'Deposit rate',
+                      value:
+                          '${statement.depositRatePercent.toStringAsFixed(2)}%',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AgentCommissionMetric(
+                      label: 'Payout rate',
+                      value:
+                          '${statement.payoutRatePercent.toStringAsFixed(2)}%',
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: _AgentCommissionMetric(
+                      label: 'Commission earned',
+                      value:
+                          '${statement.commissionAmount.toStringAsFixed(0)} ${statement.earnings.currency}',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _AgentCommissionMetric(
+                      label: 'Net after commission',
+                      value:
+                          '${statement.netAfterCommission.toStringAsFixed(0)} ${statement.earnings.currency}',
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgentCommissionMetric extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _AgentCommissionMetric({required this.label, required this.value});
 
   @override
   Widget build(BuildContext context) {
