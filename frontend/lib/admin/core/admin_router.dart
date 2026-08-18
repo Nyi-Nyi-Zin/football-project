@@ -7,6 +7,9 @@ import '../presentation/screens/admin_balances_screen.dart';
 import '../presentation/screens/admin_dashboard_screen.dart';
 import '../presentation/screens/admin_login_screen.dart';
 import '../presentation/screens/admin_odds_screen.dart';
+import '../presentation/screens/admin_support_screen.dart';
+import '../presentation/screens/admin_reconciliation_screen.dart';
+import '../presentation/screens/admin_commission_screen.dart';
 import '../presentation/screens/admin_transactions_screen.dart';
 import '../presentation/screens/admin_user_detail_screen.dart';
 import '../presentation/screens/admin_users_screen.dart';
@@ -76,6 +79,18 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/odds',
             builder: (_, __) => const AdminOddsScreen(),
+          ),
+          GoRoute(
+            path: '/support',
+            builder: (_, __) => const AdminSupportScreen(),
+          ),
+          GoRoute(
+            path: '/reconciliation',
+            builder: (_, __) => const AdminReconciliationScreen(),
+          ),
+          GoRoute(
+            path: '/commission',
+            builder: (_, __) => const AdminCommissionScreen(),
           ),
         ],
       ),
