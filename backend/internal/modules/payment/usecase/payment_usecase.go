@@ -426,6 +426,73 @@ func (uc *PaymentUseCase) GetAgentEarningsSummary(ctx context.Context, agentID s
 	return summary, nil
 }
 
+// GetAgentCommissionStatement applies the configured Agent commission rule to settled activity.
+func (uc *PaymentUseCase) GetAgentCommissionStatement(ctx context.Context, agentID string, days int) (*domain.AgentCommissionStatement, error) {
+	summary, err := uc.GetAgentEarningsSummary(ctx, agentID, days)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentCommissionStatement: earnings: %w", err)
+	}
+	rule, err := uc.txRepo.GetAgentCommissionRule(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentCommissionStatement: rule: %w", err)
+	}
+	if rule == nil {
+		rule = &domain.AgentCommissionRule{Currency: "MMK"}
+	}
+	depositCommission := summary.DepositAmount * float64(rule.DepositRateBPS) / 10000
+	payoutCommission := summary.PayoutAmount * float64(rule.PayoutRateBPS) / 10000
+	commission := depositCommission + payoutCommission
+	grossSettlement := summary.NetSettlement
+	statement := &domain.AgentCommissionStatement{
+		AgentEarningsSummary: summary,
+		DepositRateBPS:       rule.DepositRateBPS,
+		PayoutRateBPS:        rule.PayoutRateBPS,
+		DepositRatePercent:   float64(rule.DepositRateBPS) / 100,
+		PayoutRatePercent:    float64(rule.PayoutRateBPS) / 100,
+		DepositCommission:    roundMoney(depositCommission),
+		PayoutCommission:     roundMoney(payoutCommission),
+		CommissionAmount:     roundMoney(commission),
+		GrossSettlement:      roundMoney(grossSettlement),
+		NetAfterCommission:   roundMoney(grossSettlement + commission),
+	}
+	if rule.Currency != "" {
+		statement.Currency = rule.Currency
+	}
+	return statement, nil
+}
+
+// GetAgentCommissionRule returns the active rule or the explicit zero-rate default.
+func (uc *PaymentUseCase) GetAgentCommissionRule(ctx context.Context, agentID string) (*domain.AgentCommissionRule, error) {
+	rule, err := uc.txRepo.GetAgentCommissionRule(ctx, agentID)
+	if err != nil {
+		return nil, fmt.Errorf("usecase.GetAgentCommissionRule: %w", err)
+	}
+	if rule == nil {
+		rule = &domain.AgentCommissionRule{AgentID: agentID, Currency: "MMK", Active: true}
+	}
+	return rule, nil
+}
+
+// UpdateAgentCommissionRule applies an administrator-owned commission rule.
+func (uc *PaymentUseCase) UpdateAgentCommissionRule(ctx context.Context, req *domain.UpdateAgentCommissionRuleRequest, adminID string) (*domain.AgentCommissionRule, error) {
+	currency := strings.TrimSpace(req.Currency)
+	if currency == "" {
+		currency = "MMK"
+	}
+	rule := &domain.AgentCommissionRule{
+		AgentID:        req.AgentID,
+		DepositRateBPS: req.DepositRateBPS,
+		PayoutRateBPS:  req.PayoutRateBPS,
+		Currency:       currency,
+		Active:         true,
+		UpdatedBy:      adminID,
+	}
+	if err := uc.txRepo.UpsertAgentCommissionRule(ctx, rule); err != nil {
+		return nil, fmt.Errorf("usecase.UpdateAgentCommissionRule: %w", err)
+	}
+	return rule, nil
+}
+
 // GetAgentReconciliation returns a wallet-versus-ledger snapshot for a bounded period.
 func (uc *PaymentUseCase) GetAgentReconciliation(ctx context.Context, agentID string, days int) (*domain.AgentReconciliationReport, error) {
 	if days < 1 {
