@@ -254,3 +254,31 @@ class AgentSupportMessage {
     );
   }
 }
+
+class AgentSecuritySession {
+  final String sessionId;
+  final DateTime issuedAt;
+  final DateTime expiresAt;
+  final bool isCurrent;
+  final bool revocable;
+
+  const AgentSecuritySession({
+    required this.sessionId,
+    required this.issuedAt,
+    required this.expiresAt,
+    required this.isCurrent,
+    required this.revocable,
+  });
+
+  factory AgentSecuritySession.fromJson(Map<String, dynamic> json) {
+    return AgentSecuritySession(
+      sessionId: json['session_id'] as String? ?? '',
+      issuedAt: DateTime.tryParse(json['issued_at'] as String? ?? '') ??
+          DateTime.now(),
+      expiresAt: DateTime.tryParse(json['expires_at'] as String? ?? '') ??
+          DateTime.now(),
+      isCurrent: json['is_current'] as bool? ?? true,
+      revocable: json['revocable'] as bool? ?? true,
+    );
+  }
+}

@@ -42,6 +42,8 @@ type User struct {
 	Region          string    `json:"region,omitempty" gorm:"size:100"`
 	Township        string    `json:"township,omitempty" gorm:"size:100"`
 	CustomCode      *string   `json:"custom_code,omitempty" gorm:"size:10;uniqueIndex"`
+	TokenVersion    int       `json:"-" gorm:"not null;default:1"`
+	SecurityPINHash string    `json:"-" gorm:"column:security_pin_hash"`
 	CreatedAt       time.Time `json:"created_at"`
 	UpdatedAt       time.Time `json:"updated_at"`
 }
@@ -171,6 +173,21 @@ type UpdateProfileRequest struct {
 type ChangePasswordRequest struct {
 	CurrentPassword string `json:"current_password" validate:"required"`
 	NewPassword     string `json:"new_password" validate:"required,min=8"`
+}
+
+// ChangeSecurityPINRequest updates the Agent's local payout/security PIN.
+type ChangeSecurityPINRequest struct {
+	CurrentPIN string `json:"current_pin" validate:"omitempty,numeric,min=4,max=8"`
+	NewPIN     string `json:"new_pin" validate:"required,numeric,min=4,max=8"`
+}
+
+// SecuritySession describes the current authenticated device session.
+type SecuritySession struct {
+	SessionID string    `json:"session_id"`
+	IssuedAt  time.Time `json:"issued_at"`
+	ExpiresAt time.Time `json:"expires_at"`
+	IsCurrent bool      `json:"is_current"`
+	Revocable bool      `json:"revocable"`
 }
 
 // AdminUpdateStatusRequest controls whether an account can authenticate and bet.

@@ -74,7 +74,7 @@ func (uc *UserUseCase) Register(ctx context.Context, req *domain.RegisterRequest
 	}
 
 	// Generate tokens
-	tokens, err := uc.jwtManager.GenerateTokenPair(user.ID, user.Email, user.Role)
+	tokens, err := uc.jwtManager.GenerateTokenPairWithVersion(user.ID, user.Email, user.Role, normalizedTokenVersion(user.TokenVersion))
 	if err != nil {
 		return nil, nil, fmt.Errorf("usecase.Register: generate tokens: %w", err)
 	}
@@ -149,7 +149,7 @@ func (uc *UserUseCase) Login(ctx context.Context, req *domain.LoginRequest) (*do
 		return nil, nil, apperrors.NewUnauthorizedError("Invalid email or password")
 	}
 
-	tokens, err := uc.jwtManager.GenerateTokenPair(user.ID, user.Email, user.Role)
+	tokens, err := uc.jwtManager.GenerateTokenPairWithVersion(user.ID, user.Email, user.Role, normalizedTokenVersion(user.TokenVersion))
 	if err != nil {
 		return nil, nil, fmt.Errorf("usecase.Login: generate tokens: %w", err)
 	}
@@ -176,8 +176,11 @@ func (uc *UserUseCase) RefreshToken(ctx context.Context, refreshToken string) (*
 	if user.Status != "active" {
 		return nil, nil, apperrors.NewForbiddenError("Account is suspended")
 	}
+	if claims.TokenVersion > 0 && user.TokenVersion > 0 && claims.TokenVersion != user.TokenVersion {
+		return nil, nil, apperrors.NewUnauthorizedError("Refresh session has been revoked")
+	}
 
-	tokens, err := uc.jwtManager.GenerateTokenPair(user.ID, user.Email, user.Role)
+	tokens, err := uc.jwtManager.GenerateTokenPairWithVersion(user.ID, user.Email, user.Role, normalizedTokenVersion(user.TokenVersion))
 	if err != nil {
 		return nil, nil, fmt.Errorf("usecase.RefreshToken: generate tokens: %w", err)
 	}
@@ -292,6 +295,69 @@ func (uc *UserUseCase) UpdateProfile(ctx context.Context, userID string, req *do
 	}
 
 	return user.ToProfile(), nil
+}
+
+func normalizedTokenVersion(version int) int {
+	if version < 1 {
+		return 1
+	}
+	return version
+}
+
+// ChangeSecurityPIN updates a user's security PIN using a bcrypt hash.
+func (uc *UserUseCase) ChangeSecurityPIN(ctx context.Context, userID string, req *domain.ChangeSecurityPINRequest) error {
+	user, err := uc.repo.FindByID(ctx, userID)
+	if err != nil || user == nil {
+		return apperrors.NewNotFoundError("User not found")
+	}
+	if user.Role != "agent" {
+		return apperrors.NewForbiddenError("Security PIN is available for Agent accounts only")
+	}
+	if user.SecurityPINHash != "" && bcrypt.CompareHashAndPassword([]byte(user.SecurityPINHash), []byte(req.CurrentPIN)) != nil {
+		return apperrors.NewUnauthorizedError("Current security PIN is incorrect")
+	}
+	hashedPIN, err := bcrypt.GenerateFromPassword([]byte(req.NewPIN), 12)
+	if err != nil {
+		return fmt.Errorf("usecase.ChangeSecurityPIN: hash pin: %w", err)
+	}
+	if err := uc.repo.UpdateSecurityPINHash(ctx, userID, string(hashedPIN)); err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return apperrors.NewNotFoundError("User not found")
+		}
+		return fmt.Errorf("usecase.ChangeSecurityPIN: %w", err)
+	}
+	return nil
+}
+
+// LogoutAllDevices revokes all access and refresh tokens issued before the new version.
+func (uc *UserUseCase) LogoutAllDevices(ctx context.Context, userID string) (int, error) {
+	version, err := uc.repo.IncrementTokenVersion(ctx, userID)
+	if err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return 0, apperrors.NewNotFoundError("User not found")
+		}
+		return 0, fmt.Errorf("usecase.LogoutAllDevices: %w", err)
+	}
+	return version, nil
+}
+
+// CurrentSecuritySession converts current access-token claims to a safe session view.
+func (uc *UserUseCase) CurrentSecuritySession(claims *jwtpkg.Claims) *domain.SecuritySession {
+	if claims == nil {
+		return nil
+	}
+	session := &domain.SecuritySession{
+		SessionID: claims.SessionID,
+		IsCurrent: true,
+		Revocable: true,
+	}
+	if claims.IssuedAt != nil {
+		session.IssuedAt = claims.IssuedAt.Time
+	}
+	if claims.ExpiresAt != nil {
+		session.ExpiresAt = claims.ExpiresAt.Time
+	}
+	return session
 }
 
 // ChangePassword updates the authenticated user's password.

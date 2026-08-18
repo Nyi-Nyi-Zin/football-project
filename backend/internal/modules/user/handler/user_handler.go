@@ -8,6 +8,7 @@ import (
 	"betting-app/internal/modules/user/domain"
 	"betting-app/internal/modules/user/usecase"
 	apperrors "betting-app/internal/shared/errors"
+	jwtpkg "betting-app/pkg/jwt"
 	"betting-app/pkg/logger"
 
 	"github.com/go-playground/validator/v10"
@@ -175,6 +176,56 @@ func (h *UserHandler) ChangePassword(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
 		"message": "Password changed successfully",
+	}, nil))
+}
+
+// ChangeSecurityPIN handles POST /api/v1/agent/security/pin.
+func (h *UserHandler) ChangeSecurityPIN(c echo.Context) error {
+	var req domain.ChangeSecurityPINRequest
+	if err := c.Bind(&req); err != nil {
+		appErr := apperrors.NewBadRequestError("Invalid request body")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.validate.Struct(&req); err != nil {
+		appErr := apperrors.NewValidationError("Validation failed", err.Error())
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	if err := h.useCase.ChangeSecurityPIN(c.Request().Context(), c.Get("user_id").(string), &req); err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to change security PIN")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]string{
+		"message": "Security PIN changed successfully",
+	}, nil))
+}
+
+// GetCurrentSecuritySession handles GET /api/v1/agent/security/sessions.
+func (h *UserHandler) GetCurrentSecuritySession(c echo.Context) error {
+	claims, _ := c.Get("claims").(*jwtpkg.Claims)
+	session := h.useCase.CurrentSecuritySession(claims)
+	if session == nil {
+		appErr := apperrors.NewUnauthorizedError("Authenticated session is unavailable")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse([]*domain.SecuritySession{session}, nil))
+}
+
+// LogoutAllDevices handles POST /api/v1/agent/security/logout-all.
+func (h *UserHandler) LogoutAllDevices(c echo.Context) error {
+	version, err := h.useCase.LogoutAllDevices(c.Request().Context(), c.Get("user_id").(string))
+	if err != nil {
+		if appErr, ok := err.(*apperrors.AppError); ok {
+			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+		}
+		appErr := apperrors.NewInternalError("Failed to revoke sessions")
+		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
+	}
+	return c.JSON(http.StatusOK, apperrors.NewSuccessResponse(map[string]interface{}{
+		"message":       "All sessions revoked",
+		"token_version": version,
 	}, nil))
 }
 
