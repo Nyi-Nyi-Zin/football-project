@@ -33,9 +33,9 @@ class NotificationScreen extends ConsumerWidget {
         ],
       ),
       body: notifications.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _NotificationSkeletonList(),
         error: (error, _) => _NotificationError(
-          message: error.toString(),
+          message: 'Check your connection and try again.',
           onRetry: () =>
               ref.read(notificationProvider.notifier).loadNotifications(),
         ),
@@ -201,6 +201,58 @@ class _NotificationTile extends StatelessWidget {
     if (difference.inDays < 1) return '${difference.inHours}h ago';
     if (difference.inDays < 7) return '${difference.inDays}d ago';
     return '${value.day}/${value.month}/${value.year}';
+  }
+}
+
+class _NotificationSkeletonList extends StatelessWidget {
+  const _NotificationSkeletonList();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(12, 12, 12, 24),
+      itemCount: 6,
+      separatorBuilder: (_, __) => const SizedBox(height: 8),
+      itemBuilder: (_, __) => Card(
+        margin: EdgeInsets.zero,
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: Theme.of(context).colorScheme.surfaceContainerHighest,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      height: 14,
+                      width: double.infinity,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                    const SizedBox(height: 8),
+                    Container(
+                      height: 12,
+                      width: 180,
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 

@@ -9,10 +9,12 @@ class AdminWithdrawalsScreen extends ConsumerStatefulWidget {
   const AdminWithdrawalsScreen({super.key});
 
   @override
-  ConsumerState<AdminWithdrawalsScreen> createState() => _AdminWithdrawalsScreenState();
+  ConsumerState<AdminWithdrawalsScreen> createState() =>
+      _AdminWithdrawalsScreenState();
 }
 
-class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen> {
+class _AdminWithdrawalsScreenState
+    extends ConsumerState<AdminWithdrawalsScreen> {
   String _status = 'pending';
   int _page = 1;
   bool _loadingAction = false;
@@ -20,7 +22,8 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
   @override
   Widget build(BuildContext context) {
     final asyncRows = ref.watch(
-      withdrawalsProvider(WithdrawalQuery(status: _status, page: _page, limit: 20)),
+      withdrawalsProvider(
+          WithdrawalQuery(status: _status, page: _page, limit: 20)),
     );
     final dateFmt = DateFormat('yyyy-MM-dd HH:mm');
 
@@ -39,8 +42,10 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
                   value: _status,
                   items: const [
                     DropdownMenuItem(value: 'pending', child: Text('Pending')),
-                    DropdownMenuItem(value: 'completed', child: Text('Approved')),
-                    DropdownMenuItem(value: 'cancelled', child: Text('Rejected')),
+                    DropdownMenuItem(
+                        value: 'completed', child: Text('Approved')),
+                    DropdownMenuItem(
+                        value: 'cancelled', child: Text('Rejected')),
                     DropdownMenuItem(value: '', child: Text('All')),
                   ],
                   onChanged: (v) => setState(() {
@@ -63,34 +68,88 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
                     children: [
                       Expanded(
                         child: ListView.separated(
+                          padding: const EdgeInsets.only(bottom: 12),
                           itemCount: res.transactions.length,
-                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 8),
                           itemBuilder: (context, index) {
                             final tx = res.transactions[index];
                             final isPending = tx.status == 'pending';
-                            return ListTile(
-                              title: SelectableText(
-                                '${tx.userId} | ${tx.amount.toStringAsFixed(2)} ${tx.currency}',
-                              ),
-                              subtitle: Text(
-                                '${tx.description}\n${dateFmt.format(tx.createdAt)} | ${tx.status}',
-                              ),
-                              isThreeLine: true,
-                              trailing: isPending
-                                  ? Wrap(
-                                      spacing: 8,
+                            return Card(
+                              margin: EdgeInsets.zero,
+                              child: Padding(
+                                padding: const EdgeInsets.all(14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        OutlinedButton(
-                                          onPressed: _loadingAction ? null : () => _approve(tx.id),
-                                          child: const Text('Approve'),
+                                        Expanded(
+                                          child: SelectableText(
+                                            '${tx.amount.toStringAsFixed(2)} ${tx.currency}',
+                                            style: const TextStyle(
+                                              fontWeight: FontWeight.w700,
+                                              fontSize: 17,
+                                            ),
+                                          ),
                                         ),
-                                        ElevatedButton(
-                                          onPressed: _loadingAction ? null : () => _reject(tx.id),
-                                          child: const Text('Reject'),
+                                        Text(
+                                          tx.status.toUpperCase(),
+                                          style: TextStyle(
+                                            fontSize: 12,
+                                            fontWeight: FontWeight.w700,
+                                            color: isPending
+                                                ? Colors.orange.shade800
+                                                : Theme.of(context)
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                          ),
                                         ),
                                       ],
-                                    )
-                                  : null,
+                                    ),
+                                    const SizedBox(height: 6),
+                                    SelectableText(
+                                      'Customer: ${tx.userId}',
+                                      style:
+                                          Theme.of(context).textTheme.bodySmall,
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      '${tx.description}\n${dateFmt.format(tx.createdAt)}',
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (isPending) ...[
+                                      const SizedBox(height: 12),
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: OutlinedButton.icon(
+                                              onPressed: _loadingAction
+                                                  ? null
+                                                  : () => _approve(tx.id),
+                                              icon: const Icon(Icons.check),
+                                              label: const Text('Approve'),
+                                            ),
+                                          ),
+                                          const SizedBox(width: 8),
+                                          Expanded(
+                                            child: ElevatedButton.icon(
+                                              onPressed: _loadingAction
+                                                  ? null
+                                                  : () => _reject(tx.id),
+                                              icon: const Icon(Icons.close),
+                                              label: const Text('Reject'),
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
                             );
                           },
                         ),
@@ -99,12 +158,16 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
                         mainAxisAlignment: MainAxisAlignment.end,
                         children: [
                           IconButton(
-                            onPressed: _page > 1 ? () => setState(() => _page--) : null,
+                            onPressed: _page > 1
+                                ? () => setState(() => _page--)
+                                : null,
                             icon: const Icon(Icons.chevron_left),
                           ),
                           Text('Page $_page / ${res.lastPage}'),
                           IconButton(
-                            onPressed: _page < res.lastPage ? () => setState(() => _page++) : null,
+                            onPressed: _page < res.lastPage
+                                ? () => setState(() => _page++)
+                                : null,
                             icon: const Icon(Icons.chevron_right),
                           ),
                         ],
@@ -112,8 +175,10 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
                     ],
                   );
                 },
-                error: (e, _) => Center(child: Text('Failed to load withdrawals: $e')),
-                loading: () => const Center(child: CircularProgressIndicator()),
+                error: (e, _) => const Center(
+                  child: Text('Failed to load withdrawals. Please retry.'),
+                ),
+                loading: () => const Center(child: LinearProgressIndicator()),
               ),
             ),
           ],
@@ -126,7 +191,8 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
     setState(() => _loadingAction = true);
     try {
       await ref.read(adminDatasourceProvider).approveWithdrawal(txId);
-      ref.invalidate(withdrawalsProvider(WithdrawalQuery(status: _status, page: _page, limit: 20)));
+      ref.invalidate(withdrawalsProvider(
+          WithdrawalQuery(status: _status, page: _page, limit: 20)));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Withdrawal approved')),
@@ -134,7 +200,7 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Approve failed: $e')),
+        const SnackBar(content: Text('Approve failed. Please retry.')),
       );
     } finally {
       if (mounted) setState(() => _loadingAction = false);
@@ -144,8 +210,11 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
   Future<void> _reject(String txId) async {
     setState(() => _loadingAction = true);
     try {
-      await ref.read(adminDatasourceProvider).rejectWithdrawal(txId, reason: 'Rejected by admin');
-      ref.invalidate(withdrawalsProvider(WithdrawalQuery(status: _status, page: _page, limit: 20)));
+      await ref
+          .read(adminDatasourceProvider)
+          .rejectWithdrawal(txId, reason: 'Rejected by admin');
+      ref.invalidate(withdrawalsProvider(
+          WithdrawalQuery(status: _status, page: _page, limit: 20)));
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Withdrawal rejected')),
@@ -153,7 +222,7 @@ class _AdminWithdrawalsScreenState extends ConsumerState<AdminWithdrawalsScreen>
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Reject failed: $e')),
+        const SnackBar(content: Text('Reject failed. Please retry.')),
       );
     } finally {
       if (mounted) setState(() => _loadingAction = false);
