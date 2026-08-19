@@ -3,6 +3,7 @@ package usecase
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"betting-app/internal/modules/notification/domain"
 	apperrors "betting-app/internal/shared/errors"
@@ -25,12 +26,16 @@ func NewNotificationUseCase(repo domain.NotificationRepository, eventBus *event.
 
 // Send creates and sends a notification
 func (uc *NotificationUseCase) Send(ctx context.Context, req *domain.SendNotificationRequest) (*domain.Notification, error) {
+	data := strings.TrimSpace(req.Data)
+	if data == "" {
+		data = "{}"
+	}
 	notification := &domain.Notification{
 		UserID:  req.UserID,
 		Type:    req.Type,
 		Title:   req.Title,
 		Message: req.Message,
-		Data:    req.Data,
+		Data:    data,
 		IsRead:  false,
 	}
 
