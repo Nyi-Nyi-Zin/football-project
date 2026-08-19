@@ -128,7 +128,7 @@ class _AdminOddsScreenState extends ConsumerState<AdminOddsScreen> {
                               'No matches are currently available.');
                         }
                         return DropdownButtonFormField<AdminMatchSummary>(
-                          initialValue: _selectedMatch,
+                          value: _selectedMatch,
                           isExpanded: true,
                           decoration: const InputDecoration(
                             labelText: 'Select a live fixture',
