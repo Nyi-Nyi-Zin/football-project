@@ -360,6 +360,10 @@ func TestLocationWithdrawalHoldsThenSettlesToAgent(t *testing.T) {
 	if request.AgentID != "agent-1" {
 		t.Fatalf("expected trimmed Agent ID agent-1, got %q", request.AgentID)
 	}
+	createdTx := txRepo.txByID[request.TransactionID]
+	if createdTx == nil || !strings.HasPrefix(createdTx.IdempotencyKey, "location-withdrawal-user-1-") {
+		t.Fatalf("expected location withdrawal idempotency key, got %#v", createdTx)
+	}
 	if walletRepo.balances["user-1"] != 100 {
 		t.Fatalf("expected total balance to remain 100 while pending, got %v", walletRepo.balances["user-1"])
 	}
