@@ -1146,16 +1146,20 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: encrypt account details: %w", err)
 	}
 
-	// Create transaction record first
+	// Create transaction record first. Production databases may enforce a
+	// non-null idempotency key even when older migrations allowed NULL, so the
+	// location-based flow must provide one just like the legacy withdrawal flow.
+	idempotencyKey := fmt.Sprintf("location-withdrawal-%s-%d", userID, time.Now().UnixNano())
 	tx := &domain.Transaction{
-		UserID:        userID,
-		Type:          domain.TransactionWithdraw,
-		Amount:        req.Amount,
-		Currency:      "MMK",
-		Status:        domain.TransactionPending,
-		Description:   "Withdrawal request; amount held pending agent payout",
-		BalanceBefore: currentBalance,
-		BalanceAfter:  currentBalance,
+		UserID:         userID,
+		Type:           domain.TransactionWithdraw,
+		Amount:         req.Amount,
+		Currency:       "MMK",
+		Status:         domain.TransactionPending,
+		IdempotencyKey: idempotencyKey,
+		Description:    "Withdrawal request; amount held pending agent payout",
+		BalanceBefore:  currentBalance,
+		BalanceAfter:   currentBalance,
 	}
 
 	if err := uc.txRepo.Create(ctx, tx); err != nil {
