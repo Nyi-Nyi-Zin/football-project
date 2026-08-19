@@ -38,6 +38,8 @@ class AdminShell extends ConsumerWidget {
   static const _moreDestinations = <_AdminMoreDestination>[
     _AdminMoreDestination(
         '/notifications', 'Notifications', Icons.notifications_outlined),
+    _AdminMoreDestination(
+        '/audit-logs', 'Audit history', Icons.fact_check_outlined),
     _AdminMoreDestination('/transactions', 'Transactions', Icons.receipt_long),
     _AdminMoreDestination('/odds', 'Odds management', Icons.candlestick_chart),
     _AdminMoreDestination(

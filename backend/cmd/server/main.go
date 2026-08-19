@@ -12,6 +12,9 @@ import (
 	"time"
 
 	"betting-app/internal/app"
+	auditHandler "betting-app/internal/modules/audit/handler"
+	auditRepo "betting-app/internal/modules/audit/repository"
+	auditUsecase "betting-app/internal/modules/audit/usecase"
 	bettingHandler "betting-app/internal/modules/betting/handler"
 	bettingRepo "betting-app/internal/modules/betting/repository"
 	bettingUsecase "betting-app/internal/modules/betting/usecase"
@@ -120,6 +123,9 @@ func main() {
 
 	txRepository := paymentRepo.NewPostgresTransactionRepo(db)
 	walletRepository := paymentRepo.NewPostgresWalletRepo(db)
+	auditRepository := auditRepo.NewPostgresAuditRepo(db)
+	auditUC := auditUsecase.NewAuditUseCase(auditRepository)
+	auditH := auditHandler.NewAuditHandler(auditUC)
 	paymentUC := paymentUsecase.NewPaymentUseCase(
 		txRepository,
 		walletRepository,
@@ -130,6 +136,7 @@ func main() {
 		},
 		nil,
 	)
+	paymentUC.SetAuditRepository(auditRepository)
 	paymentH := paymentHandler.NewPaymentHandler(paymentUC)
 
 	userProviderAdapter := &UserProviderAdapter{
@@ -210,7 +217,7 @@ func main() {
 	e := echo.New()
 	e.HideBanner = true
 
-	app.RegisterRoutes(e, jwtManager, redisClient, userH, userRepository, bettingH, paymentH, oddsH, notifH, supportH)
+	app.RegisterRoutes(e, jwtManager, redisClient, userH, userRepository, bettingH, paymentH, oddsH, notifH, supportH, auditH)
 
 	go func() {
 		addr := fmt.Sprintf(":%s", cfg.Server.Port)

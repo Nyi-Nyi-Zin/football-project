@@ -2,11 +2,13 @@ package usecase
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
 	"time"
 
+	auditDomain "betting-app/internal/modules/audit/domain"
 	"betting-app/internal/modules/payment/domain"
 	"betting-app/internal/shared/event"
 )
@@ -18,6 +20,19 @@ type fakeTxRepo struct {
 	leastLoadedAgent string
 	commissionRule   *domain.AgentCommissionRule
 	earningsSummary  *domain.AgentEarningsSummary
+}
+
+type fakeAuditRepo struct {
+	logs []*auditDomain.AuditLog
+}
+
+func (f *fakeAuditRepo) Create(_ context.Context, log *auditDomain.AuditLog) error {
+	f.logs = append(f.logs, log)
+	return nil
+}
+
+func (f *fakeAuditRepo) List(_ context.Context, _ auditDomain.AuditFilter) ([]*auditDomain.AuditLog, int64, error) {
+	return f.logs, int64(len(f.logs)), nil
 }
 
 func newFakeTxRepo() *fakeTxRepo {
@@ -505,6 +520,42 @@ func TestAgentDepositToCustomerDebitsAgentAndCreditsCustomer(t *testing.T) {
 	}
 	if !agentDepositFound {
 		t.Fatal("expected Agent customer deposit transaction")
+	}
+}
+
+func TestAdminAdjustBalanceCreatesAuditLog(t *testing.T) {
+	txRepo := newFakeTxRepo()
+	walletRepo := &fakeWalletRepo{
+		balances: map[string]float64{"customer-1": 100},
+		reserved: map[string]float64{},
+	}
+	auditRepo := &fakeAuditRepo{}
+	uc := NewPaymentUseCase(txRepo, walletRepo, event.NewBus(), SecurityOptions{})
+	uc.SetAuditRepository(auditRepo)
+
+	tx, err := uc.AdminAdjustBalance(context.Background(), &domain.AdminBalanceAdjustmentRequest{
+		UserID:      "customer-1",
+		Amount:      25,
+		Currency:    "MMK",
+		Action:      "credit",
+		Reason:      "Support correction",
+		PerformedBy: "admin-1",
+	})
+	if err != nil {
+		t.Fatalf("AdminAdjustBalance returned error: %v", err)
+	}
+	if tx.BalanceAfter != 125 || walletRepo.balances["customer-1"] != 125 {
+		t.Fatalf("unexpected balance state: tx=%v wallet=%v", tx.BalanceAfter, walletRepo.balances["customer-1"])
+	}
+	if len(auditRepo.logs) != 1 {
+		t.Fatalf("audit log count = %d, want 1", len(auditRepo.logs))
+	}
+	log := auditRepo.logs[0]
+	if log.ActorID != "admin-1" || log.Action != "wallet.balance_adjusted" || log.ResourceID != "customer-1" {
+		t.Fatalf("unexpected audit log: %+v", log)
+	}
+	if !json.Valid([]byte(log.Metadata)) {
+		t.Fatalf("audit metadata is not valid JSON: %s", log.Metadata)
 	}
 }
 

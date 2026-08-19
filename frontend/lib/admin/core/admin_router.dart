@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../features/auth/presentation/providers/auth_provider.dart';
+import '../presentation/screens/admin_audit_screen.dart';
 import '../presentation/screens/admin_balances_screen.dart';
 import '../presentation/screens/admin_dashboard_screen.dart';
 import '../presentation/screens/admin_login_screen.dart';
@@ -57,6 +58,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/notifications',
             builder: (_, __) => const NotificationScreen(),
+          ),
+          GoRoute(
+            path: '/audit-logs',
+            builder: (_, __) => const AdminAuditScreen(),
           ),
           GoRoute(
             path: '/users',
