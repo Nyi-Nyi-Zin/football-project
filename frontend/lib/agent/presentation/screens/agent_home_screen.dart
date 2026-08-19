@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/errors/failures.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/theme/theme_provider.dart';
+import '../../core/agent_error_message.dart';
 
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/domain/entities/payment_entity.dart';
@@ -15,7 +16,6 @@ import '../../../features/notification/domain/entities/notification_entity.dart'
 import '../../../features/notification/presentation/providers/notification_provider.dart';
 import '../../data/agent_models.dart';
 import '../providers/agent_provider.dart';
-import 'agent_withdrawals_screen.dart';
 
 String _normalizeCustomerUserId(String raw) {
   final trimmed = raw.trim();
@@ -75,24 +75,18 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   @override
   void initState() {
     super.initState();
-    _selectedIndex = widget.initialIndex.clamp(0, 5);
+    _selectedIndex = widget.initialIndex.clamp(0, 2);
   }
 
   @override
   Widget build(BuildContext context) {
     const titles = [
-      'Cloud 9 Agent',
-      'Customers',
       'Agent Wallet',
-      'Payouts',
       'Profile',
       'Alerts',
     ];
     final pages = <Widget>[
-      const _AgentDashboardTab(),
-      const _AgentCustomersTab(),
       const _AgentWalletTab(),
-      const AgentWithdrawalsScreen(embedded: true),
       const _AgentProfileTab(),
       const _AgentNotificationsTab(),
     ];
@@ -119,24 +113,9 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             setState(() => _selectedIndex = index),
         destinations: const [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Home',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outline),
-            selectedIcon: Icon(Icons.people),
-            label: 'Customers',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.account_balance_wallet_outlined),
             selectedIcon: Icon(Icons.account_balance_wallet),
             label: 'Wallet',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.payments_outlined),
-            selectedIcon: Icon(Icons.payments),
-            label: 'Payouts',
           ),
           NavigationDestination(
             icon: Icon(Icons.person_outline),
@@ -154,14 +133,8 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   }
 
   void _resync() {
-    ref.invalidate(agentDashboardProvider);
     ref.invalidate(transactionsProvider);
     ref.invalidate(walletProvider);
-    ref.invalidate(agentWithdrawalsProvider);
-    ref.invalidate(agentCustomersProvider);
-    ref.invalidate(agentEarningsProvider);
-    ref.invalidate(agentReconciliationProvider);
-    ref.invalidate(agentCommissionStatementProvider);
     ref.invalidate(notificationProvider);
     ref.invalidate(unreadNotificationCountProvider);
     ref.read(agentConnectivityProvider.notifier).checkNow();
@@ -216,6 +189,7 @@ class _AgentConnectivityBadge extends StatelessWidget {
   }
 }
 
+// ignore: unused_element
 class _AgentDashboardTab extends ConsumerWidget {
   const _AgentDashboardTab();
 
@@ -239,7 +213,8 @@ class _AgentDashboardTab extends ConsumerWidget {
             error: (error, _) => Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Text('Unable to load dashboard metrics: $error'),
+                child: Text(agentFriendlyError(error,
+                    fallback: 'Dashboard metrics are unavailable.')),
               ),
             ),
             data: (summary) => Column(
@@ -341,7 +316,8 @@ class _AgentDashboardTab extends ConsumerWidget {
           const SizedBox(height: 10),
           transactionsState.when(
             loading: () => const _AgentSkeletonList(rows: 3),
-            error: (error, _) => Text('Unable to load activity: $error'),
+            error: (error, _) => Text(agentFriendlyError(error,
+                fallback: 'Recent activity is unavailable.')),
             data: (items) => items.isEmpty
                 ? const Card(
                     child: Padding(
@@ -447,7 +423,7 @@ class _AgentEarningsCard extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.analytics_outlined),
             title: const Text('Earnings summary unavailable'),
-            subtitle: Text('$error'),
+            subtitle: Text(agentFriendlyError(error)),
             trailing: IconButton(
               onPressed: () => ref.invalidate(agentEarningsProvider),
               icon: const Icon(Icons.refresh),
@@ -677,7 +653,8 @@ class _AgentCustomersTabState extends ConsumerState<_AgentCustomersTab> {
                   children: [
                     const Icon(Icons.cloud_off, size: 40),
                     const SizedBox(height: 8),
-                    Text('Unable to load customers: $error'),
+                    Text(agentFriendlyError(error,
+                        fallback: 'Customer data is unavailable.')),
                     const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: () => ref.invalidate(agentCustomersProvider),
@@ -905,7 +882,8 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
                   children: [
                     const Icon(Icons.cloud_off, size: 42),
                     const SizedBox(height: 8),
-                    Text('Unable to load wallet: $error'),
+                    Text(agentFriendlyError(error,
+                        fallback: 'Wallet data is unavailable.')),
                     const SizedBox(height: 12),
                     OutlinedButton(
                       onPressed: () =>
@@ -922,6 +900,8 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
               onWithdraw: () => _openWithdrawDialog(context, ref, wallet),
             ),
           ),
+          const SizedBox(height: 16),
+          const _AgentPayoutCodeCard(),
           if (_lastCustomerDeposit != null) ...[
             const SizedBox(height: 16),
             _CustomerDepositReceiptCard(receipt: _lastCustomerDeposit!),
@@ -936,7 +916,8 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
           const SizedBox(height: 10),
           transactionsState.when(
             loading: () => const _AgentSkeletonList(rows: 3),
-            error: (error, _) => Text('Unable to load transactions: $error'),
+            error: (error, _) => Text(agentFriendlyError(error,
+                fallback: 'Transactions are unavailable.')),
             data: (transactions) => transactions.isEmpty
                 ? const Card(
                     child: Padding(
@@ -2327,7 +2308,7 @@ class _AgentReconciliationCard extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.fact_check_outlined),
             title: const Text('Reconciliation unavailable'),
-            subtitle: Text('$error'),
+            subtitle: Text(agentFriendlyError(error)),
             trailing: IconButton(
               onPressed: () => ref.invalidate(agentReconciliationProvider),
               icon: const Icon(Icons.refresh),
@@ -2454,7 +2435,9 @@ class _AgentReconciliationCard extends ConsumerWidget {
     } catch (error) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Could not export reconciliation: $error')),
+          SnackBar(
+              content: Text(agentFriendlyError(error,
+                  fallback: 'Reconciliation export is unavailable.'))),
         );
       }
     }
@@ -2502,7 +2485,7 @@ class _AgentCommissionCard extends ConsumerWidget {
             contentPadding: EdgeInsets.zero,
             leading: const Icon(Icons.percent_outlined),
             title: const Text('Commission statement unavailable'),
-            subtitle: Text('$error'),
+            subtitle: Text(agentFriendlyError(error)),
             trailing: IconButton(
               onPressed: () => ref.invalidate(agentCommissionStatementProvider),
               icon: const Icon(Icons.refresh),
@@ -2753,5 +2736,141 @@ class AgentSplashScreen extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _AgentPayoutCodeCard extends ConsumerStatefulWidget {
+  const _AgentPayoutCodeCard();
+
+  @override
+  ConsumerState<_AgentPayoutCodeCard> createState() =>
+      _AgentPayoutCodeCardState();
+}
+
+class _AgentPayoutCodeCardState extends ConsumerState<_AgentPayoutCodeCard> {
+  final _codeController = TextEditingController();
+  bool _submitting = false;
+
+  @override
+  void dispose() {
+    _codeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.verified_outlined,
+                    color: Theme.of(context).colorScheme.primary),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text(
+                    'Customer payout',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Enter the 6-character code generated after the customer submits a withdrawal request. The held customer amount will settle into your Agent wallet.',
+              style: Theme.of(context).textTheme.bodySmall,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _codeController,
+              textCapitalization: TextCapitalization.characters,
+              maxLength: 6,
+              enabled: !_submitting,
+              decoration: const InputDecoration(
+                labelText: 'Customer payout code',
+                hintText: 'ABC123',
+                helperText: 'Use the code from the customer app.',
+                counterText: '',
+                prefixIcon: Icon(Icons.password_outlined),
+              ),
+              onChanged: (value) {
+                final upper = value.toUpperCase();
+                if (upper != value) {
+                  _codeController.value = _codeController.value.copyWith(
+                    text: upper,
+                    selection: TextSelection.collapsed(offset: upper.length),
+                  );
+                }
+              },
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: FilledButton.icon(
+                onPressed: _submitting ? null : _verify,
+                icon: _submitting
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(
+                    _submitting ? 'Verifying…' : 'Confirm customer payout'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _verify() async {
+    final code = _codeController.text.trim().toUpperCase();
+    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Enter the complete 6-character payout code.')),
+      );
+      return;
+    }
+
+    setState(() => _submitting = true);
+    try {
+      await ref.read(agentDataSourceProvider).verifyWithdrawalCode(code);
+      await ref.read(walletProvider.notifier).fetchBalance();
+      ref.invalidate(transactionsProvider);
+      ref.invalidate(agentWithdrawalsProvider);
+      _codeController.clear();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Payout confirmed. Customer funds settled and Agent wallet credited.',
+          ),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            agentFriendlyError(
+              error,
+              fallback:
+                  'Payout code could not be verified. Check the code and try again.',
+            ),
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _submitting = false);
+    }
   }
 }
