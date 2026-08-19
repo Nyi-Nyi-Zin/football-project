@@ -8,7 +8,7 @@ plugins {
 android {
     namespace = "com.example.betting_app"
     compileSdk = flutter.compileSdkVersion
-    ndkVersion = flutter.ndkVersion
+    ndkVersion = "27.0.12077973"
 
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
@@ -19,15 +19,34 @@ android {
         jvmTarget = JavaVersion.VERSION_17.toString()
     }
 
+    flavorDimensions += "app"
+
     defaultConfig {
-        // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
+        // The app ID is overridden by each product flavor below so all three
+        // apps can be installed side-by-side on the same Android device.
         applicationId = "com.example.betting_app"
-        // You can update the following values to match your application needs.
-        // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+    }
+
+    productFlavors {
+        create("customer") {
+            dimension = "app"
+            applicationId = "com.cloud9.bet"
+            resValue("string", "app_name", "Cloud 9 Bet")
+        }
+        create("admin") {
+            dimension = "app"
+            applicationId = "com.cloud9.admin"
+            resValue("string", "app_name", "Cloud 9 Admin")
+        }
+        create("agent") {
+            dimension = "app"
+            applicationId = "com.cloud9.agent"
+            resValue("string", "app_name", "Cloud 9 Agent")
+        }
     }
 
     buildTypes {
