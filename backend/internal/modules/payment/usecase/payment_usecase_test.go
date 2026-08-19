@@ -90,7 +90,10 @@ func (f *fakeTxRepo) ListLedgerBalances(_ context.Context) ([]*domain.UserLedger
 	return nil, nil
 }
 
-func (f *fakeTxRepo) UpdateStatus(_ context.Context, _ string, _ domain.TransactionStatus) error {
+func (f *fakeTxRepo) UpdateStatus(_ context.Context, txID string, status domain.TransactionStatus) error {
+	if tx := f.txByID[txID]; tx != nil {
+		tx.Status = status
+	}
 	return nil
 }
 
@@ -379,6 +382,42 @@ func TestLocationWithdrawalHoldsThenSettlesToAgent(t *testing.T) {
 	}
 	if walletRepo.reserved["user-1"] != 0 {
 		t.Fatalf("expected hold to be released after settlement, got %v", walletRepo.reserved["user-1"])
+	}
+}
+
+func TestCancelLocationWithdrawalReleasesHold(t *testing.T) {
+	txRepo := newFakeTxRepo()
+	walletRepo := &fakeWalletRepo{
+		balances: map[string]float64{"user-1": 100},
+		reserved: map[string]float64{},
+	}
+	uc := NewPaymentUseCase(txRepo, walletRepo, event.NewBus(), SecurityOptions{
+		CodePepper:    "pepper",
+		EncryptionKey: "encryption-key",
+	})
+
+	request, err := uc.CreateLocationBasedWithdrawal(context.Background(), "user-1", &domain.CreateWithdrawalRequest{
+		Amount:         30,
+		Region:         "Yangon Region",
+		Township:       "Tamwe",
+		Location:       "Tamwe",
+		AccountDetails: "09-123456789",
+	}, "agent-1")
+	if err != nil {
+		t.Fatalf("create location withdrawal failed: %v", err)
+	}
+
+	if err := uc.CancelWithdrawalRequest(context.Background(), request.ID, "user-1"); err != nil {
+		t.Fatalf("cancel location withdrawal failed: %v", err)
+	}
+	if walletRepo.reserved["user-1"] != 0 {
+		t.Fatalf("expected reserved balance to be released, got %v", walletRepo.reserved["user-1"])
+	}
+	if txRepo.withdrawalByID[request.ID].Status != domain.WithdrawalRequestRejected {
+		t.Fatalf("expected rejected request, got %s", txRepo.withdrawalByID[request.ID].Status)
+	}
+	if txRepo.txByID[request.TransactionID].Status != domain.TransactionCancelled {
+		t.Fatalf("expected cancelled transaction, got %s", txRepo.txByID[request.TransactionID].Status)
 	}
 }
 
