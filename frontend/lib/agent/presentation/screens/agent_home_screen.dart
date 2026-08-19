@@ -2724,13 +2724,6 @@ class AgentSplashScreen extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: 28),
-              const SizedBox(
-                width: 180,
-                child: _AgentSkeletonBlock(
-                  height: 8,
-                  radius: 99,
-                ),
-              ),
             ],
           ),
         ),
