@@ -307,6 +307,34 @@ class AdminRemoteDataSource {
     );
   }
 
+  Future<PaginatedAuditLogsResponse> getAuditLogs({
+    String action = '',
+    String resourceType = '',
+    int page = 1,
+    int limit = 25,
+  }) async {
+    final response = await _client.dio.get(
+      '/admin/audit-logs',
+      queryParameters: {
+        'page': page,
+        'limit': limit,
+        if (action.trim().isNotEmpty) 'action': action.trim(),
+        if (resourceType.trim().isNotEmpty)
+          'resource_type': resourceType.trim(),
+      },
+    );
+    final payload = response.data['data'] as Map<String, dynamic>? ?? const {};
+    final rows = (payload['items'] as List<dynamic>? ?? const [])
+        .map((item) => AdminAuditLog.fromJson(item as Map<String, dynamic>))
+        .toList();
+    return PaginatedAuditLogsResponse(
+      logs: rows,
+      total: (payload['total'] as num?)?.toInt() ?? rows.length,
+      page: (payload['page'] as num?)?.toInt() ?? page,
+      limit: (payload['limit'] as num?)?.toInt() ?? limit,
+    );
+  }
+
   Options buildSecureOptions() {
     return Options(headers: {'X-Request-Id': _uuid.v4()});
   }

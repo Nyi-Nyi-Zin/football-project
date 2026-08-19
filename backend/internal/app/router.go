@@ -3,6 +3,7 @@ package app
 import (
 	"time"
 
+	auditHandler "betting-app/internal/modules/audit/handler"
 	bettingHandler "betting-app/internal/modules/betting/handler"
 	notificationHandler "betting-app/internal/modules/notification/handler"
 	oddsHandler "betting-app/internal/modules/odds/handler"
@@ -30,6 +31,7 @@ func RegisterRoutes(
 	oddsH *oddsHandler.OddsHandler,
 	notificationH *notificationHandler.NotificationHandler,
 	supportH *supportHandler.SupportHandler,
+	auditH *auditHandler.AuditHandler,
 ) {
 	// Global middleware
 	e.Use(middleware.LoggingMiddleware())
@@ -146,6 +148,7 @@ func RegisterRoutes(
 	admin.GET("/agents/:id/commission", paymentH.AdminGetAgentCommissionRule)
 	admin.PATCH("/agents/:id/commission", paymentH.AdminUpdateAgentCommissionRule)
 	admin.GET("/wallet/reconciliation", paymentH.AdminWalletReconciliation)
+	admin.GET("/audit-logs", auditH.List)
 
 	// Agent routes (isolated from admin routes)
 	agent := protected.Group("/agent")

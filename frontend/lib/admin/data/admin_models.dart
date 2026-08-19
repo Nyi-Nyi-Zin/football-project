@@ -200,3 +200,53 @@ class PaginatedTransactionsResponse {
     required this.lastPage,
   });
 }
+
+class AdminAuditLog {
+  final String id;
+  final String actorId;
+  final String actorRole;
+  final String action;
+  final String resourceType;
+  final String resourceId;
+  final String metadata;
+  final DateTime createdAt;
+
+  const AdminAuditLog({
+    required this.id,
+    required this.actorId,
+    required this.actorRole,
+    required this.action,
+    required this.resourceType,
+    required this.resourceId,
+    required this.metadata,
+    required this.createdAt,
+  });
+
+  factory AdminAuditLog.fromJson(Map<String, dynamic> json) {
+    return AdminAuditLog(
+      id: json['id'] as String? ?? '',
+      actorId: json['actor_id'] as String? ?? '',
+      actorRole: json['actor_role'] as String? ?? 'admin',
+      action: json['action'] as String? ?? '',
+      resourceType: json['resource_type'] as String? ?? '',
+      resourceId: json['resource_id'] as String? ?? '',
+      metadata: json['metadata']?.toString() ?? '{}',
+      createdAt: DateTime.tryParse(json['created_at'] as String? ?? '') ??
+          DateTime.fromMillisecondsSinceEpoch(0),
+    );
+  }
+}
+
+class PaginatedAuditLogsResponse {
+  final List<AdminAuditLog> logs;
+  final int total;
+  final int page;
+  final int limit;
+
+  const PaginatedAuditLogsResponse({
+    required this.logs,
+    required this.total,
+    required this.page,
+    required this.limit,
+  });
+}

@@ -16,6 +16,7 @@ import (
 	"strings"
 	"time"
 
+	auditDomain "betting-app/internal/modules/audit/domain"
 	"betting-app/internal/modules/payment/domain"
 	apperrors "betting-app/internal/shared/errors"
 	"betting-app/internal/shared/event"
@@ -28,6 +29,7 @@ import (
 type PaymentUseCase struct {
 	txRepo           domain.TransactionRepository
 	walletRepo       domain.WalletRepository
+	auditRepo        auditDomain.AuditRepository
 	eventBus         *event.Bus
 	codePepper       string
 	encKey           []byte
@@ -64,6 +66,12 @@ func NewPaymentUseCase(
 		encKey:           key[:],
 		verificationProv: firstVerificationProvider(verificationProv),
 	}
+}
+
+// SetAuditRepository enables append-only Admin audit records without changing
+// the existing PaymentUseCase constructor contract used by older callers/tests.
+func (uc *PaymentUseCase) SetAuditRepository(repo auditDomain.AuditRepository) {
+	uc.auditRepo = repo
 }
 
 func firstVerificationProvider(providers []domain.UserVerificationProvider) domain.UserVerificationProvider {
@@ -725,6 +733,21 @@ func (uc *PaymentUseCase) AdminAdjustBalance(ctx context.Context, req *domain.Ad
 
 	if err := uc.walletRepo.UpdateBalance(ctx, req.UserID, sign*req.Amount); err != nil {
 		return nil, fmt.Errorf("usecase.AdminAdjustBalance: update wallet: %w", err)
+	}
+
+	if uc.auditRepo != nil {
+		metadata := fmt.Sprintf(`{"amount":%.2f,"currency":%q,"action":%q,"reason":%q,"balance_before":%.2f,"balance_after":%.2f,"transaction_id":%q}`,
+			req.Amount, req.Currency, action, req.Reason, currentBalance, tx.BalanceAfter, tx.ID)
+		if err := uc.auditRepo.Create(ctx, &auditDomain.AuditLog{
+			ActorID:      req.PerformedBy,
+			ActorRole:    "admin",
+			Action:       "wallet.balance_adjusted",
+			ResourceType: "wallet",
+			ResourceID:   req.UserID,
+			Metadata:     metadata,
+		}); err != nil {
+			logger.Error("Admin wallet adjustment committed but audit record failed", "user_id", req.UserID, "transaction_id", tx.ID, "error", err)
+		}
 	}
 
 	return tx, nil

@@ -59,6 +59,17 @@ final withdrawalsProvider =
       );
 });
 
+final adminAuditLogsProvider =
+    FutureProvider.family<PaginatedAuditLogsResponse, AuditQuery>(
+        (ref, query) async {
+  return ref.read(adminDatasourceProvider).getAuditLogs(
+        action: query.action,
+        resourceType: query.resourceType,
+        page: query.page,
+        limit: query.limit,
+      );
+});
+
 final adminSupportTicketsProvider =
     FutureProvider<AdminSupportTicketsResponse>((ref) async {
   return ref.read(adminDatasourceProvider).getSupportTickets();
@@ -74,6 +85,34 @@ final adminCommissionRuleProvider =
         (ref, agentId) async {
   return ref.read(adminDatasourceProvider).getAgentCommissionRule(agentId);
 });
+
+@immutable
+class AuditQuery {
+  final String action;
+  final String resourceType;
+  final int page;
+  final int limit;
+
+  const AuditQuery({
+    this.action = '',
+    this.resourceType = '',
+    this.page = 1,
+    this.limit = 25,
+  });
+
+  @override
+  bool operator ==(Object other) {
+    if (identical(this, other)) return true;
+    return other is AuditQuery &&
+        other.action == action &&
+        other.resourceType == resourceType &&
+        other.page == page &&
+        other.limit == limit;
+  }
+
+  @override
+  int get hashCode => Object.hash(action, resourceType, page, limit);
+}
 
 @immutable
 class UserQuery {
