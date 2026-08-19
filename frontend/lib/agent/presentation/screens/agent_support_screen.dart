@@ -118,7 +118,7 @@ class AgentSupportScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 10),
                   DropdownButtonFormField<String>(
-                    initialValue: priority,
+                    value: priority,
                     decoration: const InputDecoration(labelText: 'Priority'),
                     items: const [
                       DropdownMenuItem(value: 'low', child: Text('Low')),

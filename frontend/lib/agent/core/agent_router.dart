@@ -33,11 +33,11 @@ final agentRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/profile',
-        builder: (_, __) => const AgentHomeScreen(initialIndex: 1),
+        builder: (_, __) => const AgentHomeScreen(initialIndex: 2),
       ),
       GoRoute(
         path: '/notifications',
-        builder: (_, __) => const AgentHomeScreen(initialIndex: 2),
+        builder: (_, __) => const AgentHomeScreen(initialIndex: 1),
       ),
     ],
   );

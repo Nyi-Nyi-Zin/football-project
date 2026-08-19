@@ -59,7 +59,7 @@ class _AdminCommissionScreenState extends ConsumerState<AdminCommissionScreen> {
             padding: const EdgeInsets.all(16),
             children: [
               DropdownButtonFormField<String>(
-                initialValue: selectedId,
+                value: selectedId,
                 decoration: const InputDecoration(labelText: 'Agent account'),
                 items: agents
                     .map((agent) => DropdownMenuItem(

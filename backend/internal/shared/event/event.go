@@ -63,13 +63,14 @@ func (b *Bus) Publish(ctx context.Context, event Event) error {
 
 // Event type constants
 const (
-	UserRegistered   = "user.registered"
-	UserLoggedIn     = "user.logged_in"
-	BetPlaced        = "bet.placed"
-	BetSettled       = "bet.settled"
-	BetCancelled     = "bet.cancelled"
-	PaymentDeposit   = "payment.deposit"
-	PaymentWithdraw  = "payment.withdraw"
-	OddsUpdated      = "odds.updated"
-	NotificationSent = "notification.sent"
+	UserRegistered             = "user.registered"
+	UserLoggedIn               = "user.logged_in"
+	BetPlaced                  = "bet.placed"
+	BetSettled                 = "bet.settled"
+	BetCancelled               = "bet.cancelled"
+	PaymentDeposit             = "payment.deposit"
+	PaymentWithdraw            = "payment.withdraw"
+	PaymentWithdrawalRequested = "payment.withdrawal_requested"
+	OddsUpdated                = "odds.updated"
+	NotificationSent           = "notification.sent"
 )

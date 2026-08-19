@@ -236,7 +236,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                           );
                         }
                         return DropdownButtonFormField<String>(
-                          initialValue: _selectedRegion,
+                          value: _selectedRegion,
                           decoration: const InputDecoration(
                             hintText: 'Select a region or state',
                             prefixIcon: Icon(Icons.map_outlined),
@@ -302,7 +302,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                                 );
                               }
                               return DropdownButtonFormField<String>(
-                                initialValue: _selectedTownship,
+                                value: _selectedTownship,
                                 decoration: const InputDecoration(
                                   hintText: 'Select a township',
                                   prefixIcon:
@@ -373,7 +373,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
                                             color: AppTheme.textSecondary),
                                       )
                                     : DropdownButtonFormField<String>(
-                                        initialValue: _selectedAgentId,
+                                        value: _selectedAgentId,
                                         decoration: const InputDecoration(
                                           hintText: 'Select an agent code',
                                           border: OutlineInputBorder(),

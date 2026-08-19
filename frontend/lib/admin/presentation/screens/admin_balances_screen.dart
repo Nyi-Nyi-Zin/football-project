@@ -79,7 +79,7 @@ class _AdminBalancesScreenState extends ConsumerState<AdminBalancesScreen> {
                     SizedBox(
                       width: 180,
                       child: DropdownButtonFormField<String>(
-                        initialValue: _action,
+                        value: _action,
                         items: const [
                           DropdownMenuItem(
                               value: 'credit', child: Text('Credit')),

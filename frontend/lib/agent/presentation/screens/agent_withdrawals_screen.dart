@@ -125,7 +125,7 @@ class _AgentWithdrawalsScreenState
                     const SizedBox(height: 8),
                     regionsAsync.when(
                       data: (regions) => DropdownButtonFormField<String>(
-                        initialValue: regions.contains(_selectedAgentRegion)
+                        value: regions.contains(_selectedAgentRegion)
                             ? _selectedAgentRegion
                             : null,
                         decoration: const InputDecoration(
@@ -154,7 +154,7 @@ class _AgentWithdrawalsScreenState
                     const SizedBox(height: 8),
                     townshipsAsync.when(
                       data: (townships) => DropdownButtonFormField<String>(
-                        initialValue: townships.contains(_selectedAgentTownship)
+                        value: townships.contains(_selectedAgentTownship)
                             ? _selectedAgentTownship
                             : null,
                         decoration: const InputDecoration(
