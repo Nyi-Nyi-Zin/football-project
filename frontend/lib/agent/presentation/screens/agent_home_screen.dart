@@ -82,13 +82,13 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
   Widget build(BuildContext context) {
     const titles = [
       'Agent Wallet',
-      'Profile',
       'Alerts',
+      'Profile',
     ];
     final pages = <Widget>[
       const _AgentWalletTab(),
-      const _AgentProfileTab(),
       const _AgentNotificationsTab(),
+      const _AgentProfileTab(),
     ];
     final connectivity = ref.watch(agentConnectivityProvider);
 
@@ -118,14 +118,14 @@ class _AgentHomeScreenState extends ConsumerState<AgentHomeScreen> {
             label: 'Wallet',
           ),
           NavigationDestination(
-            icon: Icon(Icons.person_outline),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
-          NavigationDestination(
             icon: Icon(Icons.notifications_none),
             selectedIcon: Icon(Icons.notifications),
             label: 'Alerts',
+          ),
+          NavigationDestination(
+            icon: Icon(Icons.person_outline),
+            selectedIcon: Icon(Icons.person),
+            label: 'Profile',
           ),
         ],
       ),
@@ -1810,28 +1810,7 @@ class _AgentProfileTab extends ConsumerWidget {
                   '${user?.region?.isNotEmpty == true ? user!.region : '—'} / ${user?.township?.isNotEmpty == true ? user!.township : '—'}',
                 ),
               ),
-              ListTile(
-                leading: const Icon(Icons.password_outlined),
-                title: const Text('Custom payout code'),
-                subtitle: Text(user?.customCode?.isNotEmpty == true
-                    ? user!.customCode!
-                    : 'Auto-generated code'),
-              ),
             ],
-          ),
-        ),
-        const SizedBox(height: 12),
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.settings_outlined),
-            title: const Text('Edit withdrawal profile'),
-            subtitle:
-                const Text('Use the Payouts tab to update code and location.'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                  content: Text('Open the Payouts tab to edit your profile.')),
-            ),
           ),
         ),
         const SizedBox(height: 12),
@@ -1843,7 +1822,6 @@ class _AgentProfileTab extends ConsumerWidget {
                   : Icons.light_mode_outlined,
             ),
             title: const Text('Appearance'),
-            subtitle: const Text('Choose the Cloud 9 Agent color theme'),
             trailing: DropdownButtonHideUnderline(
               child: DropdownButton<ThemeMode>(
                 value: themeMode == ThemeMode.dark
@@ -1869,8 +1847,6 @@ class _AgentProfileTab extends ConsumerWidget {
             ),
           ),
         ),
-        const SizedBox(height: 12),
-        const _AgentSecurityCard(),
         const SizedBox(height: 12),
         Card(
           child: ListTile(

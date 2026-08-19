@@ -758,13 +758,14 @@ func (uc *PaymentUseCase) ApproveWithdrawal(ctx context.Context, txID, adminID s
 	}
 	now := time.Now().UTC()
 	_ = uc.txRepo.Create(ctx, &domain.Transaction{
-		UserID:      withdrawalReq.AgentID,
-		Type:        domain.TransactionAgentPayout,
-		Amount:      tx.Amount,
-		Currency:    tx.Currency,
-		Status:      domain.TransactionCompleted,
-		Reference:   ref,
-		Description: "Agent payout received for customer withdrawal",
+		UserID:         withdrawalReq.AgentID,
+		Type:           domain.TransactionAgentPayout,
+		Amount:         tx.Amount,
+		Currency:       tx.Currency,
+		Status:         domain.TransactionCompleted,
+		IdempotencyKey: fmt.Sprintf("admin-agent-payout-%s-%s", tx.ID, withdrawalReq.AgentID),
+		Reference:      ref,
+		Description:    "Agent payout received for customer withdrawal",
 	})
 	_ = uc.txRepo.UpdateWithdrawalRequestStatus(ctx, withdrawalReq.ID, domain.WithdrawalRequestApproved, &now)
 
@@ -784,9 +785,11 @@ func (uc *PaymentUseCase) ApproveWithdrawal(ctx context.Context, txID, adminID s
 	_ = uc.eventBus.Publish(ctx, event.Event{
 		Type: event.PaymentWithdraw,
 		Payload: map[string]interface{}{
-			"user_id": tx.UserID,
-			"amount":  tx.Amount,
-			"tx_id":   tx.ID,
+			"user_id":  tx.UserID,
+			"agent_id": withdrawalReq.AgentID,
+			"amount":   tx.Amount,
+			"currency": tx.Currency,
+			"tx_id":    tx.ID,
 		},
 	})
 
@@ -973,17 +976,18 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 	fromUserID := tx.UserID
 	toUserID := req.AgentID
 	_ = uc.txRepo.Create(ctx, &domain.Transaction{
-		UserID:        req.AgentID,
-		Type:          domain.TransactionAgentPayout,
-		Amount:        tx.Amount,
-		Currency:      tx.Currency,
-		Status:        domain.TransactionCompleted,
-		Reference:     ref,
-		Description:   "Agent payout received for customer withdrawal",
-		FromUserID:    &fromUserID,
-		ToUserID:      &toUserID,
-		BalanceBefore: agentBalanceBefore,
-		BalanceAfter:  agentBalanceBefore + tx.Amount,
+		UserID:         req.AgentID,
+		Type:           domain.TransactionAgentPayout,
+		Amount:         tx.Amount,
+		Currency:       tx.Currency,
+		Status:         domain.TransactionCompleted,
+		IdempotencyKey: fmt.Sprintf("agent-payout-%s-%s", tx.ID, req.AgentID),
+		Reference:      ref,
+		Description:    "Agent payout received for customer withdrawal",
+		FromUserID:     &fromUserID,
+		ToUserID:       &toUserID,
+		BalanceBefore:  agentBalanceBefore,
+		BalanceAfter:   agentBalanceBefore + tx.Amount,
 	})
 
 	tx.Status = domain.TransactionCompleted
@@ -991,9 +995,11 @@ func (uc *PaymentUseCase) VerifyWithdrawalCode(ctx context.Context, agentID, cod
 	_ = uc.eventBus.Publish(ctx, event.Event{
 		Type: event.PaymentWithdraw,
 		Payload: map[string]interface{}{
-			"user_id": tx.UserID,
-			"amount":  tx.Amount,
-			"tx_id":   tx.ID,
+			"user_id":  tx.UserID,
+			"agent_id": req.AgentID,
+			"amount":   tx.Amount,
+			"currency": tx.Currency,
+			"tx_id":    tx.ID,
 		},
 	})
 	return tx, nil
@@ -1189,6 +1195,18 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		_ = uc.txRepo.UpdateStatus(ctx, tx.ID, domain.TransactionCancelled)
 		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: create request: %w", err)
 	}
+
+	_ = uc.eventBus.Publish(ctx, event.Event{
+		Type: event.PaymentWithdrawalRequested,
+		Payload: map[string]interface{}{
+			"user_id":    userID,
+			"agent_id":   selectedAgentID,
+			"amount":     req.Amount,
+			"currency":   tx.Currency,
+			"request_id": withdrawalReq.ID,
+			"tx_id":      tx.ID,
+		},
+	})
 
 	return withdrawalReq, nil
 }

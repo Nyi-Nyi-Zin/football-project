@@ -282,7 +282,62 @@ func registerEventHandlers(bus *event.Bus, notifUC *notificationUsecase.Notifica
 			UserID:  payload["user_id"].(string),
 			Type:    notificationDomain.NotificationTypeDeposit,
 			Title:   "Deposit Successful",
-			Message: fmt.Sprintf("$%.2f has been added to your wallet.", payload["amount"].(float64)),
+			Message: fmt.Sprintf("%.2f MMK has been added to your wallet.", payload["amount"].(float64)),
+		})
+		return err
+	})
+
+	bus.Subscribe(event.PaymentWithdrawalRequested, func(ctx context.Context, evt event.Event) error {
+		payload := evt.Payload.(map[string]interface{})
+		amount := payload["amount"].(float64)
+		currency := payload["currency"].(string)
+		customerID := payload["user_id"].(string)
+		agentID, _ := payload["agent_id"].(string)
+		if _, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
+			UserID:  customerID,
+			Type:    notificationDomain.NotificationTypeWithdrawal,
+			Title:   "Withdrawal Request Submitted",
+			Message: fmt.Sprintf("Your %.2f %s withdrawal request is pending Agent confirmation.", amount, currency),
+		}); err != nil {
+			return err
+		}
+		if agentID == "" {
+			return nil
+		}
+		_, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
+			UserID:  agentID,
+			Type:    notificationDomain.NotificationTypeWithdrawal,
+			Title:   "New Payout Request",
+			Message: fmt.Sprintf("A %.2f %s customer withdrawal request is waiting for your payout code confirmation.", amount, currency),
+		})
+		return err
+	})
+
+	bus.Subscribe(event.PaymentWithdraw, func(ctx context.Context, evt event.Event) error {
+		payload := evt.Payload.(map[string]interface{})
+		amount := payload["amount"].(float64)
+		currency, _ := payload["currency"].(string)
+		if currency == "" {
+			currency = "MMK"
+		}
+		customerID := payload["user_id"].(string)
+		if _, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
+			UserID:  customerID,
+			Type:    notificationDomain.NotificationTypeWithdrawal,
+			Title:   "Withdrawal Paid",
+			Message: fmt.Sprintf("Your %.2f %s withdrawal was paid by the assigned Agent.", amount, currency),
+		}); err != nil {
+			return err
+		}
+		agentID, _ := payload["agent_id"].(string)
+		if agentID == "" {
+			return nil
+		}
+		_, err := notifUC.Send(ctx, &notificationDomain.SendNotificationRequest{
+			UserID:  agentID,
+			Type:    notificationDomain.NotificationTypeWithdrawal,
+			Title:   "Payout Recorded",
+			Message: fmt.Sprintf("You paid %.2f %s for a customer withdrawal. The Agent ledger has been updated.", amount, currency),
 		})
 		return err
 	})
