@@ -456,8 +456,8 @@ func (r *postgresWalletRepo) ReserveBalance(ctx context.Context, userID string, 
 	}
 	result := r.db.WithContext(ctx).
 		Model(&domain.Wallet{}).
-		Where("user_id = ? AND balance - reserved_balance >= ?", userID, amount).
-		UpdateColumn("reserved_balance", gorm.Expr("reserved_balance + ?", amount))
+		Where("user_id = ? AND balance - COALESCE(reserved_balance, 0) >= ?", userID, amount).
+		UpdateColumn("reserved_balance", gorm.Expr("COALESCE(reserved_balance, 0) + ?", amount))
 	if result.Error != nil {
 		return fmt.Errorf("walletRepo.ReserveBalance: %w", result.Error)
 	}
