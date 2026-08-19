@@ -352,10 +352,13 @@ func TestLocationWithdrawalHoldsThenSettlesToAgent(t *testing.T) {
 		Township:       "Tamwe",
 		Location:       "Tamwe",
 		AccountDetails: "09-123456789",
-	}, "agent-1")
+	}, " agent-1 ")
 
 	if err != nil {
 		t.Fatalf("create location withdrawal failed: %v", err)
+	}
+	if request.AgentID != "agent-1" {
+		t.Fatalf("expected trimmed Agent ID agent-1, got %q", request.AgentID)
 	}
 	if walletRepo.balances["user-1"] != 100 {
 		t.Fatalf("expected total balance to remain 100 while pending, got %v", walletRepo.balances["user-1"])

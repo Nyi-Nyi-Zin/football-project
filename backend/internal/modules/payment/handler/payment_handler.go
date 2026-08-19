@@ -11,6 +11,7 @@ import (
 	"betting-app/internal/modules/payment/domain"
 	"betting-app/internal/modules/payment/usecase"
 	apperrors "betting-app/internal/shared/errors"
+	"betting-app/pkg/logger"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/labstack/echo/v4"
@@ -697,12 +698,20 @@ func (h *PaymentHandler) CreateLocationBasedWithdrawal(c echo.Context) error {
 		AccountDetails: req.AccountDetails,
 	}
 
-	withdrawal, err := h.useCase.CreateLocationBasedWithdrawal(c.Request().Context(), userID, createReq, req.AgentID)
+	withdrawal, err := h.useCase.CreateLocationBasedWithdrawal(c.Request().Context(), userID, createReq, strings.TrimSpace(req.AgentID))
 	if err != nil {
 		if appErr, ok := err.(*apperrors.AppError); ok {
 			return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 		}
-		appErr := apperrors.NewInternalError("Failed to create withdrawal request")
+		logger.Error("Customer withdrawal creation failed",
+			"user_id", userID,
+			"agent_id", strings.TrimSpace(req.AgentID),
+			"region", strings.TrimSpace(req.Region),
+			"township", strings.TrimSpace(req.Township),
+			"amount", req.Amount,
+			"error", err,
+		)
+		appErr := apperrors.NewInternalError("Withdrawal service is temporarily unavailable. Please try again.")
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 

@@ -1089,13 +1089,20 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 		return nil, apperrors.NewBadRequestError("Region and township are required")
 	}
 
-	agents, err := uc.txRepo.FindAgentsByRegionTownship(ctx, req.Region, req.Township)
+	region := strings.TrimSpace(req.Region)
+	township := strings.TrimSpace(req.Township)
+	selectedAgentID := strings.TrimSpace(agentID)
+	if region == "" || township == "" || selectedAgentID == "" {
+		return nil, apperrors.NewBadRequestError("Region, township, and agent are required")
+	}
+
+	agents, err := uc.txRepo.FindAgentsByRegionTownship(ctx, region, township)
 	if err != nil {
 		return nil, fmt.Errorf("paymentUseCase.CreateLocationBasedWithdrawal: find agents: %w", err)
 	}
 	selectedAgent := false
 	for _, agent := range agents {
-		if agent.ID == agentID {
+		if agent != nil && strings.TrimSpace(agent.ID) == selectedAgentID {
 			selectedAgent = true
 			break
 		}
@@ -1160,14 +1167,14 @@ func (uc *PaymentUseCase) CreateLocationBasedWithdrawal(ctx context.Context, use
 	withdrawalReq := &domain.WithdrawalRequest{
 		TransactionID:           tx.ID,
 		CustomerID:              userID,
-		AgentID:                 agentID,
+		AgentID:                 selectedAgentID,
 		VerificationCodeHash:    codeHash,
 		CodeLookupHash:          uc.lookupHash(code),
 		AccountDetailsEncrypted: encryptedDetails,
 		Status:                  domain.WithdrawalRequestPending,
-		Location:                req.Location,
-		Region:                  req.Region,
-		Township:                req.Township,
+		Location:                strings.TrimSpace(req.Location),
+		Region:                  region,
+		Township:                township,
 		Code:                    code,
 
 		ExpiresAt: timePtr(time.Now().Add(24 * time.Hour)),
