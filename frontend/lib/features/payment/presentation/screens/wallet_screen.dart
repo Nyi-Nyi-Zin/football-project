@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../domain/entities/payment_entity.dart';
 import '../providers/payment_provider.dart';
 import 'withdrawal_screen.dart';
 
@@ -276,10 +277,10 @@ class WalletScreen extends ConsumerWidget {
         MapEntry('Reference', tx.reference!),
       if (tx.fromUserId?.isNotEmpty == true)
         MapEntry('From account', tx.fromUserId!),
-      if (tx.toUserId?.isNotEmpty == true)
-        MapEntry('To account', tx.toUserId!),
+      if (tx.toUserId?.isNotEmpty == true) MapEntry('To account', tx.toUserId!),
       if (tx.balanceBefore != null)
-        MapEntry('Balance before', '${tx.balanceBefore!.toStringAsFixed(2)} MMK'),
+        MapEntry(
+            'Balance before', '${tx.balanceBefore!.toStringAsFixed(2)} MMK'),
       if (tx.balanceAfter != null)
         MapEntry('Balance after', '${tx.balanceAfter!.toStringAsFixed(2)} MMK'),
     ];
@@ -296,13 +297,16 @@ class WalletScreen extends ConsumerWidget {
             children: [
               Text(
                 tx.displayType,
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 4),
               Text(
                 '${tx.isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} ${tx.currency}',
                 style: TextStyle(
-                  color: tx.isCredit ? AppTheme.successColor : AppTheme.textPrimary,
+                  color: tx.isCredit
+                      ? AppTheme.successColor
+                      : AppTheme.textPrimary,
                   fontSize: 18,
                   fontWeight: FontWeight.w700,
                 ),
