@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:uuid/uuid.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/betting_remote_datasource.dart';
 import 'package:dio/dio.dart';
@@ -154,6 +155,11 @@ final betCartProvider =
 
 class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
   final Ref _ref;
+  final Uuid _uuid = const Uuid();
+  String? _activeIdempotencyKey;
+  String? _lastError;
+
+  String? get lastError => _lastError;
 
   BetCartNotifier(this._ref) : super(const []);
 
@@ -192,6 +198,8 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
 
   void clear() {
     state = const [];
+    _activeIdempotencyKey = null;
+    _lastError = null;
   }
 
   /// Accepts the latest live 1X2 prices for selections already in the slip.
@@ -219,8 +227,13 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
   }
 
   Future<bool> placeSelections(double stake) async {
-    if (state.isEmpty) return false;
+    if (state.isEmpty) {
+      _lastError = 'Select at least one match before placing a bet.';
+      return false;
+    }
 
+    _lastError = null;
+    final idempotencyKey = _activeIdempotencyKey ??= _uuid.v4();
     try {
       final ds = _ref.read(bettingDataSourceProvider);
       if (state.length == 1) {
@@ -231,6 +244,7 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
           selection: item.selection.key,
           stake: stake,
           betType: 'single',
+          idempotencyKey: idempotencyKey,
         );
         _ref.invalidate(myBetsProvider);
       } else {
@@ -243,16 +257,40 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
                     'selection_key': item.selection.key,
                   })
               .toList(),
+          idempotencyKey: idempotencyKey,
         );
         _ref.invalidate(myBetSlipsProvider);
       }
 
       state = const [];
+      _activeIdempotencyKey = null;
       return true;
-    } on DioException {
+    } on DioException catch (error) {
+      _lastError = _betErrorMessage(error);
       return false;
     } catch (_) {
+      _lastError = 'Unable to place the bet. Please try again.';
       return false;
     }
+  }
+
+  String _betErrorMessage(DioException error) {
+    final data = error.response?.data;
+    if (data is Map) {
+      final apiError = data['error'];
+      if (apiError is Map && apiError['message'] is String) {
+        return apiError['message'] as String;
+      }
+      if (data['message'] is String) return data['message'] as String;
+    }
+    if (error.type == DioExceptionType.connectionError) {
+      return 'Unable to connect to the server. Please check your internet connection.';
+    }
+    if (error.type == DioExceptionType.connectionTimeout ||
+        error.type == DioExceptionType.receiveTimeout ||
+        error.type == DioExceptionType.sendTimeout) {
+      return 'Connection timed out. Please try again.';
+    }
+    return 'Unable to place the bet. Please try again.';
   }
 }

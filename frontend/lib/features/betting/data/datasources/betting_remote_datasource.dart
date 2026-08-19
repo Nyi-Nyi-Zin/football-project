@@ -1,8 +1,12 @@
+import 'package:dio/dio.dart';
+import 'package:uuid/uuid.dart';
+
 import '../../../../core/network/dio_client.dart';
 import '../models/betting_model.dart';
 
 class BettingRemoteDataSource {
   final DioClient _client;
+  final Uuid _uuid = const Uuid();
 
   BettingRemoteDataSource(this._client);
 
@@ -32,25 +36,35 @@ class BettingRemoteDataSource {
     required String selection,
     required double stake,
     required String betType,
+    String? idempotencyKey,
   }) async {
-    final response = await _client.dio.post('/bets', data: {
-      'match_id': matchId,
-      'market_key': marketKey,
-      'selection': selection,
-      'stake': stake,
-      'bet_type': betType,
-    });
+    final key = idempotencyKey ?? _uuid.v4();
+    final response = await _client.dio.post('/bets',
+        options: Options(headers: {'X-Idempotency-Key': key}),
+        data: {
+          'match_id': matchId,
+          'market_key': marketKey,
+          'selection': selection,
+          'stake': stake,
+          'bet_type': betType,
+          'idempotency_key': key,
+        });
     return BetModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 
   Future<BetSlipModel> placeBetSlip({
     required double stake,
     required List<Map<String, dynamic>> legs,
+    String? idempotencyKey,
   }) async {
-    final response = await _client.dio.post('/bets/slips', data: {
-      'stake': stake,
-      'legs': legs,
-    });
+    final key = idempotencyKey ?? _uuid.v4();
+    final response = await _client.dio.post('/bets/slips',
+        options: Options(headers: {'X-Idempotency-Key': key}),
+        data: {
+          'stake': stake,
+          'legs': legs,
+          'idempotency_key': key,
+        });
     return BetSlipModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
 

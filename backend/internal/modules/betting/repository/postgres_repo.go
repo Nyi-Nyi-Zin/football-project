@@ -2,6 +2,7 @@ package repository
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 
@@ -31,6 +32,35 @@ func (r *postgresBetRepo) CreateBetSlip(ctx context.Context, slip *domain.BetSli
 		return fmt.Errorf("betRepo.CreateBetSlip: %w", err)
 	}
 	return nil
+}
+
+func (r *postgresBetRepo) FindBetByIdempotencyKey(ctx context.Context, userID, key string) (*domain.Bet, error) {
+	var bet domain.Bet
+	result := r.db.WithContext(ctx).
+		Where("user_id = ? AND idempotency_key = ?", userID, key).
+		First(&bet)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, fmt.Errorf("betRepo.FindBetByIdempotencyKey: %w", result.Error)
+	}
+	return &bet, nil
+}
+
+func (r *postgresBetRepo) FindBetSlipByIdempotencyKey(ctx context.Context, userID, key string) (*domain.BetSlip, error) {
+	var slip domain.BetSlip
+	result := r.db.WithContext(ctx).
+		Where("user_id = ? AND idempotency_key = ?", userID, key).
+		Preload("Legs").
+		First(&slip)
+	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		return nil, nil
+	}
+	if result.Error != nil {
+		return nil, fmt.Errorf("betRepo.FindBetSlipByIdempotencyKey: %w", result.Error)
+	}
+	return &slip, nil
 }
 
 func (r *postgresBetRepo) FindBetByID(ctx context.Context, id string) (*domain.Bet, error) {

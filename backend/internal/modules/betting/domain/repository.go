@@ -6,6 +6,8 @@ import "context"
 type BetRepository interface {
 	CreateBet(ctx context.Context, bet *Bet) error
 	CreateBetSlip(ctx context.Context, slip *BetSlip) error
+	FindBetByIdempotencyKey(ctx context.Context, userID, key string) (*Bet, error)
+	FindBetSlipByIdempotencyKey(ctx context.Context, userID, key string) (*BetSlip, error)
 	FindBetByID(ctx context.Context, id string) (*Bet, error)
 	FindBetsByUser(ctx context.Context, filter *BetFilter) ([]*Bet, int64, error)
 	FindBetSlipsByUser(ctx context.Context, filter *BetFilter) ([]*BetSlip, int64, error)

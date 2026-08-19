@@ -30,6 +30,9 @@ func (h *BettingHandler) PlaceBetSlip(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = strings.TrimSpace(c.Request().Header.Get("X-Idempotency-Key"))
+	}
 	if err := h.validate.Struct(&req); err != nil {
 		appErr := apperrors.NewValidationError("Validation failed", err.Error())
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
@@ -65,6 +68,9 @@ func (h *BettingHandler) PlaceBet(c echo.Context) error {
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))
 	}
 
+	if req.IdempotencyKey == "" {
+		req.IdempotencyKey = strings.TrimSpace(c.Request().Header.Get("X-Idempotency-Key"))
+	}
 	if err := h.validate.Struct(&req); err != nil {
 		appErr := apperrors.NewValidationError("Validation failed", err.Error())
 		return c.JSON(appErr.StatusCode, apperrors.NewErrorResponse(appErr))

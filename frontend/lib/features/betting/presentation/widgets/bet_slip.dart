@@ -67,8 +67,8 @@ class _BetSlipState extends ConsumerState<BetSlip> {
 
     setState(() => _isPlacing = true);
 
-    final success =
-        await ref.read(betCartProvider.notifier).placeSelections(stake);
+    final notifier = ref.read(betCartProvider.notifier);
+    final success = await notifier.placeSelections(stake);
 
     setState(() => _isPlacing = false);
 
@@ -83,7 +83,7 @@ class _BetSlipState extends ConsumerState<BetSlip> {
                 ? (items.length == 1
                     ? 'Bet placed successfully!'
                     : 'Accumulator placed successfully!')
-                : 'Failed to place bet',
+                : (notifier.lastError ?? 'Failed to place bet'),
           ),
           backgroundColor:
               success ? AppTheme.successColor : AppTheme.errorColor,

@@ -226,16 +226,24 @@ class WalletScreen extends ConsumerWidget {
                               style: const TextStyle(
                                   color: AppTheme.textSecondary, fontSize: 12),
                             ),
-                            trailing: Text(
-                              '${isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} MMK',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: isCredit
-                                    ? AppTheme.successColor
-                                    : AppTheme.textPrimary,
-                              ),
+                            trailing: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Text(
+                                  '${isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} MMK',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                    color: isCredit
+                                        ? AppTheme.successColor
+                                        : AppTheme.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(width: 4),
+                                const Icon(Icons.chevron_right, size: 20),
+                              ],
                             ),
+                            onTap: () => _showTransactionDetails(context, tx),
                           ),
                         );
                       },
@@ -252,6 +260,79 @@ class WalletScreen extends ConsumerWidget {
               },
             ),
           ],
+        ),
+      ),
+    );
+  }
+
+  void _showTransactionDetails(BuildContext context, Transaction tx) {
+    final rows = <MapEntry<String, String>>[
+      MapEntry('Status', tx.status.toUpperCase()),
+      MapEntry('Transaction ID', tx.id),
+      MapEntry('Created', tx.createdAt.toLocal().toString()),
+      if (tx.description?.isNotEmpty == true)
+        MapEntry('Description', tx.description!),
+      if (tx.reference?.isNotEmpty == true)
+        MapEntry('Reference', tx.reference!),
+      if (tx.fromUserId?.isNotEmpty == true)
+        MapEntry('From account', tx.fromUserId!),
+      if (tx.toUserId?.isNotEmpty == true)
+        MapEntry('To account', tx.toUserId!),
+      if (tx.balanceBefore != null)
+        MapEntry('Balance before', '${tx.balanceBefore!.toStringAsFixed(2)} MMK'),
+      if (tx.balanceAfter != null)
+        MapEntry('Balance after', '${tx.balanceAfter!.toStringAsFixed(2)} MMK'),
+    ];
+
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text(
+                tx.displayType,
+                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '${tx.isCredit ? '+' : '-'}${tx.amount.toStringAsFixed(2)} ${tx.currency}',
+                style: TextStyle(
+                  color: tx.isCredit ? AppTheme.successColor : AppTheme.textPrimary,
+                  fontSize: 18,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const Divider(height: 24),
+              ...rows.map(
+                (row) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 7),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 118,
+                        child: Text(
+                          row.key,
+                          style: const TextStyle(color: AppTheme.textSecondary),
+                        ),
+                      ),
+                      Expanded(child: SelectableText(row.value)),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
         ),
       ),
     );
