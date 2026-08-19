@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../../features/auth/presentation/providers/auth_provider.dart';
 import '../../../features/payment/presentation/providers/payment_provider.dart';
 import '../../../features/payment/presentation/providers/withdrawal_provider.dart';
+import '../../core/agent_error_message.dart';
 import '../providers/agent_provider.dart';
 
 class AgentWithdrawalsScreen extends ConsumerStatefulWidget {
@@ -145,8 +146,10 @@ class _AgentWithdrawalsScreenState
                         },
                       ),
                       loading: () => const LinearProgressIndicator(),
-                      error: (error, _) =>
-                          Text('Failed to load regions: $error'),
+                      error: (error, _) => Text(
+                        agentFriendlyError(error,
+                            fallback: 'Regions are unavailable.'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     townshipsAsync.when(
@@ -171,8 +174,10 @@ class _AgentWithdrawalsScreenState
                                 ),
                       ),
                       loading: () => const LinearProgressIndicator(),
-                      error: (error, _) =>
-                          Text('Failed to load townships: $error'),
+                      error: (error, _) => Text(
+                        agentFriendlyError(error,
+                            fallback: 'Townships are unavailable.'),
+                      ),
                     ),
                     const SizedBox(height: 8),
                     Align(
@@ -292,8 +297,12 @@ class _AgentWithdrawalsScreenState
                     },
                   );
                 },
-                error: (e, _) =>
-                    Center(child: Text('Failed to load assigned requests: $e')),
+                error: (error, _) => Center(
+                  child: Text(
+                    agentFriendlyError(error,
+                        fallback: 'Payout requests are unavailable.'),
+                  ),
+                ),
                 loading: () => const Center(child: CircularProgressIndicator()),
               ),
             ),
@@ -343,7 +352,12 @@ class _AgentWithdrawalsScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Verification failed: $e')),
+        SnackBar(
+          content: Text(
+            agentFriendlyError(e,
+                fallback: 'Payout code could not be verified.'),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _submitting = false);
@@ -404,7 +418,12 @@ class _AgentWithdrawalsScreenState
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to save custom code: $e')),
+        SnackBar(
+          content: Text(
+            agentFriendlyError(e,
+                fallback: 'Custom payout code could not be saved.'),
+          ),
+        ),
       );
     } finally {
       if (mounted) setState(() => _savingCustomCode = false);
