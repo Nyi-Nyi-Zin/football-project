@@ -900,8 +900,6 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
               onWithdraw: () => _openWithdrawDialog(context, ref, wallet),
             ),
           ),
-          const SizedBox(height: 16),
-          const _AgentPayoutCodeCard(),
           if (_lastCustomerDeposit != null) ...[
             const SizedBox(height: 16),
             _CustomerDepositReceiptCard(receipt: _lastCustomerDeposit!),
@@ -1086,41 +1084,54 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
     WidgetRef ref,
     Wallet wallet,
   ) async {
-    final amountCtrl = TextEditingController();
-    final accountCtrl = TextEditingController();
-    var saving = false;
+    final codeCtrl = TextEditingController();
+    var verifying = false;
     try {
       await showDialog<void>(
         context: context,
         builder: (dialogContext) => StatefulBuilder(
           builder: (context, setState) => AlertDialog(
-            title: const Text('Withdraw funds'),
+            title: const Text('Confirm customer payout'),
             content: SingleChildScrollView(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
+                  const Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      'Enter the withdrawal request code generated in the Customer app. When it is confirmed, the held customer funds will settle into your Agent wallet.',
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Text(
-                      'Available: ${wallet.availableBalance.toStringAsFixed(2)} MMK',
+                      'Agent wallet: ${wallet.availableBalance.toStringAsFixed(2)} MMK',
                     ),
                   ),
+                  const SizedBox(height: 12),
                   TextField(
-                    controller: amountCtrl,
-                    keyboardType:
-                        const TextInputType.numberWithOptions(decimal: true),
+                    controller: codeCtrl,
+                    textCapitalization: TextCapitalization.characters,
+                    maxLength: 6,
+                    enabled: !verifying,
                     decoration: const InputDecoration(
-                      labelText: 'Amount',
-                      suffixText: 'MMK',
+                      labelText: 'Withdrawal request code',
+                      hintText: 'ABC123',
+                      helperText: 'Use the code shown in the Customer app.',
+                      counterText: '',
+                      prefixIcon: Icon(Icons.password_outlined),
                     ),
-                  ),
-                  TextField(
-                    controller: accountCtrl,
-                    decoration: const InputDecoration(
-                      labelText: 'Payout account details',
-                      hintText: 'Bank or wallet account',
-                    ),
-                    maxLines: 2,
+                    onChanged: (value) {
+                      final upper = value.toUpperCase();
+                      if (upper != value) {
+                        codeCtrl.value = codeCtrl.value.copyWith(
+                          text: upper,
+                          selection:
+                              TextSelection.collapsed(offset: upper.length),
+                        );
+                      }
+                    },
                   ),
                 ],
               ),
@@ -1128,77 +1139,74 @@ class _AgentWalletTabState extends ConsumerState<_AgentWalletTab> {
             actions: [
               TextButton(
                 onPressed:
-                    saving ? null : () => Navigator.of(dialogContext).pop(),
+                    verifying ? null : () => Navigator.of(dialogContext).pop(),
                 child: const Text('Cancel'),
               ),
-              FilledButton(
-                onPressed: saving
+              FilledButton.icon(
+                onPressed: verifying
                     ? null
                     : () async {
-                        final amount = double.tryParse(amountCtrl.text.trim());
-                        if (amount == null || amount <= 0) {
+                        final code = codeCtrl.text.trim().toUpperCase();
+                        if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Enter a valid amount.')),
-                          );
-                          return;
-                        }
-                        if (amount > wallet.availableBalance) {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
                               content: Text(
-                                'Insufficient balance. Available: ${wallet.availableBalance.toStringAsFixed(2)} MMK',
+                                'Enter the complete 6-character withdrawal code.',
                               ),
                             ),
                           );
                           return;
                         }
-                        if (accountCtrl.text.trim().isEmpty) {
+                        setState(() => verifying = true);
+                        try {
+                          await ref
+                              .read(agentDataSourceProvider)
+                              .verifyWithdrawalCode(code);
+                          await ref
+                              .read(walletProvider.notifier)
+                              .fetchBalance();
+                          ref.invalidate(transactionsProvider);
+                          ref.invalidate(agentWithdrawalsProvider);
+                          if (!context.mounted) return;
+                          Navigator.of(dialogContext).pop();
                           ScaffoldMessenger.of(context).showSnackBar(
                             const SnackBar(
-                                content: Text('Enter payout account details.')),
+                              content: Text(
+                                'Payout confirmed. Customer funds settled and Agent wallet credited.',
+                              ),
+                            ),
                           );
-                          return;
-                        }
-                        setState(() => saving = true);
-                        final submission =
-                            await ref.read(walletProvider.notifier).withdraw(
-                                  amount: amount,
-                                  accountDetails: accountCtrl.text.trim(),
-                                  currency: 'MMK',
-                                );
-                        if (!context.mounted) return;
-                        if (submission == null) {
-                          setState(() => saving = false);
+                        } catch (error) {
+                          if (!context.mounted) return;
+                          setState(() => verifying = false);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                                content: Text(
-                                    'Withdrawal failed. Please check your balance and try again.')),
+                            SnackBar(
+                              content: Text(
+                                agentFriendlyError(
+                                  error,
+                                  fallback:
+                                      'Payout code could not be verified. Check the code and try again.',
+                                ),
+                              ),
+                            ),
                           );
-                          return;
                         }
-                        Navigator.of(dialogContext).pop();
-                        ref.invalidate(transactionsProvider);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                              content: Text('Withdrawal request submitted.')),
-                        );
                       },
-                child: saving
+                icon: verifying
                     ? const SizedBox(
                         width: 18,
                         height: 18,
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
-                    : const Text('Submit withdrawal'),
+                    : const Icon(Icons.check_circle_outline),
+                label: Text(verifying ? 'Confirming…' : 'Confirm payout'),
               ),
             ],
           ),
         ),
       );
     } finally {
-      amountCtrl.dispose();
-      accountCtrl.dispose();
+      codeCtrl.dispose();
     }
   }
 }
@@ -2729,141 +2737,5 @@ class AgentSplashScreen extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-class _AgentPayoutCodeCard extends ConsumerStatefulWidget {
-  const _AgentPayoutCodeCard();
-
-  @override
-  ConsumerState<_AgentPayoutCodeCard> createState() =>
-      _AgentPayoutCodeCardState();
-}
-
-class _AgentPayoutCodeCardState extends ConsumerState<_AgentPayoutCodeCard> {
-  final _codeController = TextEditingController();
-  bool _submitting = false;
-
-  @override
-  void dispose() {
-    _codeController.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.verified_outlined,
-                    color: Theme.of(context).colorScheme.primary),
-                const SizedBox(width: 10),
-                const Expanded(
-                  child: Text(
-                    'Customer payout',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Enter the 6-character code generated after the customer submits a withdrawal request. The held customer amount will settle into your Agent wallet.',
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-            const SizedBox(height: 14),
-            TextField(
-              controller: _codeController,
-              textCapitalization: TextCapitalization.characters,
-              maxLength: 6,
-              enabled: !_submitting,
-              decoration: const InputDecoration(
-                labelText: 'Customer payout code',
-                hintText: 'ABC123',
-                helperText: 'Use the code from the customer app.',
-                counterText: '',
-                prefixIcon: Icon(Icons.password_outlined),
-              ),
-              onChanged: (value) {
-                final upper = value.toUpperCase();
-                if (upper != value) {
-                  _codeController.value = _codeController.value.copyWith(
-                    text: upper,
-                    selection: TextSelection.collapsed(offset: upper.length),
-                  );
-                }
-              },
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: FilledButton.icon(
-                onPressed: _submitting ? null : _verify,
-                icon: _submitting
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 2,
-                          color: Colors.white,
-                        ),
-                      )
-                    : const Icon(Icons.check_circle_outline),
-                label: Text(
-                    _submitting ? 'Verifying…' : 'Confirm customer payout'),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _verify() async {
-    final code = _codeController.text.trim().toUpperCase();
-    if (!RegExp(r'^[A-Z0-9]{6}$').hasMatch(code)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Enter the complete 6-character payout code.')),
-      );
-      return;
-    }
-
-    setState(() => _submitting = true);
-    try {
-      await ref.read(agentDataSourceProvider).verifyWithdrawalCode(code);
-      await ref.read(walletProvider.notifier).fetchBalance();
-      ref.invalidate(transactionsProvider);
-      ref.invalidate(agentWithdrawalsProvider);
-      _codeController.clear();
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text(
-            'Payout confirmed. Customer funds settled and Agent wallet credited.',
-          ),
-        ),
-      );
-    } catch (error) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            agentFriendlyError(
-              error,
-              fallback:
-                  'Payout code could not be verified. Check the code and try again.',
-            ),
-          ),
-        ),
-      );
-    } finally {
-      if (mounted) setState(() => _submitting = false);
-    }
   }
 }
