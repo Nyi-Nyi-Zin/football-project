@@ -13,6 +13,7 @@ import '../presentation/screens/admin_transactions_screen.dart';
 import '../presentation/screens/admin_user_detail_screen.dart';
 import '../presentation/screens/admin_users_screen.dart';
 import '../presentation/screens/admin_withdrawals_screen.dart';
+import '../../features/notification/presentation/screens/notification_screen.dart';
 import 'admin_shell.dart';
 
 final adminRouterProvider = Provider<GoRouter>((ref) {
@@ -52,6 +53,10 @@ final adminRouterProvider = Provider<GoRouter>((ref) {
           GoRoute(
             path: '/dashboard',
             builder: (_, __) => const AdminDashboardScreen(),
+          ),
+          GoRoute(
+            path: '/notifications',
+            builder: (_, __) => const NotificationScreen(),
           ),
           GoRoute(
             path: '/users',
