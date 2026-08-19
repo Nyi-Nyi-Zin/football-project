@@ -72,6 +72,7 @@ type Bet struct {
 	Stake           float64    `json:"stake" gorm:"type:decimal(18,2);not null"`
 	PotentialPayout float64    `json:"potential_payout" gorm:"type:decimal(18,2);not null"`
 	Status          BetStatus  `json:"status" gorm:"default:'pending'"`
+	IdempotencyKey  string     `json:"idempotency_key,omitempty" gorm:"index"`
 	SettledAt       *time.Time `json:"settled_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -91,6 +92,7 @@ type BetSlip struct {
 	CombinedOdds    float64    `json:"combined_odds" gorm:"type:decimal(10,2);not null"`
 	PotentialPayout float64    `json:"potential_payout" gorm:"type:decimal(18,2);not null"`
 	Status          BetStatus  `json:"status" gorm:"default:'pending'"`
+	IdempotencyKey  string     `json:"idempotency_key,omitempty" gorm:"index"`
 	SettledAt       *time.Time `json:"settled_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	UpdatedAt       time.Time  `json:"updated_at"`
@@ -146,16 +148,18 @@ var (
 
 // PlaceBetRequest represents a request to place a bet
 type PlaceBetRequest struct {
-	MatchID   string  `json:"match_id" validate:"required,uuid"`
-	MarketKey string  `json:"market_key" validate:"required"`
-	Selection string  `json:"selection" validate:"required"`
-	Stake     float64 `json:"stake" validate:"required,gt=0"`
-	BetType   BetType `json:"bet_type" validate:"required,oneof=single accumulate system"`
+	MatchID        string  `json:"match_id" validate:"required,uuid"`
+	MarketKey      string  `json:"market_key" validate:"required"`
+	Selection      string  `json:"selection" validate:"required"`
+	Stake          float64 `json:"stake" validate:"required,gt=0"`
+	BetType        BetType `json:"bet_type" validate:"required,oneof=single accumulate system"`
+	IdempotencyKey string  `json:"idempotency_key,omitempty" validate:"omitempty,max=120"`
 }
 
 type PlaceBetSlipRequest struct {
-	Stake float64              `json:"stake" validate:"required,gt=0"`
-	Legs  []PlaceBetLegRequest `json:"legs" validate:"required,min=2,dive"`
+	Stake          float64              `json:"stake" validate:"required,gt=0"`
+	Legs           []PlaceBetLegRequest `json:"legs" validate:"required,min=2,dive"`
+	IdempotencyKey string               `json:"idempotency_key,omitempty" validate:"omitempty,max=120"`
 }
 
 type PlaceBetLegRequest struct {

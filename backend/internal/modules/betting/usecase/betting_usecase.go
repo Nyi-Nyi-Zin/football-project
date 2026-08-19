@@ -56,6 +56,16 @@ func NewBettingUseCase(
 
 // PlaceBet places a new bet
 func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *domain.PlaceBetRequest) (*domain.Bet, error) {
+	if key := strings.TrimSpace(req.IdempotencyKey); key != "" {
+		existing, err := uc.betRepo.FindBetByIdempotencyKey(ctx, userID, key)
+		if err != nil {
+			return nil, fmt.Errorf("usecase.PlaceBet: idempotency lookup: %w", err)
+		}
+		if existing != nil {
+			return existing, nil
+		}
+		req.IdempotencyKey = key
+	}
 	if err := validateStake(req.Stake); err != nil {
 		return nil, err
 	}
@@ -106,6 +116,7 @@ func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *doma
 		Stake:           req.Stake,
 		PotentialPayout: potentialPayout,
 		Status:          domain.BetStatusPending,
+		IdempotencyKey:  req.IdempotencyKey,
 	}
 
 	// Deduct balance
@@ -137,6 +148,16 @@ func (uc *BettingUseCase) PlaceBet(ctx context.Context, userID string, req *doma
 }
 
 func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *domain.PlaceBetSlipRequest) (*domain.BetSlip, error) {
+	if key := strings.TrimSpace(req.IdempotencyKey); key != "" {
+		existing, err := uc.betRepo.FindBetSlipByIdempotencyKey(ctx, userID, key)
+		if err != nil {
+			return nil, fmt.Errorf("usecase.PlaceBetSlip: idempotency lookup: %w", err)
+		}
+		if existing != nil {
+			return existing, nil
+		}
+		req.IdempotencyKey = key
+	}
 	if len(req.Legs) < 2 {
 		return nil, apperrors.NewBadRequestError("At least 2 selections are required")
 	}
@@ -198,6 +219,7 @@ func (uc *BettingUseCase) PlaceBetSlip(ctx context.Context, userID string, req *
 		CombinedOdds:    combinedOdds,
 		PotentialPayout: potentialPayout,
 		Status:          domain.BetStatusPending,
+		IdempotencyKey:  req.IdempotencyKey,
 		Legs:            legs,
 	}
 

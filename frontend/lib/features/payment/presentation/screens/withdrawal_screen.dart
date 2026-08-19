@@ -114,6 +114,8 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
         },
         (withdrawal) {
           ref.read(walletProvider.notifier).fetchBalance();
+          ref.invalidate(transactionsProvider);
+          ref.invalidate(customerWithdrawalsProvider);
           _showCodeDialog(
             withdrawal.code,
             amount,
@@ -685,6 +687,7 @@ class _WithdrawalScreenState extends ConsumerState<WithdrawalScreen> {
       return;
     }
     ref.invalidate(customerWithdrawalsProvider);
+    ref.invalidate(transactionsProvider);
     ref.read(walletProvider.notifier).fetchBalance();
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
