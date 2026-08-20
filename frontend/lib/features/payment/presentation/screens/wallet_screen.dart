@@ -268,6 +268,7 @@ class WalletScreen extends ConsumerWidget {
 
   void _showTransactionDetails(BuildContext context, Transaction tx) {
     final rows = <MapEntry<String, String>>[
+      MapEntry('Entry type', tx.displayType),
       MapEntry('Status', tx.status.toUpperCase()),
       MapEntry('Transaction ID', tx.id),
       MapEntry('Created', tx.createdAt.toLocal().toString()),
@@ -283,6 +284,11 @@ class WalletScreen extends ConsumerWidget {
             'Balance before', '${tx.balanceBefore!.toStringAsFixed(2)} MMK'),
       if (tx.balanceAfter != null)
         MapEntry('Balance after', '${tx.balanceAfter!.toStringAsFixed(2)} MMK'),
+      if (tx.balanceBefore != null && tx.balanceAfter != null)
+        MapEntry(
+          'Balance change',
+          '${(tx.balanceAfter! - tx.balanceBefore!) >= 0 ? '+' : ''}${(tx.balanceAfter! - tx.balanceBefore!).toStringAsFixed(2)} MMK',
+        ),
     ];
 
     showModalBottomSheet<void>(

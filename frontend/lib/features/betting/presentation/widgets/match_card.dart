@@ -8,6 +8,8 @@ import '../providers/betting_provider.dart';
 class MatchCard extends ConsumerWidget {
   final Match match;
   final BetCartItem? selectedItem;
+  final bool isFavorite;
+  final VoidCallback? onFavoriteToggle;
   final void Function(Match match, Market market, MarketSelection selection)
       onSelectionTap;
 
@@ -15,6 +17,8 @@ class MatchCard extends ConsumerWidget {
     super.key,
     required this.match,
     required this.onSelectionTap,
+    this.isFavorite = false,
+    this.onFavoriteToggle,
     this.selectedItem,
   });
 
@@ -44,7 +48,19 @@ class MatchCard extends ConsumerWidget {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 8),
+                const SizedBox(width: 4),
+                if (onFavoriteToggle != null)
+                  IconButton(
+                    tooltip: isFavorite ? 'Remove favorite' : 'Add favorite',
+                    onPressed: onFavoriteToggle,
+                    visualDensity: VisualDensity.compact,
+                    icon: Icon(
+                      isFavorite ? Icons.star : Icons.star_border,
+                      color: isFavorite
+                          ? AppTheme.warningColor
+                          : AppTheme.textMuted,
+                    ),
+                  ),
                 _statusBadge(),
               ],
             ),

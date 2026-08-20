@@ -57,6 +57,8 @@ final selectedLeaguesProvider =
 
 /// Null loads all available matches; otherwise the value is sent to the API.
 final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
+final matchSearchQueryProvider = StateProvider<String>((_) => '');
+final favoriteMatchIdsProvider = StateProvider<Set<String>>((_) => <String>{});
 final matchesRefreshKeyProvider = StateProvider<int>((_) => 0);
 
 /// Refreshes match status and score data while the sportsbook screen is open.
@@ -92,6 +94,12 @@ final myBetSlipsProvider =
 final myBetsProvider =
     StateNotifierProvider<MyBetsNotifier, AsyncValue<List<Bet>>>((ref) {
   return MyBetsNotifier(ref.read(bettingDataSourceProvider));
+});
+
+final betDetailProvider =
+    FutureProvider.autoDispose.family<Bet, String>((ref, betId) async {
+  final model = await ref.read(bettingDataSourceProvider).getBet(betId);
+  return model.toEntity();
 });
 
 class MyBetsNotifier extends StateNotifier<AsyncValue<List<Bet>>> {

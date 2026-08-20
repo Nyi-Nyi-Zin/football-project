@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/notification_entity.dart';
@@ -65,6 +68,7 @@ class NotificationScreen extends ConsumerWidget {
                 final item = items[index];
                 return _NotificationTile(
                   item: item,
+                  onOpen: () => _openNotification(context, ref, item),
                   onRead: () async {
                     await ref
                         .read(notificationProvider.notifier)
@@ -85,15 +89,56 @@ class NotificationScreen extends ConsumerWidget {
       ),
     );
   }
+
+  Future<void> _openNotification(
+    BuildContext context,
+    WidgetRef ref,
+    NotificationItem item,
+  ) async {
+    await ref.read(notificationProvider.notifier).markAsRead(item.id);
+    ref.invalidate(unreadNotificationCountProvider);
+    if (!context.mounted) return;
+
+    final payload = _decodePayload(item.data);
+    final betId = payload['bet_id'] ?? payload['betId'];
+    if (betId is String && betId.isNotEmpty) {
+      context.push('/bet/$betId');
+      return;
+    }
+
+    final type = item.type.toLowerCase();
+    if (type.contains('withdrawal') || type.contains('payout')) {
+      context.push('/wallet');
+      return;
+    }
+    if (type.contains('deposit') ||
+        type.contains('transaction') ||
+        type.contains('cash_out') ||
+        type.contains('cashout')) {
+      context.push('/wallet');
+    }
+  }
+
+  Map<String, dynamic> _decodePayload(String? raw) {
+    if (raw == null || raw.trim().isEmpty) return const {};
+    try {
+      final decoded = jsonDecode(raw);
+      return decoded is Map<String, dynamic> ? decoded : const {};
+    } catch (_) {
+      return const {};
+    }
+  }
 }
 
 class _NotificationTile extends StatelessWidget {
   final NotificationItem item;
+  final VoidCallback onOpen;
   final VoidCallback onRead;
   final VoidCallback onDelete;
 
   const _NotificationTile({
     required this.item,
+    required this.onOpen,
     required this.onRead,
     required this.onDelete,
   });
@@ -138,7 +183,7 @@ class _NotificationTile extends StatelessWidget {
           child: Text('${item.message}\n${_formatTime(item.createdAt)}'),
         ),
         isThreeLine: true,
-        onTap: item.isRead ? null : onRead,
+        onTap: onOpen,
         trailing: PopupMenuButton<String>(
           onSelected: (value) {
             if (value == 'read') onRead();
