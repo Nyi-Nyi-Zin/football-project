@@ -96,6 +96,7 @@ class FavoriteMatchesNotifier extends StateNotifier<Set<String>> {
 }
 
 final matchesRefreshKeyProvider = StateProvider<int>((_) => 0);
+final matchesLastRefreshedProvider = StateProvider<DateTime?>((_) => null);
 
 /// Refreshes match status and score data while the sportsbook screen is open.
 final matchAutoRefreshProvider = Provider.autoDispose<void>((ref) {
@@ -115,6 +116,7 @@ final matchesProvider = FutureProvider<List<Match>>((ref) async {
     leagues: leagues,
     limit: 50,
   );
+  ref.read(matchesLastRefreshedProvider.notifier).state = DateTime.now();
   return models.map((m) => m.toEntity()).toList();
 });
 
