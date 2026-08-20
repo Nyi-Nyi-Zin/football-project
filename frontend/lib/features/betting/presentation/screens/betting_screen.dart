@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/betting_entity.dart';
@@ -19,6 +20,7 @@ class BettingScreen extends ConsumerWidget {
     final selectedStatus = ref.watch(selectedMatchStatusProvider);
     final searchQuery = ref.watch(matchSearchQueryProvider);
     final favoriteMatchIds = ref.watch(favoriteMatchIdsProvider);
+    final lastRefreshed = ref.watch(matchesLastRefreshedProvider);
     final unreadNotifications =
         ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
     final cartItems = ref.watch(betCartProvider);
@@ -69,13 +71,11 @@ class BettingScreen extends ConsumerWidget {
           selectedLeagues: selectedLeagues,
           searchQuery: searchQuery,
           favoriteMatchIds: favoriteMatchIds,
+          lastRefreshed: lastRefreshed,
           onSearchChanged: (value) =>
               ref.read(matchSearchQueryProvider.notifier).state = value,
-          onFavoriteToggle: (matchId) {
-            final next = {...favoriteMatchIds};
-            if (!next.add(matchId)) next.remove(matchId);
-            ref.read(favoriteMatchIdsProvider.notifier).state = next;
-          },
+          onFavoriteToggle: (matchId) =>
+              ref.read(favoriteMatchIdsProvider.notifier).toggle(matchId),
           onStatusChanged: (status) {
             ref.read(selectedMatchStatusProvider.notifier).state = status;
             ref.read(matchesRefreshKeyProvider.notifier).state++;
@@ -150,6 +150,7 @@ class _HeaderSummary extends StatelessWidget {
   final VoidCallback? onClearFilters;
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
+  final DateTime? lastRefreshed;
 
   const _HeaderSummary({
     required this.selectedLeagues,
@@ -158,6 +159,7 @@ class _HeaderSummary extends StatelessWidget {
     required this.onClearFilters,
     required this.searchQuery,
     required this.onSearchChanged,
+    required this.lastRefreshed,
   });
 
   @override
@@ -220,6 +222,16 @@ class _HeaderSummary extends StatelessWidget {
                 : 'Filtering ${selectedLeagues.length} league(s) with market-based selections.',
             style: TextStyle(
               color: Colors.white.withValues(alpha: 0.86),
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            lastRefreshed == null
+                ? 'Live prices refresh automatically every 30 seconds.'
+                : 'Prices updated ${DateFormat('HH:mm:ss').format(lastRefreshed!.toLocal())} • refreshes every 30 seconds.',
+            style: TextStyle(
+              color: Colors.white.withValues(alpha: 0.78),
+              fontSize: 12,
             ),
           ),
           const SizedBox(height: 12),
@@ -319,6 +331,7 @@ class _MatchesList extends StatelessWidget {
   final Set<String> favoriteMatchIds;
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onFavoriteToggle;
+  final DateTime? lastRefreshed;
   final void Function(String? status) onStatusChanged;
   final VoidCallback? onClearFilters;
   final void Function(String league, bool isSelected) onLeagueTap;
@@ -335,6 +348,7 @@ class _MatchesList extends StatelessWidget {
     required this.favoriteMatchIds,
     required this.onSearchChanged,
     required this.onFavoriteToggle,
+    required this.lastRefreshed,
     required this.onStatusChanged,
     required this.onClearFilters,
     required this.onLeagueTap,
@@ -370,6 +384,7 @@ class _MatchesList extends StatelessWidget {
               selectedLeagues: selectedLeagues,
               searchQuery: searchQuery,
               onSearchChanged: onSearchChanged,
+              lastRefreshed: lastRefreshed,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
@@ -413,6 +428,7 @@ class _MatchesList extends StatelessWidget {
               selectedLeagues: selectedLeagues,
               searchQuery: searchQuery,
               onSearchChanged: onSearchChanged,
+              lastRefreshed: lastRefreshed,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,

@@ -4,7 +4,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/network/dio_client.dart';
 import '../../data/datasources/betting_remote_datasource.dart';
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../domain/entities/betting_entity.dart';
 import '../../../odds/domain/entities/odds_entity.dart';
 import '../../../responsible_gaming/presentation/providers/responsible_gaming_provider.dart';
@@ -59,8 +62,41 @@ final selectedLeaguesProvider =
 /// Null loads all available matches; otherwise the value is sent to the API.
 final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
 final matchSearchQueryProvider = StateProvider<String>((_) => '');
-final favoriteMatchIdsProvider = StateProvider<Set<String>>((_) => <String>{});
+final favoriteMatchIdsProvider =
+    StateNotifierProvider<FavoriteMatchesNotifier, Set<String>>((ref) {
+  return FavoriteMatchesNotifier();
+});
+
+class FavoriteMatchesNotifier extends StateNotifier<Set<String>> {
+  static const _storageKey = 'cloud9_favorite_match_ids';
+  static const _storage = FlutterSecureStorage();
+
+  FavoriteMatchesNotifier() : super(const <String>{}) {
+    _load();
+  }
+
+  Future<void> _load() async {
+    try {
+      final raw = await _storage.read(key: _storageKey);
+      if (raw == null || raw.isEmpty) return;
+      final ids =
+          (jsonDecode(raw) as List<dynamic>).whereType<String>().toSet();
+      state = ids;
+    } catch (_) {
+      state = const <String>{};
+    }
+  }
+
+  Future<void> toggle(String matchId) async {
+    final next = {...state};
+    if (!next.add(matchId)) next.remove(matchId);
+    state = next;
+    await _storage.write(key: _storageKey, value: jsonEncode(next.toList()));
+  }
+}
+
 final matchesRefreshKeyProvider = StateProvider<int>((_) => 0);
+final matchesLastRefreshedProvider = StateProvider<DateTime?>((_) => null);
 
 /// Refreshes match status and score data while the sportsbook screen is open.
 final matchAutoRefreshProvider = Provider.autoDispose<void>((ref) {
@@ -80,6 +116,7 @@ final matchesProvider = FutureProvider<List<Match>>((ref) async {
     leagues: leagues,
     limit: 50,
   );
+  ref.read(matchesLastRefreshedProvider.notifier).state = DateTime.now();
   return models.map((m) => m.toEntity()).toList();
 });
 
