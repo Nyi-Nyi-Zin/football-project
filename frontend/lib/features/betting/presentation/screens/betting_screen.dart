@@ -72,6 +72,8 @@ class BettingScreen extends ConsumerWidget {
           searchQuery: searchQuery,
           favoriteMatchIds: favoriteMatchIds,
           lastRefreshed: lastRefreshed,
+          isStale: lastRefreshed != null &&
+              DateTime.now().difference(lastRefreshed) > const Duration(seconds: 90),
           onSearchChanged: (value) =>
               ref.read(matchSearchQueryProvider.notifier).state = value,
           onFavoriteToggle: (matchId) =>
@@ -106,10 +108,13 @@ class BettingScreen extends ConsumerWidget {
                 );
           },
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => const _MatchesLoadingSkeleton(),
         error: (error, _) => _ErrorState(
-          message: error.toString(),
-          onRetry: () => ref.read(matchesRefreshKeyProvider.notifier).state++,
+          message: _friendlyMatchError(error),
+          onRetry: () {
+            ref.read(matchesRefreshKeyProvider.notifier).state++;
+            ref.invalidate(matchesProvider);
+          },
         ),
       ),
       floatingActionButton: cartItems.isEmpty
@@ -151,6 +156,7 @@ class _HeaderSummary extends StatelessWidget {
   final String searchQuery;
   final ValueChanged<String> onSearchChanged;
   final DateTime? lastRefreshed;
+  final bool isStale;
 
   const _HeaderSummary({
     required this.selectedLeagues,
@@ -160,6 +166,7 @@ class _HeaderSummary extends StatelessWidget {
     required this.searchQuery,
     required this.onSearchChanged,
     required this.lastRefreshed,
+    required this.isStale,
   });
 
   @override
@@ -225,14 +232,30 @@ class _HeaderSummary extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          Text(
-            lastRefreshed == null
-                ? 'Live prices refresh automatically every 30 seconds.'
-                : 'Prices updated ${DateFormat('HH:mm:ss').format(lastRefreshed!.toLocal())} • refreshes every 30 seconds.',
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.78),
-              fontSize: 12,
-            ),
+          Row(
+            children: [
+              Icon(
+                isStale ? Icons.warning_amber_rounded : Icons.sync,
+                size: 15,
+                color: isStale ? Colors.amber.shade200 : Colors.white70,
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  lastRefreshed == null
+                      ? 'Live prices refresh automatically every 30 seconds.'
+                      : isStale
+                          ? 'Market data may be stale. Tap refresh to retry.'
+                          : 'Prices updated ${DateFormat('HH:mm:ss').format(lastRefreshed!.toLocal())} • refreshes every 30 seconds.',
+                  style: TextStyle(
+                    color: isStale
+                        ? Colors.amber.shade100
+                        : Colors.white.withValues(alpha: 0.78),
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           Row(
@@ -332,6 +355,7 @@ class _MatchesList extends StatelessWidget {
   final ValueChanged<String> onSearchChanged;
   final ValueChanged<String> onFavoriteToggle;
   final DateTime? lastRefreshed;
+  final bool isStale;
   final void Function(String? status) onStatusChanged;
   final VoidCallback? onClearFilters;
   final void Function(String league, bool isSelected) onLeagueTap;
@@ -349,6 +373,7 @@ class _MatchesList extends StatelessWidget {
     required this.onSearchChanged,
     required this.onFavoriteToggle,
     required this.lastRefreshed,
+    required this.isStale,
     required this.onStatusChanged,
     required this.onClearFilters,
     required this.onLeagueTap,
@@ -385,6 +410,7 @@ class _MatchesList extends StatelessWidget {
               searchQuery: searchQuery,
               onSearchChanged: onSearchChanged,
               lastRefreshed: lastRefreshed,
+              isStale: isStale,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
@@ -429,6 +455,7 @@ class _MatchesList extends StatelessWidget {
               searchQuery: searchQuery,
               onSearchChanged: onSearchChanged,
               lastRefreshed: lastRefreshed,
+              isStale: isStale,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
@@ -527,6 +554,56 @@ class _LeagueFilterRow extends StatelessWidget {
             onSelected: (_) => onLeagueTap(league, isSelected),
           );
         },
+      ),
+    );
+  }
+}
+
+String _friendlyMatchError(Object error) {
+  final text = error.toString().toLowerCase();
+  if (text.contains('socket') ||
+      text.contains('connection') ||
+      text.contains('timeout')) {
+    return 'You appear to be offline. Check your connection and retry.';
+  }
+  if (text.contains('401') || text.contains('unauthorized')) {
+    return 'Your session has expired. Please sign in again.';
+  }
+  return 'We could not refresh the market right now. Please retry.';
+}
+
+class _MatchesLoadingSkeleton extends StatelessWidget {
+  const _MatchesLoadingSkeleton();
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.builder(
+      padding: const EdgeInsets.all(16),
+      itemCount: 5,
+      itemBuilder: (_, index) => Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        height: index == 0 ? 142 : 118,
+        decoration: BoxDecoration(
+          color: Theme.of(context).cardColor,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: AppTheme.borderColor),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(width: 140, height: 14, color: AppTheme.borderColor),
+              const SizedBox(height: 14),
+              Container(
+                  width: double.infinity,
+                  height: 12,
+                  color: AppTheme.borderColor),
+              const SizedBox(height: 10),
+              Container(width: 220, height: 12, color: AppTheme.borderColor),
+            ],
+          ),
+        ),
       ),
     );
   }
