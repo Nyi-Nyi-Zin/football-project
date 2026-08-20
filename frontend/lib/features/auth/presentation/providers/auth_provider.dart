@@ -301,6 +301,24 @@ class AuthNotifier extends StateNotifier<AsyncValue<User?>> {
         );
   }
 
+  Future<Either<Failure, void>> verifyEmail(String code) {
+    return _ref.read(authRepositoryProvider).verifyEmail(code);
+  }
+
+  Future<Either<Failure, void>> verifyPhone(String code) {
+    return _ref.read(authRepositoryProvider).verifyPhone(code);
+  }
+
+  Future<Either<Failure, void>> submitKYC({
+    required String nationalId,
+    required String kycImageUrl,
+  }) {
+    return _ref.read(authRepositoryProvider).submitKYC(
+          nationalId: nationalId,
+          kycImageUrl: kycImageUrl,
+        );
+  }
+
   bool _shouldClearSession(Failure failure) {
     if (failure is AuthFailure) {
       return true;

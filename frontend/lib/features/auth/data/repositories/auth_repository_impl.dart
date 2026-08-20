@@ -145,6 +145,48 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
+  Future<Either<Failure, void>> verifyEmail(String code) async {
+    try {
+      await _remoteDataSource.verifyEmail(code);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> verifyPhone(String code) async {
+    try {
+      await _remoteDataSource.verifyPhone(code);
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
+  Future<Either<Failure, void>> submitKYC({
+    required String nationalId,
+    required String kycImageUrl,
+  }) async {
+    try {
+      await _remoteDataSource.submitKYC(
+        nationalId: nationalId,
+        kycImageUrl: kycImageUrl,
+      );
+      return const Right(null);
+    } on DioException catch (e) {
+      return Left(_handleDioError(e));
+    } catch (e) {
+      return Left(ServerFailure(message: e.toString()));
+    }
+  }
+
+  @override
   Future<Either<Failure, void>> logout() async {
     try {
       await _dioClient.clearTokens();
