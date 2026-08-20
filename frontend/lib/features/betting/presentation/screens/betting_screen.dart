@@ -71,11 +71,8 @@ class BettingScreen extends ConsumerWidget {
           favoriteMatchIds: favoriteMatchIds,
           onSearchChanged: (value) =>
               ref.read(matchSearchQueryProvider.notifier).state = value,
-          onFavoriteToggle: (matchId) {
-            final next = {...favoriteMatchIds};
-            if (!next.add(matchId)) next.remove(matchId);
-            ref.read(favoriteMatchIdsProvider.notifier).state = next;
-          },
+          onFavoriteToggle: (matchId) =>
+              ref.read(favoriteMatchIdsProvider.notifier).toggle(matchId),
           onStatusChanged: (status) {
             ref.read(selectedMatchStatusProvider.notifier).state = status;
             ref.read(matchesRefreshKeyProvider.notifier).state++;

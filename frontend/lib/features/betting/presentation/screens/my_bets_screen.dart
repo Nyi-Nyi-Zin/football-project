@@ -18,6 +18,8 @@ class MyBetsScreen extends ConsumerStatefulWidget {
 class _MyBetsScreenState extends ConsumerState<MyBetsScreen>
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
+  final _searchController = TextEditingController();
+  String _statusFilter = 'all';
 
   @override
   void initState() {
@@ -28,6 +30,7 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen>
   @override
   void dispose() {
     _tabController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
@@ -66,16 +69,27 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen>
             ),
           );
         }
+        final query = _searchController.text.trim().toLowerCase();
+        final visibleBets = bets.where((bet) {
+          final statusMatch = _statusFilter == 'all' ||
+              bet.status.toLowerCase() == _statusFilter;
+          final textMatch = query.isEmpty ||
+              bet.selectionLabel.toLowerCase().contains(query) ||
+              bet.matchId.toLowerCase().contains(query) ||
+              bet.match?.homeTeam.toLowerCase().contains(query) == true ||
+              bet.match?.awayTeam.toLowerCase().contains(query) == true;
+          return statusMatch && textMatch;
+        }).toList();
         return RefreshIndicator(
           onRefresh: () async {
             await ref.read(myBetsProvider.notifier).loadBets();
           },
           child: ListView.builder(
             padding: const EdgeInsets.all(16),
-            itemCount: bets.length,
+            itemCount: visibleBets.length + 1,
             itemBuilder: (context, index) {
-              final bet = bets[index];
-              return _betCard(bet);
+              if (index == 0) return _betFilters();
+              return _betCard(visibleBets[index - 1]);
             },
           ),
         );
@@ -187,6 +201,59 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen>
       }
     }
     return 'We could not load this page right now. Please try again.';
+  }
+
+  Widget _betFilters() {
+    const statuses = [
+      'all',
+      'pending',
+      'active',
+      'won',
+      'lost',
+      'settled',
+      'cancelled'
+    ];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Column(
+        children: [
+          TextField(
+            controller: _searchController,
+            onChanged: (_) => setState(() {}),
+            decoration: InputDecoration(
+              hintText: 'Search team, selection, or bet ID',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: _searchController.text.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () {
+                        _searchController.clear();
+                        setState(() {});
+                      },
+                      icon: const Icon(Icons.clear),
+                    ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            height: 40,
+            child: ListView.separated(
+              scrollDirection: Axis.horizontal,
+              itemCount: statuses.length,
+              separatorBuilder: (_, __) => const SizedBox(width: 8),
+              itemBuilder: (context, index) {
+                final status = statuses[index];
+                return ChoiceChip(
+                  label: Text(status.toUpperCase()),
+                  selected: _statusFilter == status,
+                  onSelected: (_) => setState(() => _statusFilter = status),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _betCard(Bet bet) {
