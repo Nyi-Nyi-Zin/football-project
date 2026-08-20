@@ -102,6 +102,24 @@ class AuthRemoteDataSource {
     });
   }
 
+  Future<void> verifyEmail(String code) async {
+    await _client.dio.post('/users/me/verify-email', data: {'code': code});
+  }
+
+  Future<void> verifyPhone(String code) async {
+    await _client.dio.post('/users/me/verify-phone', data: {'code': code});
+  }
+
+  Future<void> submitKYC({
+    required String nationalId,
+    required String kycImageUrl,
+  }) async {
+    await _client.dio.post('/users/me/kyc', data: {
+      'national_id': nationalId,
+      'kyc_image_url': kycImageUrl,
+    });
+  }
+
   Future<List<NRCCode>> getNRCCodes() async {
     final response = await _client.dio.get('/nrc/codes');
     final data = response.data['data'] as List;

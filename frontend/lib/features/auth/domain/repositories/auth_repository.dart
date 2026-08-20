@@ -42,6 +42,15 @@ abstract class AuthRepository {
     required String newPassword,
   });
 
+  Future<Either<Failure, void>> verifyEmail(String code);
+
+  Future<Either<Failure, void>> verifyPhone(String code);
+
+  Future<Either<Failure, void>> submitKYC({
+    required String nationalId,
+    required String kycImageUrl,
+  });
+
   Future<Either<Failure, void>> logout();
 
   Future<bool> isAuthenticated();

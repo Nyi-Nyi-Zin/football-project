@@ -321,6 +321,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'Verified'
                                 : 'Verification required',
                             isComplete: user.isEmailVerified,
+                            actionLabel: user.isEmailVerified ? null : 'Verify',
+                            onAction: user.isEmailVerified
+                                ? null
+                                : () => _showVerificationCodeDialog(
+                                      context,
+                                      type: 'Email',
+                                    ),
                           ),
                           const SizedBox(height: 10),
                           _verificationRow(
@@ -330,6 +337,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                 ? 'Verified'
                                 : 'Verification required',
                             isComplete: user.isPhoneVerified,
+                            actionLabel: user.isPhoneVerified ? null : 'Verify',
+                            onAction: user.isPhoneVerified
+                                ? null
+                                : () => _showVerificationCodeDialog(
+                                      context,
+                                      type: 'Phone',
+                                    ),
                           ),
                           const SizedBox(height: 10),
                           _verificationRow(
@@ -338,6 +352,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                             value: _kycLabel(user.kycStatus),
                             isComplete:
                                 user.kycStatus.toLowerCase() == 'approved',
+                            actionLabel:
+                                user.kycStatus.toLowerCase() == 'approved'
+                                    ? null
+                                    : 'Submit',
+                            onAction: user.kycStatus.toLowerCase() == 'approved'
+                                ? null
+                                : () => _showKycDialog(context),
                           ),
                           if (!user.isEmailVerified ||
                               !user.isPhoneVerified ||
@@ -933,6 +954,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     required String label,
     required String value,
     required bool isComplete,
+    String? actionLabel,
+    VoidCallback? onAction,
   }) {
     final color = isComplete ? AppTheme.successColor : AppTheme.warningColor;
     return Row(
@@ -953,8 +976,199 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             fontWeight: FontWeight.w700,
           ),
         ),
+        if (actionLabel != null && onAction != null) ...[
+          const SizedBox(width: 6),
+          TextButton(
+            onPressed: onAction,
+            style: TextButton.styleFrom(
+              minimumSize: const Size(0, 32),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+            ),
+            child: Text(actionLabel),
+          ),
+        ],
       ],
     );
+  }
+
+  Future<void> _showVerificationCodeDialog(
+    BuildContext context, {
+    required String type,
+  }) async {
+    final codeController = TextEditingController();
+    var isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: Text('$type verification'),
+          content: TextField(
+            controller: codeController,
+            autofocus: true,
+            keyboardType: TextInputType.number,
+            maxLength: 6,
+            decoration: const InputDecoration(
+              labelText: 'Verification code',
+              hintText: 'Enter the code you received',
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final code = codeController.text.trim();
+                      if (code.isEmpty) return;
+                      setDialogState(() => isSubmitting = true);
+                      final result = type == 'Email'
+                          ? await ref
+                              .read(authNotifierProvider.notifier)
+                              .verifyEmail(code)
+                          : await ref
+                              .read(authNotifierProvider.notifier)
+                              .verifyPhone(code);
+                      if (!mounted) return;
+                      result.fold(
+                        (failure) {
+                          setDialogState(() => isSubmitting = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(failure.message),
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                          );
+                        },
+                        (_) async {
+                          Navigator.of(dialogContext).pop();
+                          await ref
+                              .read(authNotifierProvider.notifier)
+                              .restoreSession();
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            SnackBar(
+                              content: Text('$type verified successfully'),
+                              backgroundColor: AppTheme.successColor,
+                            ),
+                          );
+                        },
+                      );
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Verify'),
+            ),
+          ],
+        ),
+      ),
+    );
+    codeController.dispose();
+  }
+
+  Future<void> _showKycDialog(BuildContext context) async {
+    final nationalIdController = TextEditingController();
+    final imageUrlController = TextEditingController();
+    var isSubmitting = false;
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) => StatefulBuilder(
+        builder: (context, setDialogState) => AlertDialog(
+          title: const Text('Submit KYC for review'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Enter your National ID and a secure image URL for the document. Your submission will remain pending until Admin review.',
+                  style: TextStyle(fontSize: 12, height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: nationalIdController,
+                  decoration: const InputDecoration(labelText: 'National ID'),
+                ),
+                const SizedBox(height: 12),
+                TextField(
+                  controller: imageUrlController,
+                  keyboardType: TextInputType.url,
+                  decoration: const InputDecoration(
+                    labelText: 'KYC image URL',
+                    hintText: 'https://...',
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed:
+                  isSubmitting ? null : () => Navigator.of(dialogContext).pop(),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: isSubmitting
+                  ? null
+                  : () async {
+                      final nationalId = nationalIdController.text.trim();
+                      final imageUrl = imageUrlController.text.trim();
+                      if (nationalId.isEmpty || imageUrl.isEmpty) return;
+                      setDialogState(() => isSubmitting = true);
+                      final result = await ref
+                          .read(authNotifierProvider.notifier)
+                          .submitKYC(
+                            nationalId: nationalId,
+                            kycImageUrl: imageUrl,
+                          );
+                      if (!mounted) return;
+                      result.fold(
+                        (failure) {
+                          setDialogState(() => isSubmitting = false);
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(failure.message),
+                              backgroundColor: AppTheme.errorColor,
+                            ),
+                          );
+                        },
+                        (_) async {
+                          Navigator.of(dialogContext).pop();
+                          await ref
+                              .read(authNotifierProvider.notifier)
+                              .restoreSession();
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(this.context).showSnackBar(
+                            const SnackBar(
+                              content: Text('KYC submitted for review'),
+                              backgroundColor: AppTheme.successColor,
+                            ),
+                          );
+                        },
+                      );
+                    },
+              child: isSubmitting
+                  ? const SizedBox(
+                      height: 18,
+                      width: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Submit'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nationalIdController.dispose();
+    imageUrlController.dispose();
   }
 
   String _kycLabel(String status) {
