@@ -318,60 +318,149 @@ class _MyBetsScreenState extends ConsumerState<MyBetsScreen>
   Widget _slipCard(BetSlip slip) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Accumulator (${slip.legs.length} legs)',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-                _statusBadge(slip.status),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'Date: ${DateFormat('yyyy-MM-dd HH:mm').format(slip.createdAt)}',
-              style:
-                  const TextStyle(color: AppTheme.textSecondary, fontSize: 12),
-            ),
-            const SizedBox(height: 12),
-            ...slip.legs.map((leg) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
-                  child: Row(
-                    children: [
-                      const Icon(Icons.circle,
-                          size: 6, color: AppTheme.primaryColor),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          '${leg.match?.homeTeam ?? 'Match'} - ${leg.selectionLabel} (${leg.odds.toStringAsFixed(2)})',
-                          style: const TextStyle(fontSize: 13),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
+      child: InkWell(
+        onTap: () => _showSlipDetails(slip),
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Accumulator (${slip.legs.length} legs)',
+                    style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
-                )),
-            const Divider(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Stake: ${slip.stake.toStringAsFixed(2)} MMK'),
-                Text(
-                  'Payout: ${slip.potentialPayout.toStringAsFixed(2)} MMK',
-                  style: const TextStyle(
-                      color: AppTheme.accentColor, fontWeight: FontWeight.bold),
-                ),
-              ],
-            ),
-          ],
+                  _statusBadge(slip.status),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Date: ${DateFormat('yyyy-MM-dd HH:mm').format(slip.createdAt)}',
+                style: const TextStyle(
+                    color: AppTheme.textSecondary, fontSize: 12),
+              ),
+              const SizedBox(height: 12),
+              ...slip.legs.map((leg) => Padding(
+                    padding: const EdgeInsets.only(bottom: 6),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.circle,
+                            size: 6, color: AppTheme.primaryColor),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${leg.match?.homeTeam ?? 'Match'} - ${leg.selectionLabel} (${leg.odds.toStringAsFixed(2)})',
+                            style: const TextStyle(fontSize: 13),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  )),
+              const Divider(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text('Stake: ${slip.stake.toStringAsFixed(2)} MMK'),
+                  Text(
+                    'Payout: ${slip.potentialPayout.toStringAsFixed(2)} MMK',
+                    style: const TextStyle(
+                        color: AppTheme.accentColor,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ],
+              ),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  void _showSlipDetails(BetSlip slip) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(20, 4, 20, 24),
+          child: ListView(
+            shrinkWrap: true,
+            children: [
+              Text(
+                'Accumulator receipt',
+                style:
+                    const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 6),
+              _receiptRow('Status', slip.status.toUpperCase()),
+              _receiptRow('Slip ID', slip.id),
+              _receiptRow(
+                  'Placed',
+                  DateFormat('yyyy-MM-dd HH:mm')
+                      .format(slip.createdAt.toLocal())),
+              _receiptRow(
+                  'Combined odds', slip.combinedOdds.toStringAsFixed(2)),
+              _receiptRow('Stake', '${slip.stake.toStringAsFixed(2)} MMK'),
+              _receiptRow('Potential payout',
+                  '${slip.potentialPayout.toStringAsFixed(2)} MMK'),
+              const Divider(height: 24),
+              const Text('Selections',
+                  style: TextStyle(fontWeight: FontWeight.bold)),
+              const SizedBox(height: 8),
+              ...slip.legs.asMap().entries.map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          CircleAvatar(
+                            radius: 12,
+                            backgroundColor:
+                                AppTheme.primaryColor.withValues(alpha: 0.12),
+                            child: Text('${entry.key + 1}',
+                                style: const TextStyle(fontSize: 11)),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              '${entry.value.match?.homeTeam ?? 'Match'} vs ${entry.value.match?.awayTeam ?? entry.value.matchId}\n${entry.value.selectionLabel} • ${entry.value.odds.toStringAsFixed(2)}',
+                              style: const TextStyle(height: 1.35),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+              const SizedBox(height: 8),
+              FilledButton(
+                onPressed: () => Navigator.pop(sheetContext),
+                child: const Text('Done'),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _receiptRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+              width: 112,
+              child: Text(label,
+                  style: const TextStyle(color: AppTheme.textSecondary))),
+          Expanded(child: SelectableText(value)),
+        ],
       ),
     );
   }
