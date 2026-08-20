@@ -11,6 +11,8 @@ import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../../domain/entities/betting_entity.dart';
 import '../../../odds/domain/entities/odds_entity.dart';
 import '../../../responsible_gaming/presentation/providers/responsible_gaming_provider.dart';
+import '../../../auth/presentation/providers/auth_provider.dart';
+import '../../../auth/data/datasources/auth_remote_datasource.dart';
 
 /// Replaces only the 1X2 selection price supplied by the live odds stream.
 /// Other markets remain unchanged because the stream currently carries only
@@ -64,26 +66,35 @@ final selectedMatchStatusProvider = StateProvider<String?>((_) => 'upcoming');
 final matchSearchQueryProvider = StateProvider<String>((_) => '');
 final favoriteMatchIdsProvider =
     StateNotifierProvider<FavoriteMatchesNotifier, Set<String>>((ref) {
-  return FavoriteMatchesNotifier();
+  return FavoriteMatchesNotifier(ref.read(authRemoteDataSourceProvider));
 });
 
 class FavoriteMatchesNotifier extends StateNotifier<Set<String>> {
   static const _storageKey = 'cloud9_favorite_match_ids';
   static const _storage = FlutterSecureStorage();
+  final AuthRemoteDataSource _authDataSource;
 
-  FavoriteMatchesNotifier() : super(const <String>{}) {
+  FavoriteMatchesNotifier(this._authDataSource) : super(const <String>{}) {
     _load();
   }
 
   Future<void> _load() async {
     try {
       final raw = await _storage.read(key: _storageKey);
-      if (raw == null || raw.isEmpty) return;
-      final ids =
-          (jsonDecode(raw) as List<dynamic>).whereType<String>().toSet();
+      if (raw != null && raw.isNotEmpty) {
+        final ids =
+            (jsonDecode(raw) as List<dynamic>).whereType<String>().toSet();
+        state = ids;
+        await _syncToServer(ids);
+        return;
+      }
+
+      final profile = await _authDataSource.getProfile();
+      final ids = profile.favoriteMatchIds.toSet();
       state = ids;
+      await _persist(ids);
     } catch (_) {
-      state = const <String>{};
+      // Local favorites remain usable when the API is cold or offline.
     }
   }
 
@@ -91,7 +102,27 @@ class FavoriteMatchesNotifier extends StateNotifier<Set<String>> {
     final next = {...state};
     if (!next.add(matchId)) next.remove(matchId);
     state = next;
-    await _storage.write(key: _storageKey, value: jsonEncode(next.toList()));
+    await _persist(next);
+    await _syncToServer(next);
+  }
+
+  Future<void> _persist(Set<String> ids) async {
+    await _storage.write(key: _storageKey, value: jsonEncode(ids.toList()));
+  }
+
+  Future<void> _syncToServer(Set<String> ids) async {
+    try {
+      final profile = await _authDataSource.updateProfile(
+        favoriteMatchIds: ids.toList(),
+      );
+      final normalized = profile.favoriteMatchIds.toSet();
+      if (normalized.length != ids.length || !normalized.containsAll(ids)) {
+        state = normalized;
+        await _persist(normalized);
+      }
+    } catch (_) {
+      // Keep local-first state and retry on the next toggle or app launch.
+    }
   }
 }
 

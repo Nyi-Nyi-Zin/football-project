@@ -297,12 +297,35 @@ func (uc *UserUseCase) UpdateProfile(ctx context.Context, userID string, req *do
 			user.CustomCode = &req.CustomCode
 		}
 	}
+	if req.FavoriteMatchIDs != nil {
+		user.FavoriteMatchIDs = normalizeFavoriteMatchIDs(req.FavoriteMatchIDs)
+	}
 
 	if err := uc.repo.Update(ctx, user); err != nil {
 		return nil, fmt.Errorf("usecase.UpdateProfile: %w", err)
 	}
 
 	return user.ToProfile(), nil
+}
+
+func normalizeFavoriteMatchIDs(ids []string) []string {
+	seen := make(map[string]struct{}, len(ids))
+	result := make([]string, 0, len(ids))
+	for _, raw := range ids {
+		id := strings.TrimSpace(raw)
+		if id == "" {
+			continue
+		}
+		if _, exists := seen[id]; exists {
+			continue
+		}
+		seen[id] = struct{}{}
+		result = append(result, id)
+		if len(result) == 500 {
+			break
+		}
+	}
+	return result
 }
 
 func normalizedTokenVersion(version int) int {

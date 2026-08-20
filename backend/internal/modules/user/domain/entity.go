@@ -46,6 +46,7 @@ type User struct {
 	SecurityPINHash          string    `json:"-" gorm:"column:security_pin_hash"`
 	TwoFactorSecretEncrypted string    `json:"-" gorm:"column:two_factor_secret_encrypted"`
 	TwoFactorEnabled         bool      `json:"two_factor_enabled" gorm:"column:two_factor_enabled;not null;default:false"`
+	FavoriteMatchIDs         []string  `json:"favorite_match_ids" gorm:"type:jsonb;serializer:json;default:'[]'"`
 	CreatedAt                time.Time `json:"created_at"`
 	UpdatedAt                time.Time `json:"updated_at"`
 }
@@ -82,6 +83,7 @@ type UserProfile struct {
 	Township               string    `json:"township,omitempty"`
 	CustomCode             string    `json:"custom_code,omitempty"`
 	PendingWithdrawalCount int       `json:"pending_withdrawal_count,omitempty"`
+	FavoriteMatchIDs       []string  `json:"favorite_match_ids"`
 	CreatedAt              time.Time `json:"created_at"`
 }
 
@@ -92,31 +94,32 @@ func (u *User) ToProfile() *UserProfile {
 		customCode = *u.CustomCode
 	}
 	return &UserProfile{
-		ID:              u.ID,
-		Email:           u.Email,
-		Username:        u.Username,
-		FullName:        u.FullName,
-		Phone:           u.Phone,
-		Role:            u.Role,
-		Status:          u.Status,
-		Balance:         u.Balance,
-		IsEmailVerified: u.IsEmailVerified,
-		IsPhoneVerified: u.IsPhoneVerified,
-		KYCStatus:       u.KYCStatus,
-		NRC:             u.NRC,
-		NRCRegion:       u.NRCRegion,
-		NRCTownship:     u.NRCTownship,
-		NRCType:         u.NRCType,
-		NRCNumber:       u.NRCNumber,
-		NRCRegionID:     u.NRCRegionID,
-		NRCTownshipID:   u.NRCTownshipID,
-		NRCTypeID:       u.NRCTypeID,
-		Gmail:           u.Gmail,
-		Location:        u.Location,
-		Region:          u.Region,
-		Township:        u.Township,
-		CustomCode:      customCode,
-		CreatedAt:       u.CreatedAt,
+		ID:               u.ID,
+		Email:            u.Email,
+		Username:         u.Username,
+		FullName:         u.FullName,
+		Phone:            u.Phone,
+		Role:             u.Role,
+		Status:           u.Status,
+		Balance:          u.Balance,
+		IsEmailVerified:  u.IsEmailVerified,
+		IsPhoneVerified:  u.IsPhoneVerified,
+		KYCStatus:        u.KYCStatus,
+		NRC:              u.NRC,
+		NRCRegion:        u.NRCRegion,
+		NRCTownship:      u.NRCTownship,
+		NRCType:          u.NRCType,
+		NRCNumber:        u.NRCNumber,
+		NRCRegionID:      u.NRCRegionID,
+		NRCTownshipID:    u.NRCTownshipID,
+		NRCTypeID:        u.NRCTypeID,
+		Gmail:            u.Gmail,
+		Location:         u.Location,
+		Region:           u.Region,
+		Township:         u.Township,
+		CustomCode:       customCode,
+		FavoriteMatchIDs: append([]string(nil), u.FavoriteMatchIDs...),
+		CreatedAt:        u.CreatedAt,
 	}
 }
 
@@ -168,21 +171,22 @@ type TwoFactorEnrollment struct {
 
 // UpdateProfileRequest represents a profile update request
 type UpdateProfileRequest struct {
-	FullName      string `json:"full_name" validate:"omitempty,min=2"`
-	Phone         string `json:"phone" validate:"omitempty"`
-	NRC           string `json:"nrc" validate:"omitempty"`
-	NRCRegion     string `json:"nrc_region" validate:"omitempty"`
-	NRCTownship   string `json:"nrc_township" validate:"omitempty"`
-	NRCType       string `json:"nrc_type" validate:"omitempty"`
-	NRCNumber     string `json:"nrc_number" validate:"omitempty"`
-	NRCRegionID   *int   `json:"nrc_region_id,omitempty" validate:"omitempty"`
-	NRCTownshipID *int   `json:"nrc_township_id,omitempty" validate:"omitempty"`
-	NRCTypeID     *int   `json:"nrc_type_id,omitempty" validate:"omitempty"`
-	Gmail         string `json:"gmail" validate:"omitempty,email"`
-	Location      string `json:"location" validate:"omitempty"`
-	Region        string `json:"region" validate:"omitempty,max=100"`
-	Township      string `json:"township" validate:"omitempty,max=100"`
-	CustomCode    string `json:"custom_code" validate:"omitempty,min=3,max=10"`
+	FullName         string   `json:"full_name" validate:"omitempty,min=2"`
+	Phone            string   `json:"phone" validate:"omitempty"`
+	NRC              string   `json:"nrc" validate:"omitempty"`
+	NRCRegion        string   `json:"nrc_region" validate:"omitempty"`
+	NRCTownship      string   `json:"nrc_township" validate:"omitempty"`
+	NRCType          string   `json:"nrc_type" validate:"omitempty"`
+	NRCNumber        string   `json:"nrc_number" validate:"omitempty"`
+	NRCRegionID      *int     `json:"nrc_region_id,omitempty" validate:"omitempty"`
+	NRCTownshipID    *int     `json:"nrc_township_id,omitempty" validate:"omitempty"`
+	NRCTypeID        *int     `json:"nrc_type_id,omitempty" validate:"omitempty"`
+	Gmail            string   `json:"gmail" validate:"omitempty,email"`
+	Location         string   `json:"location" validate:"omitempty"`
+	Region           string   `json:"region" validate:"omitempty,max=100"`
+	Township         string   `json:"township" validate:"omitempty,max=100"`
+	CustomCode       string   `json:"custom_code" validate:"omitempty,min=3,max=10"`
+	FavoriteMatchIDs []string `json:"favorite_match_ids,omitempty" validate:"omitempty,max=500,dive,max=120"`
 }
 
 // ChangePasswordRequest represents a password change request

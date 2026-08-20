@@ -28,6 +28,7 @@ class User extends Equatable {
   final String? region;
   final String? township;
   final String? customCode;
+  final List<String> favoriteMatchIds;
 
   const User({
     required this.id,
@@ -56,6 +57,7 @@ class User extends Equatable {
     this.region,
     this.township,
     this.customCode,
+    this.favoriteMatchIds = const [],
   });
 
   @override
@@ -79,7 +81,8 @@ class User extends Equatable {
         location,
         region,
         township,
-        customCode
+        customCode,
+        favoriteMatchIds,
       ];
 }
 

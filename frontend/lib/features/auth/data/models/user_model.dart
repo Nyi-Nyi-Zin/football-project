@@ -28,6 +28,7 @@ class UserModel {
   final String? region;
   final String? township;
   final String? customCode;
+  final List<String> favoriteMatchIds;
 
   const UserModel({
     required this.id,
@@ -56,6 +57,7 @@ class UserModel {
     this.region,
     this.township,
     this.customCode,
+    this.favoriteMatchIds = const [],
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -86,6 +88,10 @@ class UserModel {
       region: json['region'] as String?,
       township: json['township'] as String?,
       customCode: json['custom_code'] as String?,
+      favoriteMatchIds:
+          (json['favorite_match_ids'] as List<dynamic>? ?? const [])
+              .whereType<String>()
+              .toList(),
     );
   }
 
@@ -117,6 +123,7 @@ class UserModel {
       'region': region,
       'township': township,
       'custom_code': customCode,
+      'favorite_match_ids': favoriteMatchIds,
     };
   }
 
@@ -149,6 +156,7 @@ class UserModel {
       region: region,
       township: township,
       customCode: customCode,
+      favoriteMatchIds: favoriteMatchIds,
     );
   }
 }

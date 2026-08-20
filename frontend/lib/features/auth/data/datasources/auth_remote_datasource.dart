@@ -71,6 +71,7 @@ class AuthRemoteDataSource {
     String? region,
     String? township,
     String? customCode,
+    List<String>? favoriteMatchIds,
   }) async {
     final response = await _client.dio.patch('/users/me', data: {
       if (fullName != null) 'full_name': fullName,
@@ -88,6 +89,7 @@ class AuthRemoteDataSource {
       if (region != null) 'region': region,
       if (township != null) 'township': township,
       if (customCode != null) 'custom_code': customCode,
+      if (favoriteMatchIds != null) 'favorite_match_ids': favoriteMatchIds,
     });
     return UserModel.fromJson(response.data['data'] as Map<String, dynamic>);
   }
