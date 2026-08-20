@@ -10,6 +10,10 @@ class UserModel {
   final String role;
   final String status;
   final double balance;
+  final bool isEmailVerified;
+  final bool isPhoneVerified;
+  final String kycStatus;
+  final int pendingWithdrawalCount;
   final DateTime createdAt;
   final String? nrc;
   final String? nrcRegion;
@@ -34,6 +38,10 @@ class UserModel {
     required this.role,
     required this.status,
     required this.balance,
+    this.isEmailVerified = false,
+    this.isPhoneVerified = false,
+    this.kycStatus = 'pending',
+    this.pendingWithdrawalCount = 0,
     required this.createdAt,
     this.nrc,
     this.nrcRegion,
@@ -60,6 +68,10 @@ class UserModel {
       role: json['role'] as String? ?? 'user',
       status: json['status'] as String? ?? 'active',
       balance: (json['balance'] as num?)?.toDouble() ?? 0.0,
+      isEmailVerified: json['is_email_verified'] as bool? ?? false,
+      isPhoneVerified: json['is_phone_verified'] as bool? ?? false,
+      kycStatus: json['kyc_status'] as String? ?? 'pending',
+      pendingWithdrawalCount: json['pending_withdrawal_count'] as int? ?? 0,
       createdAt: DateTime.parse(json['created_at'] as String),
       nrc: json['nrc'] as String?,
       nrcRegion: json['nrc_region'] as String?,
@@ -87,6 +99,10 @@ class UserModel {
       'role': role,
       'status': status,
       'balance': balance,
+      'is_email_verified': isEmailVerified,
+      'is_phone_verified': isPhoneVerified,
+      'kyc_status': kycStatus,
+      'pending_withdrawal_count': pendingWithdrawalCount,
       'created_at': createdAt.toIso8601String(),
       'nrc': nrc,
       'nrc_region': nrcRegion,
@@ -115,6 +131,10 @@ class UserModel {
       role: role,
       status: status,
       balance: balance,
+      isEmailVerified: isEmailVerified,
+      isPhoneVerified: isPhoneVerified,
+      kycStatus: kycStatus,
+      pendingWithdrawalCount: pendingWithdrawalCount,
       createdAt: createdAt,
       nrc: nrc,
       nrcRegion: nrcRegion,

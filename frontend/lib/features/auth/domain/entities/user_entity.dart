@@ -10,6 +10,10 @@ class User extends Equatable {
   final String role;
   final String status;
   final double balance;
+  final bool isEmailVerified;
+  final bool isPhoneVerified;
+  final String kycStatus;
+  final int pendingWithdrawalCount;
   final DateTime createdAt;
   final String? nrc;
   final String? nrcRegion;
@@ -34,6 +38,10 @@ class User extends Equatable {
     required this.role,
     required this.status,
     required this.balance,
+    this.isEmailVerified = false,
+    this.isPhoneVerified = false,
+    this.kycStatus = 'pending',
+    this.pendingWithdrawalCount = 0,
     required this.createdAt,
     this.nrc,
     this.nrcRegion,
@@ -55,6 +63,10 @@ class User extends Equatable {
         id,
         email,
         username,
+        isEmailVerified,
+        isPhoneVerified,
+        kycStatus,
+        pendingWithdrawalCount,
         nrc,
         nrcRegion,
         nrcTownship,

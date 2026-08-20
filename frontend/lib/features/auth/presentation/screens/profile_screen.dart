@@ -306,6 +306,63 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          const Text(
+                            'Account verification',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          _verificationRow(
+                            icon: Icons.email_outlined,
+                            label: 'Email',
+                            value: user.isEmailVerified
+                                ? 'Verified'
+                                : 'Verification required',
+                            isComplete: user.isEmailVerified,
+                          ),
+                          const SizedBox(height: 10),
+                          _verificationRow(
+                            icon: Icons.phone_outlined,
+                            label: 'Phone',
+                            value: user.isPhoneVerified
+                                ? 'Verified'
+                                : 'Verification required',
+                            isComplete: user.isPhoneVerified,
+                          ),
+                          const SizedBox(height: 10),
+                          _verificationRow(
+                            icon: Icons.badge_outlined,
+                            label: 'KYC',
+                            value: _kycLabel(user.kycStatus),
+                            isComplete:
+                                user.kycStatus.toLowerCase() == 'approved',
+                          ),
+                          if (!user.isEmailVerified ||
+                              !user.isPhoneVerified ||
+                              user.kycStatus.toLowerCase() != 'approved') ...[
+                            const SizedBox(height: 12),
+                            const Text(
+                              'Complete verification before requesting a withdrawal. The withdrawal screen will show the exact requirement if a check is still pending.',
+                              style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                fontSize: 12,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Text(
                             context.l10n.tr('theme'),
                             style: const TextStyle(
@@ -869,5 +926,45 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         );
       },
     );
+  }
+
+  Widget _verificationRow({
+    required IconData icon,
+    required String label,
+    required String value,
+    required bool isComplete,
+  }) {
+    final color = isComplete ? AppTheme.successColor : AppTheme.warningColor;
+    return Row(
+      children: [
+        Icon(icon, size: 20, color: color),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        Text(
+          value,
+          style: TextStyle(
+            color: color,
+            fontSize: 12,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _kycLabel(String status) {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return 'Approved';
+      case 'rejected':
+        return 'Rejected — resubmit';
+      default:
+        return 'Pending review';
+    }
   }
 }
