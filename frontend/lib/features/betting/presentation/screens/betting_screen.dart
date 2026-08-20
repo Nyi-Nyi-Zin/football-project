@@ -17,6 +17,8 @@ class BettingScreen extends ConsumerWidget {
     final matchesState = ref.watch(matchesProvider);
     final selectedLeagues = ref.watch(selectedLeaguesProvider);
     final selectedStatus = ref.watch(selectedMatchStatusProvider);
+    final searchQuery = ref.watch(matchSearchQueryProvider);
+    final favoriteMatchIds = ref.watch(favoriteMatchIdsProvider);
     final unreadNotifications =
         ref.watch(unreadNotificationCountProvider).valueOrNull ?? 0;
     final cartItems = ref.watch(betCartProvider);
@@ -65,6 +67,15 @@ class BettingScreen extends ConsumerWidget {
           cartItems: cartItems,
           selectedStatus: selectedStatus,
           selectedLeagues: selectedLeagues,
+          searchQuery: searchQuery,
+          favoriteMatchIds: favoriteMatchIds,
+          onSearchChanged: (value) =>
+              ref.read(matchSearchQueryProvider.notifier).state = value,
+          onFavoriteToggle: (matchId) {
+            final next = {...favoriteMatchIds};
+            if (!next.add(matchId)) next.remove(matchId);
+            ref.read(favoriteMatchIdsProvider.notifier).state = next;
+          },
           onStatusChanged: (status) {
             ref.read(selectedMatchStatusProvider.notifier).state = status;
             ref.read(matchesRefreshKeyProvider.notifier).state++;
@@ -137,12 +148,16 @@ class _HeaderSummary extends StatelessWidget {
   final int selectionCount;
   final double combinedOdds;
   final VoidCallback? onClearFilters;
+  final String searchQuery;
+  final ValueChanged<String> onSearchChanged;
 
   const _HeaderSummary({
     required this.selectedLeagues,
     required this.selectionCount,
     required this.combinedOdds,
     required this.onClearFilters,
+    required this.searchQuery,
+    required this.onSearchChanged,
   });
 
   @override
@@ -168,6 +183,28 @@ class _HeaderSummary extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          TextField(
+            controller: TextEditingController(text: searchQuery)
+              ..selection = TextSelection.collapsed(offset: searchQuery.length),
+            onChanged: onSearchChanged,
+            decoration: InputDecoration(
+              hintText: 'Search teams or leagues',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: searchQuery.isEmpty
+                  ? null
+                  : IconButton(
+                      onPressed: () => onSearchChanged(''),
+                      icon: const Icon(Icons.clear),
+                    ),
+              filled: true,
+              fillColor: Colors.white.withValues(alpha: 0.88),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(18),
+                borderSide: BorderSide.none,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
           const Text(
             '1xBet-style Markets',
             style: TextStyle(
@@ -278,6 +315,10 @@ class _MatchesList extends StatelessWidget {
   final List<BetCartItem> cartItems;
   final String? selectedStatus;
   final List<String> selectedLeagues;
+  final String searchQuery;
+  final Set<String> favoriteMatchIds;
+  final ValueChanged<String> onSearchChanged;
+  final ValueChanged<String> onFavoriteToggle;
   final void Function(String? status) onStatusChanged;
   final VoidCallback? onClearFilters;
   final void Function(String league, bool isSelected) onLeagueTap;
@@ -290,6 +331,10 @@ class _MatchesList extends StatelessWidget {
     required this.cartItems,
     required this.selectedStatus,
     required this.selectedLeagues,
+    required this.searchQuery,
+    required this.favoriteMatchIds,
+    required this.onSearchChanged,
+    required this.onFavoriteToggle,
     required this.onStatusChanged,
     required this.onClearFilters,
     required this.onLeagueTap,
@@ -306,8 +351,15 @@ class _MatchesList extends StatelessWidget {
     final combinedOdds = cartItems.isEmpty
         ? 0.0
         : cartItems.fold<double>(1, (v, item) => v * item.selection.odds);
+    final query = searchQuery.trim().toLowerCase();
+    final visibleMatches = matches.where((match) {
+      if (query.isEmpty) return true;
+      return match.homeTeam.toLowerCase().contains(query) ||
+          match.awayTeam.toLowerCase().contains(query) ||
+          match.league.toLowerCase().contains(query);
+    }).toList();
 
-    if (matches.isEmpty) {
+    if (visibleMatches.isEmpty) {
       return RefreshIndicator(
         color: AppTheme.primaryColor,
         onRefresh: onRefresh,
@@ -316,6 +368,8 @@ class _MatchesList extends StatelessWidget {
           children: [
             _HeaderSummary(
               selectedLeagues: selectedLeagues,
+              searchQuery: searchQuery,
+              onSearchChanged: onSearchChanged,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
@@ -335,10 +389,12 @@ class _MatchesList extends StatelessWidget {
               color: AppTheme.textMuted,
             ),
             const SizedBox(height: 16),
-            const Text(
-              'No matches found for the selected league filters.',
+            Text(
+              query.isEmpty
+                  ? 'No matches found for the selected filters.'
+                  : 'No matches found for “$searchQuery”.',
               textAlign: TextAlign.center,
-              style: TextStyle(color: AppTheme.textSecondary),
+              style: const TextStyle(color: AppTheme.textSecondary),
             ),
           ],
         ),
@@ -350,11 +406,13 @@ class _MatchesList extends StatelessWidget {
       onRefresh: onRefresh,
       child: ListView.builder(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 88),
-        itemCount: matches.length + _headerCount,
+        itemCount: visibleMatches.length + _headerCount,
         itemBuilder: (context, index) {
           if (index == 0) {
             return _HeaderSummary(
               selectedLeagues: selectedLeagues,
+              searchQuery: searchQuery,
+              onSearchChanged: onSearchChanged,
               selectionCount: selectionCount,
               combinedOdds: combinedOdds,
               onClearFilters: onClearFilters,
@@ -372,12 +430,14 @@ class _MatchesList extends StatelessWidget {
               onLeagueTap: onLeagueTap,
             );
           }
-          final match = matches[index - _headerCount];
+          final match = visibleMatches[index - _headerCount];
           final selectedItem =
               cartItems.where((item) => item.match.id == match.id).firstOrNull;
           return MatchCard(
             match: match,
             selectedItem: selectedItem,
+            isFavorite: favoriteMatchIds.contains(match.id),
+            onFavoriteToggle: () => onFavoriteToggle(match.id),
             onSelectionTap: onSelectionTap,
           );
         },
