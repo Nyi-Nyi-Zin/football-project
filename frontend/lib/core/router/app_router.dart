@@ -11,6 +11,8 @@ import '../../features/betting/presentation/screens/my_bets_screen.dart';
 import '../../features/payment/presentation/screens/wallet_screen.dart';
 import '../../features/odds/presentation/screens/odds_screen.dart';
 import '../../features/notification/presentation/screens/notification_screen.dart';
+import '../../features/support/presentation/screens/help_screen.dart';
+import '../../features/responsible_gaming/presentation/screens/responsible_gaming_screen.dart';
 import '../../features/auth/presentation/providers/auth_provider.dart';
 
 final routerProvider = Provider<GoRouter>((ref) {
@@ -89,6 +91,16 @@ final routerProvider = Provider<GoRouter>((ref) {
             path: '/profile',
             name: 'profile',
             builder: (context, state) => const ProfileScreen(),
+          ),
+          GoRoute(
+            path: '/help',
+            name: 'help',
+            builder: (context, state) => const HelpScreen(),
+          ),
+          GoRoute(
+            path: '/responsible-gaming',
+            name: 'responsibleGaming',
+            builder: (context, state) => const ResponsibleGamingScreen(),
           ),
         ],
       ),

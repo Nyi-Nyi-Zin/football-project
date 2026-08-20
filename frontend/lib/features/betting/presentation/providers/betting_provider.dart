@@ -7,6 +7,7 @@ import '../../data/datasources/betting_remote_datasource.dart';
 import 'package:dio/dio.dart';
 import '../../domain/entities/betting_entity.dart';
 import '../../../odds/domain/entities/odds_entity.dart';
+import '../../../responsible_gaming/presentation/providers/responsible_gaming_provider.dart';
 
 /// Replaces only the 1X2 selection price supplied by the live odds stream.
 /// Other markets remain unchanged because the stream currently carries only
@@ -241,6 +242,17 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
     }
 
     _lastError = null;
+    final gamingSettings = _ref.read(responsibleGamingProvider).valueOrNull;
+    if (gamingSettings != null) {
+      final limitError = gamingSettings.validateStake(
+        stake: stake,
+        todayStake: _todayStake(),
+      );
+      if (limitError != null) {
+        _lastError = limitError;
+        return false;
+      }
+    }
     final idempotencyKey = _activeIdempotencyKey ??= _uuid.v4();
     try {
       final ds = _ref.read(bettingDataSourceProvider);
@@ -280,6 +292,21 @@ class BetCartNotifier extends StateNotifier<List<BetCartItem>> {
       _lastError = 'Unable to place the bet. Please try again.';
       return false;
     }
+  }
+
+  double _todayStake() {
+    final now = DateTime.now();
+    final startOfDay = DateTime(now.year, now.month, now.day);
+    final bets = _ref.read(myBetsProvider).valueOrNull ?? const <Bet>[];
+    final slips =
+        _ref.read(myBetSlipsProvider).valueOrNull ?? const <BetSlip>[];
+    final betStake = bets
+        .where((bet) => bet.createdAt.toLocal().isAfter(startOfDay))
+        .fold<double>(0, (total, bet) => total + bet.stake);
+    final slipStake = slips
+        .where((slip) => slip.createdAt.toLocal().isAfter(startOfDay))
+        .fold<double>(0, (total, slip) => total + slip.stake);
+    return betStake + slipStake;
   }
 
   String _betErrorMessage(DioException error) {
