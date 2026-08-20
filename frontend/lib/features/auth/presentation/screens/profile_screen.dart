@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import '../../../../core/i18n/app_localizations.dart';
 import '../../../../core/i18n/locale_provider.dart';
 import '../../../../core/theme/app_theme.dart';
@@ -384,6 +385,36 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          Card(
+                            child: Padding(
+                              padding: const EdgeInsets.all(16),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  const Text(
+                                    'Help & account safety',
+                                    style: TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 10),
+                                  OutlinedButton.icon(
+                                    onPressed: () => context.push('/help'),
+                                    icon: const Icon(Icons.help_outline),
+                                    label: const Text('Open Help & FAQ'),
+                                  ),
+                                  OutlinedButton.icon(
+                                    onPressed: () =>
+                                        context.push('/responsible-gaming'),
+                                    icon: const Icon(Icons.shield_outlined),
+                                    label: const Text('Responsible Gaming'),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 16),
                           Text(
                             context.l10n.tr('theme'),
                             style: const TextStyle(
